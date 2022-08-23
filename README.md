@@ -1,10 +1,11 @@
 # Cloud SQL Proxy Operator
 
-An operator that manages the cloud sql auth proxy on kubernetes workloads
+Cloud SQL Proxy Operator is an open-source Kubernetes operator that automates
+most of the intricate steps needed to connect a workload in a kubernetes cluster
+to Cloud SQL databases. 
 
-```
-kubebuilder init --domain cloud.google.com --repo github.com/hessjcg/cloud-sql-proxy-operator
-kubebuilder create api --group cloudsql --version v99 --kind AuthProxyWorkload --controller --resource --force
-kubebuilder create webhook --group cloudsql --version v1 --kind AuthProxyWorkload --defaulting --programmatic-validation
-```
+The operator introduces a custom resource AuthProxyWorkload, 
+which specifies the Cloud SQL Auth Proxy configuration for a workload. The operator
+reads this resource and adds a properly configured Cloud SQL Auth Proxy container
+to the matching workload pods. 
 
