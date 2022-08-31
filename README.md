@@ -14,10 +14,15 @@ These commands will be run to initialize the kubebuilder project
 
 ```
 mkdir -p .bin
-curl -L -o .bin/kubebuilder https://github.com/kubernetes-sigs/kubebuilder/releases/download/v3.5.0/kubebuilder_darwin_amd64
+curl -L -o .bin/kubebuilder https://github.com/kubernetes-sigs/kubebuilder/releases/download/v3.6.0/kubebuilder_darwin_arm64
+chmod a+x .bin/kubebuilder
 .bin/kubebuilder init --domain cloud.google.com --repo github.com/hessjcg/cloud-sql-proxy-operator
-.bin/kubebuilder create api --group cloudsql --version v99 --kind AuthProxyWorkload --controller --resource --force
-.bin/kubebuilder create webhook --group cloudsql --version v1 --kind AuthProxyWorkload --defaulting --programmatic-validation
+```
+
+Then, to create the CRD for Workload
+```
+.bin/kubebuilder create api --group cloudsql --version v1alpha1 --kind AuthProxyWorkload --controller --resource --force
+.bin/kubebuilder create webhook --group cloudsql --version v1alpha1 --kind AuthProxyWorkload --defaulting --programmatic-validation
 ```
 
 
