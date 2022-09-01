@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -70,7 +70,7 @@ func runSetupEnvtest() (string, error) {
 	return string(path), nil
 }
 
-//EnvTestSetup sets up the envtest environment for a testing package.
+// EnvTestSetup sets up the envtest environment for a testing package.
 // This is intended to be called from `func TestMain(m *testing.M)` so
 // that the environment is configured before
 func EnvTestSetup(m *testing.M) (func(), error) {

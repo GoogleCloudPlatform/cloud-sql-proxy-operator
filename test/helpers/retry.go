@@ -23,7 +23,7 @@ import (
 	"github.com/go-logr/logr"
 )
 
-//RetryUntilSuccess runs `f` until it no longer returns an error, or it has
+// RetryUntilSuccess runs `f` until it no longer returns an error, or it has
 // returned an error `attempts` number of times. It waits `sleep` duration
 // between failed attempts. It returns the error from the last attempt.
 func RetryUntilSuccess(t TestLogger, attempts int, sleep time.Duration, f func() error) (err error) {
@@ -41,7 +41,7 @@ func RetryUntilSuccess(t TestLogger, attempts int, sleep time.Duration, f func()
 	return fmt.Errorf("after %d attempts, last error: %s", attempts, err)
 }
 
-//TestLogger interface hides the Logf function from *testing.T so that
+// TestLogger interface hides the Logf function from *testing.T so that
 // the helper package can be reused in both integration and e2e tests.
 type TestLogger interface {
 	Logf(format string, args ...interface{})
