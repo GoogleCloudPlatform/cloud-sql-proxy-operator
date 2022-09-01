@@ -27,7 +27,7 @@ mv docs .bin/tmp/
 mv version.txt .bin/tmp/
 
 rm -rf bin
-.bin/kubebuilder init --domain cloud.google.com --repo github.com/GoogleCloudPlatform/cloud-sql-proxy-operator
+.bin/kubebuilder init --owner "Google LLC" --project-name "cloud-sql-proxy-operator" --domain cloud.google.com --repo github.com/GoogleCloudPlatform/cloud-sql-proxy-operator
 
 mv .bin/tmp/* .
 
