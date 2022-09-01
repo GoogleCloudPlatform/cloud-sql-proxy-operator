@@ -1,0 +1,6 @@
+domain: cloud.google.com
+layout:
+- go.kubebuilder.io/v3
+projectName: cloud-sql-proxy-operator
+repo: github.com/GoogleCloudPlatform/cloud-sql-proxy-operator
+version: "3"
