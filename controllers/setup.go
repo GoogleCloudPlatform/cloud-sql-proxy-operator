@@ -53,10 +53,9 @@ func SetupManagers(mgr manager.Manager) error {
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AuthProxyWorkload")
 		// Kubebuilder won't properly write the contents of this file. It will want
-		// to exit 1. But it's a bad idea because it will disrupt the integration
-		// tests to exit 1. Instead method should instead return an error
-
-		//os.Exit(1)
+		// to do os.Exit(1) on error here.. But it's a bad idea because it will
+		// disrupt the integration tests to exit 1. Instead, this should
+		// return the error and let the caller deal with it.
 		return err
 	}
 	if err = (&cloudsqlv1alpha1.AuthProxyWorkload{}).SetupWebhookWithManager(mgr); err != nil {
