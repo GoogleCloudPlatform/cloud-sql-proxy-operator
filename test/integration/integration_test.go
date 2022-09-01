@@ -67,6 +67,15 @@ func TestCreateResource(t *testing.T) {
 			Name:      wantName,
 			Namespace: namespace,
 		},
+		Spec: cloudsqlapi.AuthProxyWorkloadSpec{
+			Workload: cloudsqlapi.WorkloadSelectorSpec{
+				Kind: "Deployment",
+				Name: "busybox",
+			},
+			Instances: []cloudsqlapi.InstanceSpec{{
+				ConnectionString: "project:region:instance1",
+			}},
+		},
 	}
 
 	// Call kubernetes to create the resource.

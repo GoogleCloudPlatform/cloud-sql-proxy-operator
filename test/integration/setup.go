@@ -26,7 +26,6 @@ import (
 	"path/filepath"
 	"time"
 
-	cloudsqlv1alpha1 "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/api/v1alpha1"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/controllers"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/test/helpers"
 	"github.com/go-logr/logr"
@@ -34,7 +33,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -122,18 +120,6 @@ func EnvTestSetup() (func(), error) {
 
 	s := scheme.Scheme
 	controllers.InitScheme(s)
-
-	err = cloudsqlv1alpha1.AddToScheme(s)
-	if err != nil {
-		return teardownFunc, fmt.Errorf("unable to start kuberenetes envtest %v", err)
-	}
-
-	err = admissionv1beta1.AddToScheme(s)
-	if err != nil {
-		return teardownFunc, fmt.Errorf("unable to start kuberenetes envtest %v", err)
-	}
-
-	//+kubebuilder:scaffold:s
 
 	Client, err = client.New(cfg, client.Options{Scheme: s})
 	if err != nil {

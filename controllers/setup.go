@@ -23,9 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-var (
-	setupLog = ctrl.Log.WithName("setup")
-)
+var setupLog = ctrl.Log.WithName("setup")
 
 // InitScheme was moved out of ../main.go to here so that it can be invoked
 // from the integration tests AND from the actual operator.
