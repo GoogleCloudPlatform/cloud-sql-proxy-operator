@@ -1,0 +1,6 @@
+apiVersion: cloudsql.cloud.google.com/v1alpha1
+kind: AuthProxyWorkload
+metadata:
+  name: authproxyworkload-sample
+spec:
+  # TODO(user): Add fields here

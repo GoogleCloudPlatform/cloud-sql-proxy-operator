@@ -3,4 +3,18 @@ layout:
 - go.kubebuilder.io/v3
 projectName: cloud-sql-proxy-operator
 repo: github.com/GoogleCloudPlatform/cloud-sql-proxy-operator
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: cloud.google.com
+  group: cloudsql
+  kind: AuthProxyWorkload
+  path: github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/api/v1alpha1
+  version: v1alpha1
+  webhooks:
+    defaulting: true
+    validation: true
+    webhookVersion: v1
 version: "3"
