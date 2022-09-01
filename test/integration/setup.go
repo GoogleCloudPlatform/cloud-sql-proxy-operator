@@ -40,20 +40,27 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
+const KubeVersion = "1.24.1"
+
 var testEnv *envtest.Environment
-var serverContext context.Context
 var cancel context.CancelFunc
-var log logr.Logger
-var k8sClient client.Client
+
+// Ctx The context to use for client calls related to the test
+var Ctx context.Context
+
+// Log The test logger
+var Log logr.Logger
+
+// Client the kuberntes client
+var Client client.Client
 
 func runSetupEnvtest() (string, error) {
-	// bin/setup-envtest use 1.24.1 -p path
-	cmd := exec.Command("../../bin/setup-envtest", "use", "1.24.1", "-p", "path")
+	cmd := exec.Command("../../bin/setup-envtest", "use", KubeVersion, "-p", "path")
 	path, err := cmd.Output()
 
 	if err != nil {
 		out, _ := cmd.CombinedOutput()
-		log.Error(err, "Unable to run setup-envtest", "output", string(out))
+		Log.Error(err, "Unable to run setup-envtest", "output", string(out))
 		return "", err
 	}
 
@@ -63,6 +70,9 @@ func runSetupEnvtest() (string, error) {
 	return string(path), nil
 }
 
+//EnvTestSetup sets up the envtest environment for a testing package.
+// This is intended to be called from `func TestMain(m *testing.M)` so
+// that the environment is configured before
 func EnvTestSetup(m *testing.M) (func(), error) {
 	var err error
 
@@ -70,9 +80,9 @@ func EnvTestSetup(m *testing.M) (func(), error) {
 		Development: true,
 		TimeEncoder: zapcore.ISO8601TimeEncoder,
 	}
-	log = zap.New(zap.UseFlagOptions(&opts))
+	Log = zap.New(zap.UseFlagOptions(&opts))
 
-	ctrl.SetLogger(log)
+	ctrl.SetLogger(Log)
 
 	// if the KUBEBUILDER_ASSETS env var is not set, then run setup-envtest
 	// and set it according.
@@ -84,8 +94,8 @@ func EnvTestSetup(m *testing.M) (func(), error) {
 		}
 	}
 
-	log.Info("Starting up kubebuilder EnvTest")
-	serverContext, cancel = context.WithCancel(logr.NewContext(context.TODO(), log))
+	Log.Info("Starting up kubebuilder EnvTest")
+	Ctx, cancel = context.WithCancel(logr.NewContext(context.TODO(), Log))
 
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
@@ -99,7 +109,7 @@ func EnvTestSetup(m *testing.M) (func(), error) {
 	teardownFunc := func() {
 		err := testEnv.Stop()
 		if err != nil {
-			log.Error(err, "Unable to stop envtest environment %v")
+			Log.Error(err, "Unable to stop envtest environment %v")
 		}
 	}
 
@@ -123,11 +133,11 @@ func EnvTestSetup(m *testing.M) (func(), error) {
 
 	//+kubebuilder:scaffold:scheme
 
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
+	Client, err = client.New(cfg, client.Options{Scheme: scheme})
 	if err != nil {
 		return teardownFunc, fmt.Errorf("unable to start kuberenetes envtest %v", err)
 	}
-	if k8sClient == nil {
+	if Client == nil {
 		return teardownFunc, fmt.Errorf("unable to start kuberenetes envtest %v", err)
 	}
 
@@ -151,12 +161,12 @@ func EnvTestSetup(m *testing.M) (func(), error) {
 	}
 
 	go func() {
-		log.Info("Starting controller manager.")
-		err = mgr.Start(serverContext)
+		Log.Info("Starting controller manager.")
+		err = mgr.Start(Ctx)
 		if err != nil {
-			log.Info("Starting manager failed.")
+			Log.Info("Starting manager failed.")
 		} else {
-			log.Info("Started controller exited normally.")
+			Log.Info("Started controller exited normally.")
 		}
 	}()
 
@@ -164,7 +174,7 @@ func EnvTestSetup(m *testing.M) (func(), error) {
 	dialer := &net.Dialer{Timeout: time.Second}
 	addrPort := fmt.Sprintf("%s:%d", webhookInstallOptions.LocalServingHost, webhookInstallOptions.LocalServingPort)
 
-	err = helpers.RetryUntilSuccess(&helpers.TestSetupLogger{Logger: log}, 5, 2*time.Second, func() error {
+	err = helpers.RetryUntilSuccess(&helpers.TestSetupLogger{Logger: Log}, 5, 2*time.Second, func() error {
 		conn, err := tls.DialWithDialer(dialer, "tcp", addrPort, &tls.Config{InsecureSkipVerify: true})
 		if err != nil {
 			return err
@@ -173,7 +183,7 @@ func EnvTestSetup(m *testing.M) (func(), error) {
 		return nil
 	})
 
-	log.Info("Setup complete. Webhook server started.")
+	Log.Info("Setup complete. Webhook server started.")
 
 	return teardownFunc, nil
 }

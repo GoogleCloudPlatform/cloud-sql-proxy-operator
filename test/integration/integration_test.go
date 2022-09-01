@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package integration
+package integration_test
 
 import (
 	"fmt"
@@ -23,19 +23,20 @@ import (
 
 	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/api/v1alpha1"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/test/helpers"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/test/integration"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 )
 
 func TestMain(m *testing.M) {
-	teardown, err := EnvTestSetup(m)
+	teardown, err := integration.EnvTestSetup(m)
 	if teardown != nil {
 		defer teardown()
 	}
 
 	if err != nil {
-		log.Error(err, "errors while initializing kubernetes cluster")
+		integration.Log.Error(err, "errors while initializing kubernetes cluster")
 		os.Exit(1)
 	}
 	code := m.Run()
@@ -51,7 +52,7 @@ func TestCreateResource(t *testing.T) {
 	)
 
 	// First, set up the k8s namespace for this test.
-	helpers.CreateOrPatchNamespace(t, serverContext, k8sClient, namespace)
+	helpers.CreateOrPatchNamespace(t, integration.Ctx, integration.Client, namespace)
 
 	// Fill in the resource with appropriate details.
 	resource := &cloudsqlapi.AuthProxyWorkload{
@@ -66,7 +67,7 @@ func TestCreateResource(t *testing.T) {
 	}
 
 	// Call kubernetes to create the resource.
-	err := k8sClient.Create(serverContext, resource)
+	err := integration.Client.Create(integration.Ctx, resource)
 	if err != nil {
 		t.Errorf("Error %v", err)
 		return
@@ -76,7 +77,7 @@ func TestCreateResource(t *testing.T) {
 	// is eventually-consistent.
 	retrievedResource := &cloudsqlapi.AuthProxyWorkload{}
 	err = helpers.RetryUntilSuccess(t, 5, time.Second*5, func() error {
-		return k8sClient.Get(serverContext, resourceKey, retrievedResource)
+		return integration.Client.Get(integration.Ctx, resourceKey, retrievedResource)
 	})
 	if err != nil {
 		t.Errorf("Unable to find entity after create %v", err)
