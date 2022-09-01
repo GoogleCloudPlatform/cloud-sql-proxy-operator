@@ -1,0 +1,33 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - cloudsql.cloud.google.com
+  resources:
+  - authproxyworkloads
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cloudsql.cloud.google.com
+  resources:
+  - authproxyworkloads/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - cloudsql.cloud.google.com
+  resources:
+  - authproxyworkloads/status
+  verbs:
+  - get
+  - patch
+  - update

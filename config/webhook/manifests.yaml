@@ -1,0 +1,54 @@
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: mutating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-cloudsql-cloud-google-com-v1alpha1-authproxyworkload
+  failurePolicy: Fail
+  name: mauthproxyworkload.kb.io
+  rules:
+  - apiGroups:
+    - cloudsql.cloud.google.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - authproxyworkloads
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: validating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-cloudsql-cloud-google-com-v1alpha1-authproxyworkload
+  failurePolicy: Fail
+  name: vauthproxyworkload.kb.io
+  rules:
+  - apiGroups:
+    - cloudsql.cloud.google.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - authproxyworkloads
+  sideEffects: None
