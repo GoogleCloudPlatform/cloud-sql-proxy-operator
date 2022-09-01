@@ -1,16 +1,18 @@
-// Copyright 2022 Google LLC
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+Copyright 2022 Google LLC.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 
 package helpers
 
@@ -21,6 +23,9 @@ import (
 	"github.com/go-logr/logr"
 )
 
+//RetryUntilSuccess runs `f` until it no longer returns an error, or it has
+// returned an error `attempts` number of times. It waits `sleep` duration
+// between failed attempts. It returns the error from the last attempt.
 func RetryUntilSuccess(t TestLogger, attempts int, sleep time.Duration, f func() error) (err error) {
 	for i := 0; i < attempts; i++ {
 		if i > 0 {
@@ -36,6 +41,8 @@ func RetryUntilSuccess(t TestLogger, attempts int, sleep time.Duration, f func()
 	return fmt.Errorf("after %d attempts, last error: %s", attempts, err)
 }
 
+//TestLogger interface hides the Logf function from *testing.T so that
+// the helper package can be reused in both integration and e2e tests.
 type TestLogger interface {
 	Logf(format string, args ...interface{})
 }
