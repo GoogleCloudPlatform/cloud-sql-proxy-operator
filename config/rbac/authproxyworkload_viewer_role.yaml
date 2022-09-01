@@ -1,0 +1,20 @@
+# permissions for end users to view authproxyworkloads.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: authproxyworkload-viewer-role
+rules:
+- apiGroups:
+  - cloudsql.cloud.google.com
+  resources:
+  - authproxyworkloads
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cloudsql.cloud.google.com
+  resources:
+  - authproxyworkloads/status
+  verbs:
+  - get
