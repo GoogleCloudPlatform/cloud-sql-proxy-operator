@@ -25,15 +25,17 @@ github_lint: pre_commit ## run the the github workflow lint check locally
 
 ##@ Local Development Targets
 
-# TODO: add yaml_fmt as a dependency
 .PHONY: pre_commit ## run checks to make sure boilerplate workflows will pass
-pre_commit: git_workdir_clean build add_copyright_header go_fmt ## Run all the formatting and checks before committing
-	git diff --quiet
+pre_commit: git_workdir_clean  ## Run all the formatting and checks before committing
+	make build manifests
+	make add_copyright_header
+	make go_fmt # TODO: add yaml_fmt target
+	@git diff --exit-code --stat || (echo ; echo ; echo "ERROR: Lint tools caused changes to the working dir. "; echo "       Please review the changes before you commit."; echo ; exit 1)
 	@echo "Pre commit checks OK"
 
 .PHONY: git_workdir_clean
 git_workdir_clean: # Checks if the git working directory is clean. Fails if there are unstaged changes.
-	git diff --exit-code --stat || (echo "git working directory has unstaged changes. "; echo "Add or stash all changes before you commit."; exit 1)
+	@git diff --exit-code --stat || (echo ; echo; echo "ERROR: git working directory has unstaged changes. "; echo "       Add or stash all changes before you commit."; echo ; exit 1)
 
 
 .PHONY: add_pre_commit_hook ## run checks to make sure boilerplate workflows will pass
@@ -47,18 +49,16 @@ add_pre_commit_hook: ## Add the pre_commit hook to the local repo
 go_fmt: ## Automatically formats go files
 	go mod tidy
 	go run golang.org/x/tools/cmd/goimports@latest -w .
-	make generate manifests
 
 yaml_fmt: ## Automatically formats all yaml files
 	go run github.com/UltiRequiem/yamlfmt@latest -w $(shell find . -iname '*.yaml' -or -iname '*.yml')
 
-YAML_FILES_MISSING_HEADER := $(shell find . -iname '*.yaml' -or -iname '*.yml' | xargs egrep -L 'Copyright .... Google LLC')
+YAML_FILES_MISSING_HEADER = $(shell find . -iname '*.yaml' -or -iname '*.yml' | xargs egrep -L 'Copyright .... Google LLC')
 GO_FILES_MISSING_HEADER := $(shell find . -iname '*.go' | xargs egrep -L 'Copyright .... Google LLC')
 
 .PHONY: add_copyright_header ## Adds the copyright header to any go or yaml file that is missing the header
 add_copyright_header: $(GO_FILES_MISSING_HEADER) ## Add the copyright header
-	#TODO: add $(YAML_FILES_MISSING_HEADER) as a dependency
-
+	#TODO: add $(YAML_FILES_MISSING_HEADER) target
 .PHONY: $(YAML_FILES_MISSING_HEADER)
 $(YAML_FILES_MISSING_HEADER):
 	cat hack/boilerplate.yaml.txt $@ > $@.tmp && mv $@.tmp $@
@@ -110,7 +110,7 @@ test: manifests generate fmt vet envtest ## Run tests.
 ##@ Build
 
 .PHONY: build
-build: generate fmt vet ## Build manager binary.
+build: generate fmt vet manifests ## Build manager binary.
 	go build -o bin/manager main.go
 
 .PHONY: run
