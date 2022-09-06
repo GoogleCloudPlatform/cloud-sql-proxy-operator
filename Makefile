@@ -24,11 +24,17 @@ all: build
 github_lint: pre_commit ## run the the github workflow lint check locally
 
 ##@ Local Development Targets
+
+# TODO: add yaml_fmt as a dependency
 .PHONY: pre_commit ## run checks to make sure boilerplate workflows will pass
-pre_commit: build add_copyright_header go_fmt ## Run all the formatting and checks before committing
+pre_commit: git_workdir_clean build add_copyright_header go_fmt ## Run all the formatting and checks before committing
 	git diff --quiet
-	#TODO: add yaml_fmt as a dependency
-	echo "Pre commit checks passed"
+	@echo "Pre commit checks OK"
+
+.PHONY: git_workdir_clean
+git_workdir_clean: # Checks if the git working directory is clean. Fails if there are unstaged changes.
+	git diff --quiet || (echo "git working directory has unstaged changes. "; echo "Add or stash all changes before you commit."; exit 1)
+
 
 .PHONY: add_pre_commit_hook ## run checks to make sure boilerplate workflows will pass
 add_pre_commit_hook: ## Add the pre_commit hook to the local repo
