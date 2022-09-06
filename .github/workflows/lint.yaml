@@ -34,7 +34,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
-      - name: Verify no changes from goimports and go mod tidy. If you're reading this and the check has failed, run `make pre_commit`.
+      - name: Verify no changes from lint tools. If you're reading this and the check has failed, run `make pre_commit`.
         run: make github_lint
       - name: Remove PR Label
         if: "${{ github.event.action == 'labeled' && github.event.label.name == 'tests: run' }}"
