@@ -28,6 +28,7 @@ github_lint: pre_commit ## run the the github workflow lint check locally
 pre_commit: build add_copyright_header go_fmt ## Run all the formatting and checks before committing
 	git diff --quiet
 	#TODO: add yaml_fmt as a dependency
+	echo "Pre commit checks passed"
 
 .PHONY: add_pre_commit_hook ## run checks to make sure boilerplate workflows will pass
 add_pre_commit_hook: ## Add the pre_commit hook to the local repo
