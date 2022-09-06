@@ -25,7 +25,9 @@ github_lint: pre_commit ## run the the github workflow lint check locally
 
 ##@ Local Development Targets
 .PHONY: pre_commit ## run checks to make sure boilerplate workflows will pass
-pre_commit: build add_copyright_header yaml_fmt go_fmt ## Run all the formatting and checks before committing
+pre_commit: build add_copyright_header go_fmt ## Run all the formatting and checks before committing
+	git diff --quiet
+	#TODO: add yaml_fmt as a dependency
 
 .PHONY: add_pre_commit_hook ## run checks to make sure boilerplate workflows will pass
 add_pre_commit_hook: ## Add the pre_commit hook to the local repo
@@ -47,7 +49,8 @@ YAML_FILES_MISSING_HEADER := $(shell find . -iname '*.yaml' -or -iname '*.yml' |
 GO_FILES_MISSING_HEADER := $(shell find . -iname '*.go' | xargs egrep -L 'Copyright .... Google LLC')
 
 .PHONY: add_copyright_header ## Adds the copyright header to any go or yaml file that is missing the header
-add_copyright_header: $(YAML_FILES_MISSING_HEADER) $(GO_FILES_MISSING_HEADER) ## Add the copyright header
+add_copyright_header: $(GO_FILES_MISSING_HEADER) ## Add the copyright header
+	#TODO: add $(YAML_FILES_MISSING_HEADER) as a dependency
 
 .PHONY: $(YAML_FILES_MISSING_HEADER)
 $(YAML_FILES_MISSING_HEADER):
