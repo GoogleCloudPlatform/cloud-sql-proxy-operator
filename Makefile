@@ -33,7 +33,7 @@ pre_commit: git_workdir_clean build add_copyright_header go_fmt ## Run all the f
 
 .PHONY: git_workdir_clean
 git_workdir_clean: # Checks if the git working directory is clean. Fails if there are unstaged changes.
-	git diff --quiet || (echo "git working directory has unstaged changes. "; echo "Add or stash all changes before you commit."; exit 1)
+	git diff --exit-code --stat || (echo "git working directory has unstaged changes. "; echo "Add or stash all changes before you commit."; exit 1)
 
 
 .PHONY: add_pre_commit_hook ## run checks to make sure boilerplate workflows will pass
