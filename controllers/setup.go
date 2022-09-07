@@ -15,13 +15,19 @@
 package controllers
 
 import (
+	"os"
+
 	cloudsqlv1alpha1 "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
+
+const NeedsUpdateAnnotation = "cloudsql.cloud.google.com/authproxyworkload-needs-update"
+const WasUpdatedAnnotation = "cloudsql.cloud.google.com/authproxyworkload-was-updated"
 
 var (
 	setupLog = ctrl.Log.WithName("setup")
@@ -43,8 +49,9 @@ func SetupManagers(mgr manager.Manager) error {
 	var err error
 
 	r := &AuthProxyWorkloadReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:          mgr.GetClient(),
+		Scheme:          mgr.GetScheme(),
+		recentlyDeleted: map[types.NamespacedName]bool{},
 	}
 	err = r.SetupWithManager(mgr)
 	if err != nil {
@@ -67,6 +74,11 @@ func SetupManagers(mgr manager.Manager) error {
 	// kubebuilder to scaffold additional controllers here.
 	// When kubebuilder scaffolds a new controller here, please
 	// adjust the code so it follows the pattern above.
+
+	if err = SetupWorkloadControllers(mgr); err != nil {
+		setupLog.Error(err, "unable to create workload webhooks")
+		os.Exit(1)
+	}
 
 	setupLog.Info("Configuring reconcilers complete.")
 	return nil

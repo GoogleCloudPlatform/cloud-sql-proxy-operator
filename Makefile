@@ -27,11 +27,15 @@ github_lint: pre_commit ## run the the github workflow lint check locally
 
 .PHONY: pre_commit ## run checks to make sure boilerplate workflows will pass
 pre_commit: git_workdir_clean  ## Run all the formatting and checks before committing
+	make lint
+	@git diff --exit-code --stat || (echo ; echo ; echo "ERROR: Lint tools caused changes to the working dir. "; echo "       Please review the changes before you commit."; echo ; exit 1)
+	@echo "Pre commit checks OK"
+
+.PHONY: lint
+lint:
 	make build manifests
 	make add_copyright_header
 	make go_fmt yaml_fmt
-	@git diff --exit-code --stat || (echo ; echo ; echo "ERROR: Lint tools caused changes to the working dir. "; echo "       Please review the changes before you commit."; echo ; exit 1)
-	@echo "Pre commit checks OK"
 
 .PHONY: git_workdir_clean
 git_workdir_clean: # Checks if the git working directory is clean. Fails if there are unstaged changes.
@@ -51,7 +55,7 @@ go_fmt: ## Automatically formats go files
 	go run golang.org/x/tools/cmd/goimports@latest -w .
 
 yaml_fmt: ## Automatically formats all yaml files
-	go run github.com/UltiRequiem/yamlfmt@latest -w $(shell find . -iname '*.yaml' -or -iname '*.yml')
+	go run github.com/google/yamlfmt/cmd/yamlfmt@latest $(shell find . -iname '*.yaml' -or -iname '*.yml')
 
 YAML_FILES_MISSING_HEADER = $(shell find . -iname '*.yaml' -or -iname '*.yml' | xargs egrep -L 'Copyright .... Google LLC')
 GO_FILES_MISSING_HEADER := $(shell find . -iname '*.go' | xargs egrep -L 'Copyright .... Google LLC')
@@ -90,6 +94,7 @@ help: ## Display this help.
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	make add_copyright_header yaml_fmt
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
