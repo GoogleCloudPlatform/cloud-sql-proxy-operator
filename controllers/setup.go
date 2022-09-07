@@ -23,9 +23,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-const NeedsUpdateAnnotation = "cloudsql.cloud.google.com/authproxyworkload-needs-update"
-const WasUpdatedAnnotation = "cloudsql.cloud.google.com/authproxyworkload-was-updated"
-
 var (
 	setupLog = ctrl.Log.WithName("setup")
 )
