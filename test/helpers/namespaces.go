@@ -38,16 +38,16 @@ func CreateOrPatchNamespace(t *testing.T, ctx context.Context, k8sClient client.
 		return nil
 	})
 	if err != nil {
-		t.Fatalf("Unable to verify existance of namespace %v, %v", name, err)
+		t.Fatalf("unable to verify existance of namespace %v, %v", name, err)
 	}
 
-	var retrievedNs corev1.Namespace
+	var gotNs corev1.Namespace
 	err = RetryUntilSuccess(t, 5, time.Second*5, func() error {
-		return k8sClient.Get(ctx, client.ObjectKey{Namespace: "", Name: name}, &retrievedNs)
+		return k8sClient.Get(ctx, client.ObjectKey{Name: name}, &gotNs)
 	})
 
 	if err != nil {
-		t.Fatalf("Unable to verify existance of namespace %v, %v", name, err)
+		t.Fatalf("unable to verify existance of namespace %v, %v", name, err)
 	}
 
 }

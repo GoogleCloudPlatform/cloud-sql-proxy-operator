@@ -29,7 +29,6 @@ var (
 
 // InitScheme was moved out of ../main.go to here so that it can be invoked
 // from the integration tests AND from the actual operator.
-
 func InitScheme(scheme *runtime.Scheme) {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
@@ -39,15 +38,16 @@ func InitScheme(scheme *runtime.Scheme) {
 
 // SetupManagers was moved out of ../main.go to here so that it can be invoked
 // from the integration tests AND from the actual operator.
-
 func SetupManagers(mgr manager.Manager) error {
 	setupLog.Info("Configuring reconcilers...")
 	var err error
 
-	if err = (&AuthProxyWorkloadReconciler{
+	r := &AuthProxyWorkloadReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	}
+	err = r.SetupWithManager(mgr)
+	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AuthProxyWorkload")
 		// Kubebuilder won't properly write the contents of this file. It will want
 		// to do os.Exit(1) on error here.. But it's a bad idea because it will
@@ -55,12 +55,18 @@ func SetupManagers(mgr manager.Manager) error {
 		// return the error and let the caller deal with it.
 		return err
 	}
-	if err = (&cloudsqlv1alpha1.AuthProxyWorkload{}).SetupWebhookWithManager(mgr); err != nil {
+
+	wh := &cloudsqlv1alpha1.AuthProxyWorkload{}
+	err = wh.SetupWebhookWithManager(mgr)
+	if err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "AuthProxyWorkload")
 		return err
-
 	}
+
 	//+kubebuilder:scaffold:builder
+	// kubebuilder to scaffold additional controllers here.
+	// When kubebuilder scaffolds a new controller here, please
+	// adjust the code so it follows the pattern above.
 
 	setupLog.Info("Configuring reconcilers complete.")
 	return nil

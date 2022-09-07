@@ -13,6 +13,9 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
+// Package integration test setup for running integration tests using the envtest
+// kubebuilder package.
 package integration
 
 import (
@@ -42,17 +45,19 @@ import (
 
 const KubeVersion = "1.24.1"
 
-var testEnv *envtest.Environment
-var cancel context.CancelFunc
+var (
+	testEnv *envtest.Environment
+	cancel  context.CancelFunc
 
-// Ctx The context to use for client calls related to the test
-var Ctx context.Context
+	// Ctx The context to use for test cases.
+	Ctx context.Context
 
-// Log The test logger
-var Log logr.Logger
+	// Log The test logger.
+	Log logr.Logger
 
-// Client the kuberntes client
-var Client client.Client
+	// Client The kubernetes client.
+	Client client.Client
+)
 
 func runSetupEnvtest() (string, error) {
 	cmd := exec.Command("../../bin/setup-envtest", "use", KubeVersion, "-p", "path")
@@ -118,22 +123,22 @@ func EnvTestSetup(m *testing.M) (func(), error) {
 		return nil, fmt.Errorf("enable to start kuberenetes envtest %v", err)
 	}
 
-	scheme := scheme.Scheme
-	controllers.InitScheme(scheme)
+	s := scheme.Scheme
+	controllers.InitScheme(s)
 
-	err = cloudsqlv1alpha1.AddToScheme(scheme)
+	err = cloudsqlv1alpha1.AddToScheme(s)
 	if err != nil {
 		return teardownFunc, fmt.Errorf("unable to start kuberenetes envtest %v", err)
 	}
 
-	err = admissionv1beta1.AddToScheme(scheme)
+	err = admissionv1beta1.AddToScheme(s)
 	if err != nil {
 		return teardownFunc, fmt.Errorf("unable to start kuberenetes envtest %v", err)
 	}
 
-	//+kubebuilder:scaffold:scheme
+	//+kubebuilder:scaffold:s
 
-	Client, err = client.New(cfg, client.Options{Scheme: scheme})
+	Client, err = client.New(cfg, client.Options{Scheme: s})
 	if err != nil {
 		return teardownFunc, fmt.Errorf("unable to start kuberenetes envtest %v", err)
 	}
@@ -144,7 +149,7 @@ func EnvTestSetup(m *testing.M) (func(), error) {
 	// start webhook server using Manager
 	webhookInstallOptions := &testEnv.WebhookInstallOptions
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme,
+		Scheme:             s,
 		Host:               webhookInstallOptions.LocalServingHost,
 		Port:               webhookInstallOptions.LocalServingPort,
 		CertDir:            webhookInstallOptions.LocalServingCertDir,
@@ -165,9 +170,9 @@ func EnvTestSetup(m *testing.M) (func(), error) {
 		err = mgr.Start(Ctx)
 		if err != nil {
 			Log.Info("Starting manager failed.")
-		} else {
-			Log.Info("Started controller exited normally.")
+			return
 		}
+		Log.Info("Started controller exited normally.")
 	}()
 
 	// wait for the controller manager webhook server to get ready
