@@ -29,7 +29,7 @@ github_lint: pre_commit ## run the the github workflow lint check locally
 pre_commit: git_workdir_clean  ## Run all the formatting and checks before committing
 	make build manifests
 	make add_copyright_header
-	make go_fmt # TODO: add yaml_fmt target
+	make go_fmt yaml_fmt
 	@git diff --exit-code --stat || (echo ; echo ; echo "ERROR: Lint tools caused changes to the working dir. "; echo "       Please review the changes before you commit."; echo ; exit 1)
 	@echo "Pre commit checks OK"
 
@@ -57,8 +57,8 @@ YAML_FILES_MISSING_HEADER = $(shell find . -iname '*.yaml' -or -iname '*.yml' | 
 GO_FILES_MISSING_HEADER := $(shell find . -iname '*.go' | xargs egrep -L 'Copyright .... Google LLC')
 
 .PHONY: add_copyright_header ## Adds the copyright header to any go or yaml file that is missing the header
-add_copyright_header: $(GO_FILES_MISSING_HEADER) ## Add the copyright header
-	#TODO: add $(YAML_FILES_MISSING_HEADER) target
+add_copyright_header: $(GO_FILES_MISSING_HEADER) $(YAML_FILES_MISSING_HEADER) ## Add the copyright header
+
 .PHONY: $(YAML_FILES_MISSING_HEADER)
 $(YAML_FILES_MISSING_HEADER):
 	cat hack/boilerplate.yaml.txt $@ > $@.tmp && mv $@.tmp $@

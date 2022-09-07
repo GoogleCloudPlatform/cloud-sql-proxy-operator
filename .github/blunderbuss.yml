@@ -13,14 +13,13 @@
 # limitations under the License.
 
 assign_issues:
-- hessjcg
-#   - shubha-rajan
-#  - enocom
-#   - jackwotherspoon
-#  - kurtisvg
-
+  - hessjcg
+  #   - shubha-rajan
+  #  - enocom
+  #   - jackwotherspoon
+  #  - kurtisvg
 assign_prs:
-#   - shubha-rajan
+  #   - shubha-rajan
   - enocom
 #   - jackwotherspoon
 #  - kurtisvg
