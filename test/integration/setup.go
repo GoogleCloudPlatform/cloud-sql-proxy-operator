@@ -1,18 +1,16 @@
-/*
-Copyright 2022 Google LLC.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-	http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright 2022 Google LLC.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 // Package integration test setup for running integration tests using the envtest
 // kubebuilder package.
@@ -26,7 +24,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"testing"
 	"time"
 
 	cloudsqlv1alpha1 "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/api/v1alpha1"
@@ -43,49 +40,46 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
-const KubeVersion = "1.24.1"
+const kubeVersion = "1.24.1"
 
 var (
 	testEnv *envtest.Environment
-	cancel  context.CancelFunc
 
-	// Ctx The context to use for test cases.
+	// Ctx is the context to use any time a context is needed during a testcase.
 	Ctx context.Context
 
-	// Log The test logger.
-	Log logr.Logger
+	// Log is the test logger used by the integration tests and server.
+	Log = zap.New(zap.UseFlagOptions(&zap.Options{
+		Development: true,
+		TimeEncoder: zapcore.ISO8601TimeEncoder,
+	}))
 
-	// Client The kubernetes client.
+	// Client is the kubernetes client.
 	Client client.Client
 )
 
 func runSetupEnvtest() (string, error) {
-	cmd := exec.Command("../../bin/setup-envtest", "use", KubeVersion, "-p", "path")
+	cmd := exec.Command("../../bin/setup-envtest", "use", kubeVersion, "-p", "path")
 	path, err := cmd.Output()
 
 	if err != nil {
-		out, _ := cmd.CombinedOutput()
-		Log.Error(err, "Unable to run setup-envtest", "output", string(out))
+		out, outputErr := cmd.CombinedOutput()
+		if outputErr != nil {
+			Log.Error(err, "Unable to run setup-envtest or get output log", "output error", outputErr)
+			return "", err
+		}
+		Log.Error(err, "Unable to run setup-envtest", "output", string(out), "err")
 		return "", err
 	}
 
-	if err != nil {
-		return "", err
-	}
 	return string(path), nil
 }
 
 // EnvTestSetup sets up the envtest environment for a testing package.
 // This is intended to be called from `func TestMain(m *testing.M)` so
 // that the environment is configured before
-func EnvTestSetup(m *testing.M) (func(), error) {
+func EnvTestSetup() (func(), error) {
 	var err error
-
-	opts := zap.Options{
-		Development: true,
-		TimeEncoder: zapcore.ISO8601TimeEncoder,
-	}
-	Log = zap.New(zap.UseFlagOptions(&opts))
 
 	ctrl.SetLogger(Log)
 
@@ -95,11 +89,13 @@ func EnvTestSetup(m *testing.M) (func(), error) {
 	if !exists {
 		kubebuilderAssets, err = runSetupEnvtest()
 		if err != nil {
-			return nil, fmt.Errorf("Unable to run setup-envtest %v", err)
+			return nil, fmt.Errorf("unable to run setup-envtest %v", err)
 		}
 	}
 
 	Log.Info("Starting up kubebuilder EnvTest")
+
+	var cancel func()
 	Ctx, cancel = context.WithCancel(logr.NewContext(context.TODO(), Log))
 
 	testEnv = &envtest.Environment{
@@ -112,15 +108,16 @@ func EnvTestSetup(m *testing.M) (func(), error) {
 	}
 
 	teardownFunc := func() {
+		cancel()
 		err := testEnv.Stop()
 		if err != nil {
-			Log.Error(err, "Unable to stop envtest environment %v")
+			Log.Error(err, "unable to stop envtest environment %v")
 		}
 	}
 
 	cfg, err := testEnv.Start()
 	if err != nil {
-		return nil, fmt.Errorf("enable to start kuberenetes envtest %v", err)
+		return nil, fmt.Errorf("unable to start kuberenetes envtest %v", err)
 	}
 
 	s := scheme.Scheme
@@ -147,12 +144,12 @@ func EnvTestSetup(m *testing.M) (func(), error) {
 	}
 
 	// start webhook server using Manager
-	webhookInstallOptions := &testEnv.WebhookInstallOptions
+	o := &testEnv.WebhookInstallOptions
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:             s,
-		Host:               webhookInstallOptions.LocalServingHost,
-		Port:               webhookInstallOptions.LocalServingPort,
-		CertDir:            webhookInstallOptions.LocalServingCertDir,
+		Host:               o.LocalServingHost,
+		Port:               o.LocalServingPort,
+		CertDir:            o.LocalServingCertDir,
 		LeaderElection:     false,
 		MetricsBindAddress: "0",
 	})
@@ -177,7 +174,7 @@ func EnvTestSetup(m *testing.M) (func(), error) {
 
 	// wait for the controller manager webhook server to get ready
 	dialer := &net.Dialer{Timeout: time.Second}
-	addrPort := fmt.Sprintf("%s:%d", webhookInstallOptions.LocalServingHost, webhookInstallOptions.LocalServingPort)
+	addrPort := fmt.Sprintf("%s:%d", o.LocalServingHost, o.LocalServingPort)
 
 	err = helpers.RetryUntilSuccess(&helpers.TestSetupLogger{Logger: Log}, 5, 2*time.Second, func() error {
 		conn, err := tls.DialWithDialer(dialer, "tcp", addrPort, &tls.Config{InsecureSkipVerify: true})
