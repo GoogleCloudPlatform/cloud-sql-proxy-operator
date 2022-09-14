@@ -45,9 +45,6 @@ const kubeVersion = "1.24.1"
 var (
 	testEnv *envtest.Environment
 
-	// Ctx is the context to use any time a context is needed during a testcase.
-	Ctx context.Context
-
 	// Log is the test logger used by the integration tests and server.
 	Log = zap.New(zap.UseFlagOptions(&zap.Options{
 		Development: true,
@@ -57,6 +54,11 @@ var (
 	// Client is the kubernetes client.
 	Client client.Client
 )
+
+// TestContext returns a background context that includes appropriate logging configuration.
+func TestContext() context.Context {
+	return logr.NewContext(context.Background(), Log)
+}
 
 func runSetupEnvtest() (string, error) {
 	cmd := exec.Command("../../bin/setup-envtest", "use", kubeVersion, "-p", "path")
@@ -94,9 +96,7 @@ func EnvTestSetup() (func(), error) {
 	}
 
 	Log.Info("Starting up kubebuilder EnvTest")
-
-	var cancel func()
-	Ctx, cancel = context.WithCancel(logr.NewContext(context.TODO(), Log))
+	ctx, cancel := context.WithCancel(logr.NewContext(context.TODO(), Log))
 
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
@@ -164,7 +164,7 @@ func EnvTestSetup() (func(), error) {
 
 	go func() {
 		Log.Info("Starting controller manager.")
-		err = mgr.Start(Ctx)
+		err = mgr.Start(ctx)
 		if err != nil {
 			Log.Info("Starting manager failed.")
 			return

@@ -52,10 +52,11 @@ func TestCreateResource(t *testing.T) {
 		namespace   = fmt.Sprintf("testcreate-%d", rand.IntnRange(1000, 9999))
 		wantName    = "instance1"
 		resourceKey = types.NamespacedName{Name: wantName, Namespace: namespace}
+		ctx         = integration.TestContext()
 	)
 
 	// First, set up the k8s namespace for this test.
-	helpers.CreateOrPatchNamespace(t, integration.Ctx, integration.Client, namespace)
+	helpers.CreateOrPatchNamespace(t, ctx, integration.Client, namespace)
 
 	// Fill in the resource with appropriate details.
 	resource := &cloudsqlapi.AuthProxyWorkload{
@@ -70,7 +71,7 @@ func TestCreateResource(t *testing.T) {
 	}
 
 	// Call kubernetes to create the resource.
-	err := integration.Client.Create(integration.Ctx, resource)
+	err := integration.Client.Create(ctx, resource)
 	if err != nil {
 		t.Errorf("Error %v", err)
 		return
@@ -80,7 +81,7 @@ func TestCreateResource(t *testing.T) {
 	// is eventually-consistent.
 	retrievedResource := &cloudsqlapi.AuthProxyWorkload{}
 	err = helpers.RetryUntilSuccess(t, 5, time.Second*5, func() error {
-		return integration.Client.Get(integration.Ctx, resourceKey, retrievedResource)
+		return integration.Client.Get(ctx, resourceKey, retrievedResource)
 	})
 	if err != nil {
 		t.Errorf("unable to find entity after create %v", err)
