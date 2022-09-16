@@ -142,9 +142,9 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet ./...
 
-.PHONY: test
-test: manifests generate fmt vet envtest ## Run tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out
+test: manifests generate fmt vet envtest ## Run tests (but not test/e2e)
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" \
+		go test $(shell go list ./... | grep -v 'test/e2e') -coverprofile cover.out
 
 ##@ Build
 # Load active version from version.txt
@@ -194,22 +194,35 @@ deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
 	$(KUSTOMIZE) build config/default | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
 
+
+config/certmanager-deployment/certmanager-deployment.yaml: ## Download the cert-manager deployment
+	test -s $@ || curl -L -o $@ \
+  		https://github.com/cert-manager/cert-manager/releases/download/v1.9.1/cert-manager.yaml
+
 ##@ Build Dependencies
 
 ## Location to install dependencies to
 LOCALBIN ?= $(shell pwd)/bin
 $(LOCALBIN):
-	mkdir -p $(LOCALBIN)
+	test -d $@ || mkdir -p $@
 
 ## Tool Binaries
 KUSTOMIZE ?= $(LOCALBIN)/kustomize
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
 ENVTEST ?= $(LOCALBIN)/setup-envtest
+TERRAFORM ?= $(LOCALBIN)/terraform
+KUBECTL ?= $(LOCALBIN)/kubectl
 
 ## Tool Versions
-KUSTOMIZE_VERSION ?= v3.8.7
+KUSTOMIZE_VERSION ?= v4.5.2
 CONTROLLER_TOOLS_VERSION ?= v0.9.2
+KUBEBUILDER_VERSION ?= v3.6.0
+TERRAFORM_VERSION ?= 1.2.7
+KUBECTL_VERSION ?= v1.24.0
+
+.PHONY: download_tools
+download_tools: kustomize controller-gen envtest kubebuilder kubectl terraform  ## Download all the tools
 
 KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 .PHONY: kustomize
@@ -232,7 +245,159 @@ golangci-lint: $(GOLANGCI_LINT) ## Download controller-gen locally if necessary.
 $(GOLANGCI_LINT): $(LOCALBIN)
 	test -s $@ || GOBIN=$(LOCALBIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
-config/certmanager-deployment/certmanager-deployment.yaml: ## Download the cert-manager deployment
-	test -s $@ || curl -L -o $@ \
-  		https://github.com/cert-manager/cert-manager/releases/download/v1.9.1/cert-manager.yaml
+.PHONY: kubebuilder
+kubebuilder: $(KUBEBUILDER) ## Download kubebuilder
+$(KUBEBUILDER): $(LOCALBIN)
+	test -s $@ || \
+		(curl -L -o $@ https://github.com/kubernetes-sigs/kubebuilder/releases/download/$(KUBEBUILDER_VERSION)/kubebuilder_$(GOOS)_$(GOARCH) && \
+		chmod a+x $@ && \
+		touch $@ )
 
+.PHONY: kubectl
+kubectl: $(KUBECTL) ## Download kubectl
+$(KUBECTL): $(LOCALBIN)
+	test -s $@ || \
+		( curl -L -o $@ https://dl.k8s.io/release/$(KUBECTL_VERSION)/bin/$(GOOS)/$(GOARCH)/kubectl && \
+		chmod a+x $@ && \
+		touch $@ )
+
+.PHONY: terraform
+terraform: $(TERRAFORM) ## Download terraform
+$(TERRAFORM): $(LOCALBIN)
+	test -s $@ || \
+		( curl -L -o $@.zip https://releases.hashicorp.com/terraform/$(TERRAFORM_VERSION)/terraform_$(TERRAFORM_VERSION)_$(GOOS)_$(GOARCH).zip && \
+		cd $(LOCALBIN) && unzip -o $@.zip && \
+		rm -f $@.zip && \
+		chmod a+x $@ && \
+		touch $@ )
+
+.PHONY: k9s
+k9s: ## Check that k9s is installed
+	which k9s || \
+		(echo "Please install k9s, https://k9scli.io/topics/install/" ; exit 1)
+
+##@ Google Cloud End to End Test
+.PHONY: gcloud_test
+gcloud_test: gcloud_test_infra gcloud_test_run gcloud_test_cleanup ## Run end-to-end tests on Google Cloud
+
+.PHONY: gcloud_test_infra
+gcloud_test_infra: gcloud_project gcloud_cluster gcloud_cert_manager_deploy ## Build test infrastructure for e2e tests
+
+.PHONY: gcloud_test_run
+gcloud_test_run: gcloud_install gcloud_proxy_image_push gcloud_operator_image_push gcloud_deploy gcloud_test_run_gotest ## Build and run the e2e test code
+
+.PHONY: gcloud_test_cleanup
+gcloud_test_cleanup: manifests gcloud_cleanup_test_namespaces gcloud_undeploy ## Remove all operator and testcase configs from the e2e k8s cluster
+
+.PHONY: gcloud_test_cleanup
+gcloud_test_infra_cleanup: gcloud_project ## Remove all operator and testcase configs from the e2e k8s cluster
+
+
+# The URL to the container image repo provisioned for e2e tests
+GCLOUD_DOCKER_URL_FILE :=$(PWD)/bin/gcloud-docker-repo.url
+GCLOUD_DOCKER_URL=$(shell cat $(GCLOUD_DOCKER_URL_FILE))
+
+## This is the default location from terraform
+KUBECONFIG_GCLOUD ?= $(PWD)/bin/gcloud-kubeconfig.yaml
+
+# kubectl command with proper environment vars set
+GCLOUD_KUBECTL_ARGS = USE_GKE_GCLOUD_AUTH_PLUGIN=True KUBECONFIG=$(KUBECONFIG_GCLOUD)
+GCLOUD_KUBECTL = $(GCLOUD_KUBECTL_ARGS) $(KUBECTL)
+
+.PHONY: gcloud_project
+gcloud_project: ## Check that the Google Cloud project exists
+	gcloud projects describe $(GCLOUD_PROJECT_ID) 2>/dev/null || \
+		( echo "No Google Cloud Project $(GCLOUD_PROJECT_ID) found"; exit 1 )
+
+gcloud_cluster: gcloud_project  $(TERRAFORM) ## Build infrastructure for e2e tests
+	PROJECT_DIR=$(PWD) \
+  		GCLOUD_PROJECT_ID=$(GCLOUD_PROJECT_ID) \
+  		KUBECONFIG_GCLOUD=$(KUBECONFIG_GCLOUD) \
+  		GCLOUD_DOCKER_URL_FILE=$(GCLOUD_DOCKER_URL_FILE) \
+  		test/e2e/tf/run.sh apply
+
+gcloud_cluster_cleanup: gcloud_project  $(TERRAFORM) ## Build infrastructure for e2e tests
+	PROJECT_DIR=$(PWD) \
+  		GCLOUD_PROJECT_ID=$(GCLOUD_PROJECT_ID) \
+  		KUBECONFIG_GCLOUD=$(KUBECONFIG_GCLOUD) \
+  		GCLOUD_DOCKER_URL_FILE=$(GCLOUD_DOCKER_URL_FILE) \
+  		test/e2e/tf/run.sh destroy
+
+.PHONY: gcloud_cert_manager_deploy
+gcloud_cert_manager_deploy: $(KUBECTL) ## Deploy the certificate manager
+	$(GCLOUD_KUBECTL) apply -f config/certmanager-deployment/certmanager-deployment.yaml
+	# wait for cert manager to become available before continuing
+	$(GCLOUD_KUBECTL) rollout status deployment cert-manager -n cert-manager --timeout=90s
+
+
+.PHONY: gcloud_install
+gcloud_install: manifests $(KUSTOMIZE) $(KUBECTL) ## Install CRDs into the GKE cluster
+	$(KUSTOMIZE) build config/crd | $(GCLOUD_KUBECTL) apply -f -
+
+.PHONY: gcloud_deploy
+gcloud_deploy: manifests $(KUSTOMIZE) $(KUBECTL) ## Deploy controller to the GKE cluster
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(GCLOUD_OPERATOR_URL)
+	$(KUSTOMIZE) build config/default | USE_GKE_GCLOUD_AUTH_PLUGIN=True  KUBECONFIG=$(KUBECONFIG_GCLOUD) $(KUBECTL) apply -f -
+	$(GCLOUD_KUBECTL) rollout status deployment -n cloud-sql-proxy-operator-system cloud-sql-proxy-operator-controller-manager --timeout=90s
+
+.PHONY: gcloud_undeploy
+gcloud_undeploy: manifests $(KUSTOMIZE) $(KUBECTL) ## Deploy controller to the GKE cluster
+	$(KUSTOMIZE) build config/default | $(GCLOUD_KUBECTL) delete -f -
+
+###
+# Build the cloudsql-proxy v2 docker image and push it to the
+# google cloud project repo.
+GCLOUD_PROXY_URL_FILE=$(PWD)/bin/last-proxy-image-url.txt
+GCLOUD_PROXY_URL=$(shell cat $(GCLOUD_PROXY_URL_FILE) | tr -d "\n")
+
+.PHONY: gcloud_proxy_image_push
+gcloud_proxy_image_push: $(GCLOUD_PROXY_URL_FILE) ## Build and push a proxy image
+
+.PHONY: $(GCLOUD_PROXY_URL_FILE)
+$(GCLOUD_PROXY_URL_FILE):
+	PROJECT_DIR=$(PROXY_PROJECT_DIR) \
+	IMAGE_NAME=proxy-v2 \
+	REPO_URL=${GCLOUD_DOCKER_URL} \
+	IMAGE_URL_OUT=$@ \
+	PLATFORMS=linux/arm64/v8,linux/amd64 \
+	DOCKER_FILE_NAME=Dockerfile \
+	$(PWD)/tools/docker-build.sh
+
+###
+# Build the operator docker image and push it to the
+# google cloud project repo.
+GCLOUD_OPERATOR_URL_FILE=$(PWD)/bin/last-gcloud-operator-url.txt
+GCLOUD_OPERATOR_URL=$(shell cat $(GCLOUD_OPERATOR_URL_FILE) | tr -d "\n")
+
+.PHONY: gcloud_operator_image_push
+gcloud_operator_image_push: $(GCLOUD_OPERATOR_URL_FILE) ## Build and push a operator image
+
+.PHONY: $(GCLOUD_OPERATOR_URL_FILE)
+$(GCLOUD_OPERATOR_URL_FILE): build
+	PROJECT_DIR=$(PWD) \
+	IMAGE_NAME=cloud-sql-auth-proxy-operator \
+	REPO_URL=${GCLOUD_DOCKER_URL} \
+	IMAGE_URL_OUT=$@ \
+	PLATFORMS=linux/arm64/v8,linux/amd64 \
+	DOCKER_FILE_NAME=Dockerfile \
+	$(PWD)/tools/docker-build.sh
+
+
+.PHONY: gcloud_cleanup_test_namespaces
+gcloud_cleanup_test_namespaces: $(KUSTOMIZE) $(KUBECTL) 	## list all namespaces, delete those named "test*"
+	$(GCLOUD_KUBECTL) get ns -o=name | \
+		grep namespace/test | \
+		$(GCLOUD_KUBECTL_ENV) xargs $(KUBECTL) delete
+
+
+.PHONY: gcloud_test_run_gotest
+gcloud_test_run_gotest: ## Run the golang tests
+	USE_GKE_GCLOUD_AUTH_PLUGIN=True \
+		TEST_INFRA_JSON=$(LOCALBIN)/testinfra.json \
+		PROXY_IMAGE_URL=$(GCLOUD_PROXY_URL) \
+		OPERATOR_IMAGE_URL=$(GCLOUD_OPERATOR_URL) \
+		go test --count=1 -v github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/test/e2e
+
+.PHONY: gcloud_k9s
+gcloud_k9s: ## Connect to the gcloud test cluster using the k9s tool
+	USE_GKE_GCLOUD_AUTH_PLUGIN=True KUBECONFIG=$(KUBECONFIG_GCLOUD) k9s

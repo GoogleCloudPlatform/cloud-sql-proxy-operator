@@ -23,5 +23,5 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
   - name: controller
-    newName: us-central1-docker.pkg.dev/csql-operator-test/test76e6d646e2caac1c458c/cloud-sql-auth-proxy-operator
-    newTag: e517b36afb2ecd8fee7ca61b21681c7bb78d12d9-dirty-20220916T1511
+    newName: us-central1-docker.pkg.dev/csql-operator-test/testcdaf9a3ad9a2bcd61a5e/cloud-sql-auth-proxy-operator
+    newTag: c01c5c6263748e6163dc268928159f6b379b49e2-dirty-20221007T1532
