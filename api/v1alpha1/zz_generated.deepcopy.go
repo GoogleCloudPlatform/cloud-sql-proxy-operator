@@ -171,13 +171,13 @@ func (in *InstanceSpec) DeepCopyInto(out *InstanceSpec) {
 		*out = new(int32)
 		**out = **in
 	}
-	if in.AutoIamAuthn != nil {
-		in, out := &in.AutoIamAuthn, &out.AutoIamAuthn
+	if in.AutoIAMAuthN != nil {
+		in, out := &in.AutoIAMAuthN, &out.AutoIAMAuthN
 		*out = new(bool)
 		**out = **in
 	}
-	if in.PrivateIp != nil {
-		in, out := &in.PrivateIp, &out.PrivateIp
+	if in.PrivateIP != nil {
+		in, out := &in.PrivateIP, &out.PrivateIP
 		*out = new(bool)
 		**out = **in
 	}

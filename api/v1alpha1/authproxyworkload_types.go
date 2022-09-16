@@ -24,9 +24,6 @@ import (
 // has properly processed the latest generation of an AuthProxyInstance
 const ConditionUpToDate = "UpToDate"
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // AuthProxyWorkloadSpec defines the desired state of AuthProxyWorkload
 type AuthProxyWorkloadSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -36,7 +33,7 @@ type AuthProxyWorkloadSpec struct {
 	// +kubebuilder:validation:Required
 	Workload WorkloadSelectorSpec `json:"workloadSelector,required"`
 
-	// Authentication chooses how to authenticate the proxy container to gcloud
+	// Authentication describes how to authenticate the proxy container to Google Cloud
 	// +kubebuilder:validation:Optional
 	Authentication *AuthenticationSpec `json:"authentication,omitempty"`
 
@@ -44,13 +41,14 @@ type AuthProxyWorkloadSpec struct {
 	// +kubebuilder:validation:Optional
 	ProxyContainer *ProxyContainerSpec `json:"proxyContainer,omitempty"`
 
-	// Instances lists the cloud sql instances to connect
+	// Instances lists the Cloud SQL instances to connect
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
 	Instances []InstanceSpec `json:"instances,required"`
 }
 
-// WorkloadSelectorSpec describes how the worklload
+// WorkloadSelectorSpec describes which workloads should be configured with this
+// proxy configuration.
 type WorkloadSelectorSpec struct {
 	// Kind the kind of workload where the auth proxy should be configured.
 	// Supported kinds: Deployment, StatefulSet, Pod, DaemonSet, Job, CronJob
@@ -157,7 +155,7 @@ const (
 // InstanceSpec describes how to connect to a proxy instance
 type InstanceSpec struct {
 	// +kubebuilder:validation:Required
-	// ConnectionString the cloud sql instance to connect
+	// ConnectionString the Cloud SQL instance to connect
 	ConnectionString string `json:"connectionString,omitempty"`
 
 	// SocketType enum of {"tcp","unix"} declares what type of socket to
@@ -171,10 +169,10 @@ type InstanceSpec struct {
 	Port *int32 `json:"port,omitempty"`
 	// AutoIamAuthn Enable IAM Authentication for this instance
 	// +kubebuilder:validation:Optional
-	AutoIamAuthn *bool `json:"autoIamAuthn,omitempty"`
-	// PrivateIp Enable connection to the cloud sql instance's private ip for this instance
+	AutoIAMAuthN *bool `json:"autoIAMAuthN,omitempty"`
+	// PrivateIP Enable connection to the Cloud SQL instance's private ip for this instance
 	// +kubebuilder:validation:Optional
-	PrivateIp *bool `json:"privateIp,omitempty"`
+	PrivateIP *bool `json:"privateIP,omitempty"`
 	// UnixSocketPath Use this directory to hold the unix socket for this instance
 	// +kubebuilder:validation:Optional
 	UnixSocketPath string `json:"unixSocketPath,omitempty"`
@@ -207,6 +205,8 @@ type AuthProxyWorkloadStatus struct {
 	WorkloadStatus []WorkloadStatus `json:"WorkloadStatus,omitempty"`
 }
 
+// WorkloadStatus holds the status for the application of this proxy config to
+// a matching workload.
 type WorkloadStatus struct {
 	// +kubebuilder:validation:Enum=Pod;Deployment;StatefulSet;DaemonSet;Job;CronJob
 	Kind      string `json:"kind,omitempty,"`
