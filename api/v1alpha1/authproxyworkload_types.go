@@ -77,9 +77,8 @@ type WorkloadSelectorSpec struct {
 func (s *WorkloadSelectorSpec) LabelsSelector() (labels.Selector, error) {
 	if s.Selector == nil {
 		return labels.NewSelector(), nil
-	} else {
-		return metav1.LabelSelectorAsSelector(s.Selector)
 	}
+	return metav1.LabelSelectorAsSelector(s.Selector)
 }
 
 // AuthenticationSpec describes how the proxy should get its Google Cloud identity
@@ -92,7 +91,7 @@ func (s *WorkloadSelectorSpec) LabelsSelector() (labels.Selector, error) {
 //     case the AuthenticationSpec would set CredentialFileSecret and CredentialFileKey.
 //     e.g. `{credentialFileSecret: "default/gcloud-cred", credentialFileKey="gcloud.json"}`
 type AuthenticationSpec struct {
-	// GCloudAuth true when we should use the gcloud metadata server to authenticate.
+	// GCloudAuth true when we should use the Google Cloud metadata server to authenticate.
 	// This sets the Cloud SQL Proxy container's CLI argument `--gcloud-auth`
 	// +kubebuilder:validation:Optional
 	GCloudAuth bool `json:"gcloudAuth,omitempty"`
@@ -147,10 +146,10 @@ type AuthProxyContainerSpec struct {
 	// +kubebuilder:validation:Optional
 	Telemetry *TelemetrySpec `json:"telemetry,omitempty"`
 
-	// SQLAdminApiEndpoint is a debugging parameter that when specified will
+	// SQLAdminAPIEndpoint is a debugging parameter that when specified will
 	// change the Google Cloud api endpoint used by the proxy.
 	// +kubebuilder:validation:Optional
-	SQLAdminApiEndpoint string `json:"sqlAdminApiEndpoint,omitempty"`
+	SQLAdminAPIEndpoint string `json:"sqlAdminAPIEndpoint,omitempty"`
 
 	// Container is debugging parameter that when specified will override the
 	// proxy container with a completely custom Container spec.
@@ -193,10 +192,10 @@ type TelemetrySpec struct {
 	// +kubebuilder:validation:Optional
 	TelemetrySampleRate *int `json:"telemetrySampleRate,omitempty"`
 
-	// HttpPort the port for Prometheus and health check server.
+	// HTTPPort the port for Prometheus and health check server.
 	// This sets the proxy container's CLI argument `--http-port`
 	// +kubebuilder:validation:Optional
-	HttpPort *int32 `json:"httpPort,omitempty"`
+	HTTPPort *int32 `json:"httpPort,omitempty"`
 
 	// DisableTraces disables Cloud Trace integration (used with telemetryProject)
 	// This sets the proxy container's CLI argument `--disable-traces`
@@ -208,14 +207,6 @@ type TelemetrySpec struct {
 	// +kubebuilder:validation:Optional
 	DisableMetrics *bool `json:"disableMetrics,omitempty"`
 }
-
-// SocketType enum of socket types available on InstanceSpec
-type SocketType string
-
-const (
-	SocketTypeTCP  SocketType = "tcp"
-	SocketTypeUnix SocketType = "unix"
-)
 
 // InstanceSpec describes the configuration for how the proxy should expose
 // a Cloud SQL database instance to a workload. The simplest possible configuration
@@ -263,7 +254,7 @@ type InstanceSpec struct {
 	// values: "tcp" or "unix"
 	// +kubebuilder:validation:Enum=tcp;unix
 	// +kubebuilder:validation:Optional
-	SocketType SocketType `json:"socketType,omitempty"`
+	SocketType string `json:"socketType,omitempty"`
 
 	// Port sets the tcp port for this instance. Optional, if not set, a value will
 	// be automatically assigned by the operator and set as an environment variable

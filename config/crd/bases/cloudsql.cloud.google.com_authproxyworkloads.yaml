@@ -868,8 +868,8 @@ spec:
                           description: 'Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                           type: object
                       type: object
-                    sqlAdminApiEndpoint:
-                      description: SQLAdminApiEndpoint is a debugging parameter that when specified will change the Google Cloud api endpoint used by the proxy.
+                    sqlAdminAPIEndpoint:
+                      description: SQLAdminAPIEndpoint is a debugging parameter that when specified will change the Google Cloud api endpoint used by the proxy.
                       type: string
                     telemetry:
                       description: Telemetry specifies how the proxy should expose telemetry. Optional, by default
@@ -881,7 +881,7 @@ spec:
                           description: DisableTraces disables Cloud Trace integration (used with telemetryProject) This sets the proxy container's CLI argument `--disable-traces`
                           type: boolean
                         httpPort:
-                          description: HttpPort the port for Prometheus and health check server. This sets the proxy container's CLI argument `--http-port`
+                          description: HTTPPort the port for Prometheus and health check server. This sets the proxy container's CLI argument `--http-port`
                           format: int32
                           type: integer
                         prometheus:
@@ -914,7 +914,7 @@ spec:
                       description: CredentialsFileSecret the "name" or "namespace/name" for the secret. This sets the Cloud SQL Proxy container's CLI argument `--credentials-file`
                       type: string
                     gcloudAuth:
-                      description: GCloudAuth true when we should use the gcloud metadata server to authenticate. This sets the Cloud SQL Proxy container's CLI argument `--gcloud-auth`
+                      description: GCloudAuth true when we should use the Google Cloud metadata server to authenticate. This sets the Cloud SQL Proxy container's CLI argument `--gcloud-auth`
                       type: boolean
                   type: object
                 instances:

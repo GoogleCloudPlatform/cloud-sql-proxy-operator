@@ -261,8 +261,8 @@ func (in *TelemetrySpec) DeepCopyInto(out *TelemetrySpec) {
 		*out = new(int)
 		**out = **in
 	}
-	if in.HttpPort != nil {
-		in, out := &in.HttpPort, &out.HttpPort
+	if in.HTTPPort != nil {
+		in, out := &in.HTTPPort, &out.HTTPPort
 		*out = new(int32)
 		**out = **in
 	}
