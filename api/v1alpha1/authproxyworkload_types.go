@@ -20,26 +20,23 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-// ConditionUpToDate indicates whether the reconcilliation loop
+// ConditionUpToDate indicates whether the reconciliation loop
 // has properly processed the latest generation of an AuthProxyInstance
 const ConditionUpToDate = "UpToDate"
 
 // AuthProxyWorkloadSpec defines the desired state of AuthProxyWorkload
 type AuthProxyWorkloadSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
 	// Workload selects the workload to
 	// +kubebuilder:validation:Required
 	Workload WorkloadSelectorSpec `json:"workloadSelector,required"`
 
-	// Authentication describes how to authenticate the proxy container to Google Cloud
+	// Authentication describes how to authenticate the Auth Proxy container to Google Cloud
 	// +kubebuilder:validation:Optional
 	Authentication *AuthenticationSpec `json:"authentication,omitempty"`
 
-	// ProxyContainer describes the resources and config for the proxy sidecar container
+	// AuthProxyContainer describes the resources and config for the Auth Proxy container
 	// +kubebuilder:validation:Optional
-	ProxyContainer *ProxyContainerSpec `json:"proxyContainer,omitempty"`
+	AuthProxyContainer *AuthProxyContainerSpec `json:"authProxyContainer,omitempty"`
 
 	// Instances lists the Cloud SQL instances to connect
 	// +kubebuilder:validation:Required
@@ -48,33 +45,35 @@ type AuthProxyWorkloadSpec struct {
 }
 
 // WorkloadSelectorSpec describes which workloads should be configured with this
-// proxy configuration.
+// proxy configuration. To be valid, WorkloadSelectorSpec must specify Kind
+// and either Name or Selector.
 type WorkloadSelectorSpec struct {
-	// Kind the kind of workload where the auth proxy should be configured.
+	// Kind specifies what kind of workload
 	// Supported kinds: Deployment, StatefulSet, Pod, DaemonSet, Job, CronJob
-	// Use a string in the format. Example: "Deployment" "Deployment.v1" or "Deployment.v1.apps".
+	// Example: "Deployment" "Deployment.v1" or "Deployment.v1.apps".
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern=\w+(\.\w+)*
 	Kind string `json:"kind,required"`
 
-	// Namespace which namespace in which to select the resource kind Kind in the namespace.
-	// Optional, defaults to the namespace of the AuthProxyWorkload.
+	// Namespace specifies namespace in which to select the resource.
+	// Optional, defaults to the namespace of the AuthProxyWorkload resource.
 	// All or Wildcard namespaces are not supported.
 	// +kubebuilder:validation:Optional
 	Namespace string `json:"namespace,omitempty"`
 
-	// Name selects a resource of kind Kind by name
+	// Name specifies the name of the resource to select.
 	// +kubebuilder:validation:Optional
 	Name string `json:"name,omitempty"`
 
-	// Selector selects resources by of kind Kind  for
+	// Selector selects resources using labels. See "Label selectors" in the kubernetes docs
+	// https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors
 	// +kubebuilder:validation:Optional
 	Selector *metav1.LabelSelector `json:"selector,omitempty"`
 }
 
-// LabelsSelector returns (selector, error) based on the value of the
-// Selector field. If the Selector field is nil, returns an empty selector
-// which will match all labels.
+// LabelsSelector converts the Selector field into a controller-runtime labels.Selector
+// for convenient use in the controller. If the Selector field is nil, returns
+// an empty selector which will match all labels.
 func (s *WorkloadSelectorSpec) LabelsSelector() (labels.Selector, error) {
 	if s.Selector == nil {
 		return labels.NewSelector(), nil
@@ -83,65 +82,131 @@ func (s *WorkloadSelectorSpec) LabelsSelector() (labels.Selector, error) {
 	}
 }
 
-// AuthenticationSpec describes how the proxy shoudl authenticate with
-// the google cloud api. May be one of the following:
-// gcloud auth: `{gcloudAuth:true}`
-// or
-// kubernetes secret: `{credentialFileSecret: "default/gcloud-cred", credentialFileKey="gcloud.json"}`
+// AuthenticationSpec describes how the proxy should get its Google Cloud identity
+// to authenticate to the Google Cloud api. The proxy can get its Google Cloud
+// identity in one of two ways:
+//
+//  1. Using the Google Cloud metadata server, in which case the AuthenticationSpec
+//     would set the GCloudAuth field to true. e.g. `{gcloudAuth:true}`
+//  2. Using a IAM credential key file stored in a kubernetes secret, in which
+//     case the AuthenticationSpec would set CredentialFileSecret and CredentialFileKey.
+//     e.g. `{credentialFileSecret: "default/gcloud-cred", credentialFileKey="gcloud.json"}`
 type AuthenticationSpec struct {
-	// GCloudAuth true when we should use the gcloud metadata server to authenticate
+	// GCloudAuth true when we should use the gcloud metadata server to authenticate.
+	// This sets the Cloud SQL Proxy container's CLI argument `--gcloud-auth`
 	// +kubebuilder:validation:Optional
 	GCloudAuth bool `json:"gcloudAuth,omitempty"`
 
-	// CredentialsFileSecret the "name" or "namespace/name" for the secret
+	// CredentialsFileSecret the "name" or "namespace/name" for the secret.
+	// This sets the Cloud SQL Proxy container's CLI argument `--credentials-file`
 	// +kubebuilder:validation:Optional
 	CredentialsFileSecret string `json:"credentialsFileSecret,omitempty"`
 
 	// CredentialsFileKey The key within the kubernetes secret containing the credentials file.
+	// This sets the Cloud SQL Proxy container's CLI argument `--credentials-file`
 	// +kubebuilder:validation:Optional
 	CredentialsFileKey string `json:"credentialsFileKey,omitempty"`
 }
 
-// ProxyContainerSpec configuration for the proxy container
-type ProxyContainerSpec struct {
-	// Resources the resources required for the proxy pod
+// AuthProxyContainerSpec specifies configuration for the proxy container.
+type AuthProxyContainerSpec struct {
+	// FUSEDir is the path where the FUSE volume will be mounted.
+	// This sets the proxy container's CLI argument `--fuse` and
+	// will mount the FUSE volume at this path on all containers in the workload.
+	// +kubebuilder:validation:Optional
+	FUSEDir string `json:"fuseDir,omitempty"`
+
+	// FUSETempDir is the path for the temp dir for Unix sockets created with FUSE.
+	// This sets the proxy container's CLI argument `--fuse-tmp-dir` and
+	// will mount the FUSE temp volume at this path on all containers in the workload.
+	// +kubebuilder:validation:Optional
+	FUSETempDir string `json:"fuseTempDir,omitempty"`
+
+	// Resources specifies the resources required for the proxy pod.
 	// +kubebuilder:validation:Optional
 	Resources *v1.ResourceRequirements `json:"resources,omitempty"`
 
-	// Image The image
+	// MaxConnections limits the number of connections. Default value is no limit.
+	// This sets the proxy container's CLI argument `--max-connections`
+	// +kubebuilder:validation:Optional
+	MaxConnections *int64 `json:"maxConnections,omitempty"`
+
+	// MaxSigtermDelay is the maximum number of seconds to wait for connections to close after receiving a TERM signal.
+	// This sets the proxy container's CLI argument `--max-sigterm-delay` and
+	// configures `terminationGracePeriodSeconds` on the workload's PodSpec.
+	// +kubebuilder:validation:Optional
+	MaxSigtermDelay *int64 `json:"maxSigtermDelay,omitempty"`
+
+	// Image is the URL to the proxy image. Optional, by default the operator
+	// will use the latest known compatible proxy image.
 	// +kubebuilder:validation:Optional
 	Image string `json:"image,omitempty"`
 
-	// SQLAdminApiEndpoint debugging parameter to change the api endpoint
+	// Telemetry specifies how the proxy should expose telemetry.
+	// Optional, by default
+	// +kubebuilder:validation:Optional
+	Telemetry *TelemetrySpec `json:"telemetry,omitempty"`
+
+	// SQLAdminApiEndpoint is a debugging parameter that when specified will
+	// change the Google Cloud api endpoint used by the proxy.
 	// +kubebuilder:validation:Optional
 	SQLAdminApiEndpoint string `json:"sqlAdminApiEndpoint,omitempty"`
 
-	// Container debugging parameter to fully override the proxy container
+	// Container is debugging parameter that when specified will override the
+	// proxy container with a completely custom Container spec.
 	// +kubebuilder:validation:Optional
 	Container *v1.Container `json:"container,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	Telemetry *TelemetrySpec `json:"telemetry,omitempty"`
 }
 
-// TelemetrySpec telemetry configuration for the proxy
+// TelemetrySpec specifies how the proxy container will expose telemetry.
 type TelemetrySpec struct {
+	// QuotaProject Specifies the project to use for Cloud SQL Admin API quota tracking.
+	// The IAM principal must have the "serviceusage.services.use" permission
+	// for the given project. See https://cloud.google.com/service-usage/docs/overview and
+	// https://cloud.google.com/storage/docs/requester-pays
+	// This sets the proxy container's CLI argument `--quota-project`
 	// +kubebuilder:validation:Optional
-	PrometheusNamespace *string `json:"prometheusNamespace,omitempty"`
-	// +kubebuilder:validation:Optional
-	TelemetryPrefix *string `json:"telemetryPrefix,omitempty"`
-	// +kubebuilder:validation:Optional
-	TelemetryProject *string `json:"telemetryProject,omitempty"`
-	// +kubebuilder:validation:Optional
-	TelemetrySampleRate *int `json:"telemetrySampleRate,omitempty"`
-	// +kubebuilder:validation:Optional
-	HttpPort *int32 `json:"httpPort,omitempty"`
-	// +kubebuilder:validation:Optional
-	DisableTraces *bool `json:"disableTraces,omitempty"`
-	// +kubebuilder:validation:Optional
-	DisableMetrics *bool `json:"disableMetrics,omitempty"`
+	QuotaProject string `json:"quotaProject,omitempty"`
+
+	// Prometheus Enables Prometheus HTTP endpoint /metrics on localhost
+	// This sets the proxy container's CLI argument `--prometheus`
 	// +kubebuilder:validation:Optional
 	Prometheus *bool `json:"prometheus,omitempty"`
+
+	// PrometheusNamespace is used the provided Prometheus namespace for metrics
+	// This sets the proxy container's CLI argument `--prometheus-namespace`
+	// +kubebuilder:validation:Optional
+	PrometheusNamespace *string `json:"prometheusNamespace,omitempty"`
+
+	// TelemetryProject enables Cloud Monitoring and Cloud Trace with the provided project ID.
+	// This sets the proxy container's CLI argument `--telemetry-project`
+	// +kubebuilder:validation:Optional
+	TelemetryProject *string `json:"telemetryProject,omitempty"`
+
+	// TelemetryPrefix is the prefix for Cloud Monitoring metrics.
+	// This sets the proxy container's CLI argument `--telemetry-prefix`
+	// +kubebuilder:validation:Optional
+	TelemetryPrefix *string `json:"telemetryPrefix,omitempty"`
+
+	// TelemetrySampleRate is the Cloud Trace sample rate. A smaller number means more traces.
+	// This sets the proxy container's CLI argument `--telemetry-sample-rate`
+	// +kubebuilder:validation:Optional
+	TelemetrySampleRate *int `json:"telemetrySampleRate,omitempty"`
+
+	// HttpPort the port for Prometheus and health check server.
+	// This sets the proxy container's CLI argument `--http-port`
+	// +kubebuilder:validation:Optional
+	HttpPort *int32 `json:"httpPort,omitempty"`
+
+	// DisableTraces disables Cloud Trace integration (used with telemetryProject)
+	// This sets the proxy container's CLI argument `--disable-traces`
+	// +kubebuilder:validation:Optional
+	DisableTraces *bool `json:"disableTraces,omitempty"`
+
+	// DisableMetrics disables Cloud Monitoring integration (used with telemetryProject)
+	// This sets the proxy container's CLI argument `--disable-metrics`
+	// +kubebuilder:validation:Optional
+	DisableMetrics *bool `json:"disableMetrics,omitempty"`
 }
 
 // SocketType enum of socket types available on InstanceSpec
@@ -152,73 +217,131 @@ const (
 	SocketTypeUnix SocketType = "unix"
 )
 
-// InstanceSpec describes how to connect to a proxy instance
+// InstanceSpec describes the configuration for how the proxy should expose
+// a Cloud SQL database instance to a workload. The simplest possible configuration
+// declares just the connection string and the port number or unix socket.
+//
+// For example, for a TCP port:
+//
+//	{ "connectionString":"my-project:us-central1:my-db-server", "port":5000 }
+//
+// or for a unix socket:
+//
+//	{ "connectionString":"my-project:us-central1:my-db-server",
+//	  "unixSocketPath" : "/mnt/db/my-db-server" }
+//
+// You may allow the operator to choose a non-conflicting TCP port or unix socket
+// instead of explicitly setting the port or socket path. This may be easier to
+// manage when workload needs to connect to many databases.
+//
+// For example, for a TCP port:
+//
+//	{ "connectionString":"my-project:us-central1:my-db-server",
+//	  "portEnvName":"MY_DB_SERVER_PORT"
+//	  "hostEnvName":"MY_DB_SERVER_HOST"
+//	 }
+//
+// will set environment variables MY_DB_SERVER_PORT MY_DB_SERVER_HOST with the
+// value of the TCP port and hostname. Then, the application can read these values
+// to connect to the database through the proxy.
+//
+// or for a unix socket:
+//
+//	{ "connectionString":"my-project:us-central1:my-db-server",
+//	  "unixSocketPathEnvName" : "MY_DB_SERVER_SOCKET_DIR" }
+//
+// will set environment variables MY_DB_SERVER_SOCKET_DIR with the
+// value of the unix socket path. Then, the application can read this value
+// to connect to the database through the proxy.
 type InstanceSpec struct {
+
+	// ConnectionString is the Cloud SQL instance.
 	// +kubebuilder:validation:Required
-	// ConnectionString the Cloud SQL instance to connect
 	ConnectionString string `json:"connectionString,omitempty"`
 
-	// SocketType enum of {"tcp","unix"} declares what type of socket to
-	// open for this database.
+	// SocketType declares what type of socket to create for this database. Allowed
+	// values: "tcp" or "unix"
 	// +kubebuilder:validation:Enum=tcp;unix
 	// +kubebuilder:validation:Optional
 	SocketType SocketType `json:"socketType,omitempty"`
 
-	// Port Set the tcp port for this instance
+	// Port sets the tcp port for this instance. Optional, if not set, a value will
+	// be automatically assigned by the operator and set as an environment variable
+	// on all containers in the workload named according to PortEnvName. The operator will choose
+	// a port so that it does not conflict with other ports on the workload.
 	// +kubebuilder:validation:Optional
 	Port *int32 `json:"port,omitempty"`
-	// AutoIamAuthn Enable IAM Authentication for this instance
-	// +kubebuilder:validation:Optional
-	AutoIAMAuthN *bool `json:"autoIAMAuthN,omitempty"`
-	// PrivateIP Enable connection to the Cloud SQL instance's private ip for this instance
-	// +kubebuilder:validation:Optional
-	PrivateIP *bool `json:"privateIP,omitempty"`
-	// UnixSocketPath Use this directory to hold the unix socket for this instance
+
+	// UnixSocketPath is the directory to mount the unix socket for this instance.
+	// When set, this directory will be mounted on all containers in the workload.
 	// +kubebuilder:validation:Optional
 	UnixSocketPath string `json:"unixSocketPath,omitempty"`
-	// FusePath Use this directory as the fuse volume for this instance
-	// +kubebuilder:validation:Optional
-	FusePath string `json:"fusePath,omitempty"`
 
-	// PortEnvName The name of the environment variable containing this instances tcp port
+	// AutoIAMAuthN Enables IAM Authentication for this instance. Optional, default
+	// false.
+	// +kubebuilder:validation:Optional
+	AutoIAMAuthN *bool `json:"autoIAMAuthN,omitempty"`
+
+	// PrivateIP Enable connection to the Cloud SQL instance's private ip for this instance.
+	// Optional, default false.
+	// +kubebuilder:validation:Optional
+	PrivateIP *bool `json:"privateIP,omitempty"`
+
+	// PortEnvName is name of the environment variable containing this instance's tcp port.
+	// Optional, when set this environment variable will be added to all containers in the workload.
 	// +kubebuilder:validation:Optional
 	PortEnvName string `json:"portEnvName,omitempty"`
+
 	// HostEnvName The name of the environment variable containing this instances tcp hostname
+	// Optional, when set this environment variable will be added to all containers in the workload.
 	// +kubebuilder:validation:Optional
 	HostEnvName string `json:"hostEnvName,omitempty"`
+
 	// UnixSocketPathEnvName the name of the environment variable containing the unix socket path
+	// Optional, when set this environment variable will be added to all containers in the workload.
 	// +kubebuilder:validation:Optional
 	UnixSocketPathEnvName string `json:"unixSocketPathEnvName,omitempty"`
-	// FuseVolumePathEnvName the name of the environment variable containing fuse volume path
-	// +kubebuilder:validation:Optional
-	FuseVolumePathEnvName string `json:"fuseVolumePathEnvName,omitempty"`
 }
 
-// AuthProxyWorkloadStatus defines the observed state of AuthProxyWorkload
+// AuthProxyWorkloadStatus presents the observed state of AuthProxyWorkload using
+// standard Kubernetes Conditions.
 type AuthProxyWorkloadStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
 
-	// Conditions for the state
+	// Conditions show the overall status of the AuthProxyWorkload resource on all
+	// matching workloads.
+	//
+	// The "UpToDate" condition indicates that the proxy was successfully
+	// applied to all matching workloads. See ConditionUpToDate.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
+	// WorkloadStatus presents the observed status of individual workloads that match
+	// this AuthProxyWorkload resource.
 	WorkloadStatus []WorkloadStatus `json:"WorkloadStatus,omitempty"`
 }
 
-// WorkloadStatus holds the status for the application of this proxy config to
-// a matching workload.
+// WorkloadStatus presents the status for how this AuthProxyWorkload resource
+// was applied to a specific workload.
 type WorkloadStatus struct {
+
+	// Kind Version Namespace Name identify the specific workload.
 	// +kubebuilder:validation:Enum=Pod;Deployment;StatefulSet;DaemonSet;Job;CronJob
 	Kind      string `json:"kind,omitempty,"`
 	Version   string `json:"version,omitempty,"`
 	Namespace string `json:"namespace,omitempty,"`
 	Name      string `json:"name,omitempty,"`
 
-	// Conditions for the state of the workload status
+	// Conditions show the status of the AuthProxyWorkload resource on this
+	// matching workload.
+	//
+	// The "UpToDate" condition indicates that the proxy was successfully
+	// applied to all matching workloads. See ConditionUpToDate.
 	Conditions []metav1.Condition `json:"conditions"`
 }
 
-// AuthProxyWorkload is the Schema for the authproxyworkloads API
+// AuthProxyWorkload declares how a Cloud SQL Proxy container should be applied
+// to a matching set of workloads, and shows the status of those proxy containers.
+// This is the Schema for the authproxyworkloads API.
+//
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 type AuthProxyWorkload struct {
@@ -229,7 +352,8 @@ type AuthProxyWorkload struct {
 	Status AuthProxyWorkloadStatus `json:"status,omitempty"`
 }
 
-// AuthProxyWorkloadList contains a list of AuthProxyWorkload
+// AuthProxyWorkloadList contains a list of AuthProxyWorkload and is part of the
+// authproxyworkloads API.
 // +kubebuilder:object:root=true
 type AuthProxyWorkloadList struct {
 	metav1.TypeMeta `json:",inline"`
@@ -237,6 +361,7 @@ type AuthProxyWorkloadList struct {
 	Items           []AuthProxyWorkload `json:"items"`
 }
 
+// init registers these resource definitions with the controller-runtime framework.
 func init() {
 	SchemeBuilder.Register(&AuthProxyWorkload{}, &AuthProxyWorkloadList{})
 }

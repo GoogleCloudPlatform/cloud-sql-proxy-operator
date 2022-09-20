@@ -30,7 +30,7 @@ spec:
     - name: v1alpha1
       schema:
         openAPIV3Schema:
-          description: AuthProxyWorkload is the Schema for the authproxyworkloads API
+          description: AuthProxyWorkload declares how a Cloud SQL Proxy container should be applied to a matching set of workloads, and shows the status of those proxy containers. This is the Schema for the authproxyworkloads API.
           properties:
             apiVersion:
               description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
@@ -43,69 +43,11 @@ spec:
             spec:
               description: AuthProxyWorkloadSpec defines the desired state of AuthProxyWorkload
               properties:
-                authentication:
-                  description: Authentication describes how to authenticate the proxy container to Google Cloud
-                  properties:
-                    credentialsFileKey:
-                      description: CredentialsFileKey The key within the kubernetes secret containing the credentials file.
-                      type: string
-                    credentialsFileSecret:
-                      description: CredentialsFileSecret the "name" or "namespace/name" for the secret
-                      type: string
-                    gcloudAuth:
-                      description: GCloudAuth true when we should use the gcloud metadata server to authenticate
-                      type: boolean
-                  type: object
-                instances:
-                  description: Instances lists the Cloud SQL instances to connect
-                  items:
-                    description: InstanceSpec describes how to connect to a proxy instance
-                    properties:
-                      autoIAMAuthN:
-                        description: AutoIamAuthn Enable IAM Authentication for this instance
-                        type: boolean
-                      connectionString:
-                        description: ConnectionString the Cloud SQL instance to connect
-                        type: string
-                      fusePath:
-                        description: FusePath Use this directory as the fuse volume for this instance
-                        type: string
-                      fuseVolumePathEnvName:
-                        description: FuseVolumePathEnvName the name of the environment variable containing fuse volume path
-                        type: string
-                      hostEnvName:
-                        description: HostEnvName The name of the environment variable containing this instances tcp hostname
-                        type: string
-                      port:
-                        description: Port Set the tcp port for this instance
-                        format: int32
-                        type: integer
-                      portEnvName:
-                        description: PortEnvName The name of the environment variable containing this instances tcp port
-                        type: string
-                      privateIP:
-                        description: PrivateIP Enable connection to the Cloud SQL instance's private ip for this instance
-                        type: boolean
-                      socketType:
-                        description: SocketType enum of {"tcp","unix"} declares what type of socket to open for this database.
-                        enum:
-                          - tcp
-                          - unix
-                        type: string
-                      unixSocketPath:
-                        description: UnixSocketPath Use this directory to hold the unix socket for this instance
-                        type: string
-                      unixSocketPathEnvName:
-                        description: UnixSocketPathEnvName the name of the environment variable containing the unix socket path
-                        type: string
-                    type: object
-                  minItems: 1
-                  type: array
-                proxyContainer:
-                  description: ProxyContainer describes the resources and config for the proxy sidecar container
+                authProxyContainer:
+                  description: AuthProxyContainer describes the resources and config for the Auth Proxy container
                   properties:
                     container:
-                      description: Container debugging parameter to fully override the proxy container
+                      description: Container is debugging parameter that when specified will override the proxy container with a completely custom Container spec.
                       properties:
                         args:
                           description: 'Arguments to the entrypoint. The container image''s CMD is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container''s environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. "$$(VAR_NAME)" will produce the string literal "$(VAR_NAME)". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell'
@@ -887,11 +829,25 @@ spec:
                       required:
                         - name
                       type: object
-                    image:
-                      description: Image The image
+                    fuseDir:
+                      description: FUSEDir is the path where the FUSE volume will be mounted. This sets the proxy container's CLI argument `--fuse` and will mount the FUSE volume at this path on all containers in the workload.
                       type: string
+                    fuseTempDir:
+                      description: FUSETempDir is the path for the temp dir for Unix sockets created with FUSE. This sets the proxy container's CLI argument `--fuse-tmp-dir` and will mount the FUSE temp volume at this path on all containers in the workload.
+                      type: string
+                    image:
+                      description: Image is the URL to the proxy image. Optional, by default the operator will use the latest known compatible proxy image.
+                      type: string
+                    maxConnections:
+                      description: MaxConnections limits the number of connections. Default value is no limit. This sets the proxy container's CLI argument `--max-connections`
+                      format: int64
+                      type: integer
+                    maxSigtermDelay:
+                      description: MaxSigtermDelay is the maximum number of seconds to wait for connections to close after receiving a TERM signal. This sets the proxy container's CLI argument `--max-sigterm-delay` and configures `terminationGracePeriodSeconds` on the workload's PodSpec.
+                      format: int64
+                      type: integer
                     resources:
-                      description: Resources the resources required for the proxy pod
+                      description: Resources specifies the resources required for the proxy pod.
                       properties:
                         limits:
                           additionalProperties:
@@ -913,45 +869,108 @@ spec:
                           type: object
                       type: object
                     sqlAdminApiEndpoint:
-                      description: SQLAdminApiEndpoint debugging parameter to change the api endpoint
+                      description: SQLAdminApiEndpoint is a debugging parameter that when specified will change the Google Cloud api endpoint used by the proxy.
                       type: string
                     telemetry:
-                      description: TelemetrySpec telemetry configuration for the proxy
+                      description: Telemetry specifies how the proxy should expose telemetry. Optional, by default
                       properties:
                         disableMetrics:
+                          description: DisableMetrics disables Cloud Monitoring integration (used with telemetryProject) This sets the proxy container's CLI argument `--disable-metrics`
                           type: boolean
                         disableTraces:
+                          description: DisableTraces disables Cloud Trace integration (used with telemetryProject) This sets the proxy container's CLI argument `--disable-traces`
                           type: boolean
                         httpPort:
+                          description: HttpPort the port for Prometheus and health check server. This sets the proxy container's CLI argument `--http-port`
                           format: int32
                           type: integer
                         prometheus:
+                          description: Prometheus Enables Prometheus HTTP endpoint /metrics on localhost This sets the proxy container's CLI argument `--prometheus`
                           type: boolean
                         prometheusNamespace:
+                          description: PrometheusNamespace is used the provided Prometheus namespace for metrics This sets the proxy container's CLI argument `--prometheus-namespace`
+                          type: string
+                        quotaProject:
+                          description: QuotaProject Specifies the project to use for Cloud SQL Admin API quota tracking. The IAM principal must have the "serviceusage.services.use" permission for the given project. See https://cloud.google.com/service-usage/docs/overview and https://cloud.google.com/storage/docs/requester-pays This sets the proxy container's CLI argument `--quota-project`
                           type: string
                         telemetryPrefix:
+                          description: TelemetryPrefix is the prefix for Cloud Monitoring metrics. This sets the proxy container's CLI argument `--telemetry-prefix`
                           type: string
                         telemetryProject:
+                          description: TelemetryProject enables Cloud Monitoring and Cloud Trace with the provided project ID. This sets the proxy container's CLI argument `--telemetry-project`
                           type: string
                         telemetrySampleRate:
+                          description: TelemetrySampleRate is the Cloud Trace sample rate. A smaller number means more traces. This sets the proxy container's CLI argument `--telemetry-sample-rate`
                           type: integer
                       type: object
                   type: object
+                authentication:
+                  description: Authentication describes how to authenticate the Auth Proxy container to Google Cloud
+                  properties:
+                    credentialsFileKey:
+                      description: CredentialsFileKey The key within the kubernetes secret containing the credentials file. This sets the Cloud SQL Proxy container's CLI argument `--credentials-file`
+                      type: string
+                    credentialsFileSecret:
+                      description: CredentialsFileSecret the "name" or "namespace/name" for the secret. This sets the Cloud SQL Proxy container's CLI argument `--credentials-file`
+                      type: string
+                    gcloudAuth:
+                      description: GCloudAuth true when we should use the gcloud metadata server to authenticate. This sets the Cloud SQL Proxy container's CLI argument `--gcloud-auth`
+                      type: boolean
+                  type: object
+                instances:
+                  description: Instances lists the Cloud SQL instances to connect
+                  items:
+                    description: "InstanceSpec describes the configuration for how the proxy should expose a Cloud SQL database instance to a workload. The simplest possible configuration declares just the connection string and the port number or unix socket. \n For example, for a TCP port: \n { \"connectionString\":\"my-project:us-central1:my-db-server\", \"port\":5000 } \n or for a unix socket: \n { \"connectionString\":\"my-project:us-central1:my-db-server\", \"unixSocketPath\" : \"/mnt/db/my-db-server\" } \n You may allow the operator to choose a non-conflicting TCP port or unix socket instead of explicitly setting the port or socket path. This may be easier to manage when workload needs to connect to many databases. \n For example, for a TCP port: \n { \"connectionString\":\"my-project:us-central1:my-db-server\", \"portEnvName\":\"MY_DB_SERVER_PORT\" \"hostEnvName\":\"MY_DB_SERVER_HOST\" } \n will set environment variables MY_DB_SERVER_PORT MY_DB_SERVER_HOST with the value of the TCP port and hostname. Then, the application can read these values to connect to the database through the proxy. \n or for a unix socket: \n { \"connectionString\":\"my-project:us-central1:my-db-server\", \"unixSocketPathEnvName\" : \"MY_DB_SERVER_SOCKET_DIR\" } \n will set environment variables MY_DB_SERVER_SOCKET_DIR with the value of the unix socket path. Then, the application can read this value to connect to the database through the proxy."
+                    properties:
+                      autoIAMAuthN:
+                        description: AutoIAMAuthN Enables IAM Authentication for this instance. Optional, default false.
+                        type: boolean
+                      connectionString:
+                        description: ConnectionString is the Cloud SQL instance.
+                        type: string
+                      hostEnvName:
+                        description: HostEnvName The name of the environment variable containing this instances tcp hostname Optional, when set this environment variable will be added to all containers in the workload.
+                        type: string
+                      port:
+                        description: Port sets the tcp port for this instance. Optional, if not set, a value will be automatically assigned by the operator and set as an environment variable on all containers in the workload named according to PortEnvName. The operator will choose a port so that it does not conflict with other ports on the workload.
+                        format: int32
+                        type: integer
+                      portEnvName:
+                        description: PortEnvName is name of the environment variable containing this instance's tcp port. Optional, when set this environment variable will be added to all containers in the workload.
+                        type: string
+                      privateIP:
+                        description: PrivateIP Enable connection to the Cloud SQL instance's private ip for this instance. Optional, default false.
+                        type: boolean
+                      socketType:
+                        description: 'SocketType declares what type of socket to create for this database. Allowed values: "tcp" or "unix"'
+                        enum:
+                          - tcp
+                          - unix
+                        type: string
+                      unixSocketPath:
+                        description: UnixSocketPath is the directory to mount the unix socket for this instance. When set, this directory will be mounted on all containers in the workload.
+                        type: string
+                      unixSocketPathEnvName:
+                        description: UnixSocketPathEnvName the name of the environment variable containing the unix socket path Optional, when set this environment variable will be added to all containers in the workload.
+                        type: string
+                    type: object
+                  minItems: 1
+                  type: array
                 workloadSelector:
                   description: Workload selects the workload to
                   properties:
                     kind:
-                      description: 'Kind the kind of workload where the auth proxy should be configured. Supported kinds: Deployment, StatefulSet, Pod, DaemonSet, Job, CronJob Use a string in the format. Example: "Deployment" "Deployment.v1" or "Deployment.v1.apps".'
+                      description: 'Kind specifies what kind of workload Supported kinds: Deployment, StatefulSet, Pod, DaemonSet, Job, CronJob Example: "Deployment" "Deployment.v1" or "Deployment.v1.apps".'
                       pattern: \w+(\.\w+)*
                       type: string
                     name:
-                      description: Name selects a resource of kind Kind by name
+                      description: Name specifies the name of the resource to select.
                       type: string
                     namespace:
-                      description: Namespace which namespace in which to select the resource kind Kind in the namespace. Optional, defaults to the namespace of the AuthProxyWorkload. All or Wildcard namespaces are not supported.
+                      description: Namespace specifies namespace in which to select the resource. Optional, defaults to the namespace of the AuthProxyWorkload resource. All or Wildcard namespaces are not supported.
                       type: string
                     selector:
-                      description: Selector selects resources by of kind Kind  for
+                      description: Selector selects resources using labels. See "Label selectors" in the kubernetes docs https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors
                       properties:
                         matchExpressions:
                           description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
@@ -989,14 +1008,15 @@ spec:
                 - workloadSelector
               type: object
             status:
-              description: AuthProxyWorkloadStatus defines the observed state of AuthProxyWorkload
+              description: AuthProxyWorkloadStatus presents the observed state of AuthProxyWorkload using standard Kubernetes Conditions.
               properties:
                 WorkloadStatus:
+                  description: WorkloadStatus presents the observed status of individual workloads that match this AuthProxyWorkload resource.
                   items:
-                    description: WorkloadStatus holds the status for the application of this proxy config to a matching workload.
+                    description: WorkloadStatus presents the status for how this AuthProxyWorkload resource was applied to a specific workload.
                     properties:
                       conditions:
-                        description: Conditions for the state of the workload status
+                        description: "Conditions show the status of the AuthProxyWorkload resource on this matching workload. \n The \"UpToDate\" condition indicates that the proxy was successfully applied to all matching workloads. See ConditionUpToDate."
                         items:
                           description: "Condition contains details for one aspect of the current state of this API Resource. --- This struct is intended for direct use as an array at the field path .status.conditions.  For example, type FooStatus struct{ // Represents the observations of a foo's current state. // Known .status.conditions.type are: \"Available\", \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge // +listType=map // +listMapKey=type Conditions []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
                           properties:
@@ -1040,6 +1060,7 @@ spec:
                           type: object
                         type: array
                       kind:
+                        description: Kind Version Namespace Name identify the specific workload.
                         enum:
                           - Pod
                           - Deployment
@@ -1059,7 +1080,7 @@ spec:
                     type: object
                   type: array
                 conditions:
-                  description: Conditions for the state
+                  description: "Conditions show the overall status of the AuthProxyWorkload resource on all matching workloads. \n The \"UpToDate\" condition indicates that the proxy was successfully applied to all matching workloads. See ConditionUpToDate."
                   items:
                     description: "Condition contains details for one aspect of the current state of this API Resource. --- This struct is intended for direct use as an array at the field path .status.conditions.  For example, type FooStatus struct{ // Represents the observations of a foo's current state. // Known .status.conditions.type are: \"Available\", \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge // +listType=map // +listMapKey=type Conditions []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
                     properties:
