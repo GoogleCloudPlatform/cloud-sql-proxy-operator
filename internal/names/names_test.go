@@ -22,8 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestSafeDnsLabel(t *testing.T) {
-	t.Parallel()
+func TestSafePrefixedName(t *testing.T) {
 	tcs := []struct {
 		desc string
 		want string
@@ -37,12 +36,12 @@ func TestSafeDnsLabel(t *testing.T) {
 		{
 			desc: "max length name truncates to safe length",
 			name: "twas-brillig-and-the-slithy-toves-did-gyre-and-gimble-in-the-wa",
-			want: "csql-twas-brillig-and-the-sli-yre-and-gimble-in-the-wa-e398b76e",
+			want: "csql-twas-brillig-and-the-sliyre-and-gimble-in-the-wa-e398b76e",
 		},
 		{
 			desc: "just barely too long name truncates to safe length",
 			name: "twas-brillig-and-the-slithy-toves-did-gyre-and-gimble-in-th",
-			want: "csql-twas-brillig-and-the-sli-id-gyre-and-gimble-in-th-78bfbd48",
+			want: "csql-twas-brillig-and-the-sliid-gyre-and-gimble-in-th-78bfbd48",
 		},
 		{
 			desc: "acceptable length long name is left whole",
@@ -52,12 +51,12 @@ func TestSafeDnsLabel(t *testing.T) {
 		{
 			desc: "truncated difference in middle preserved in hash 1",
 			name: "twas-brillig-and-the-slithy-toves-1111-did-gyre-and-gimble-in",
-			want: "csql-twas-brillig-and-the-sli-1-did-gyre-and-gimble-in-d0b9860",
+			want: "csql-twas-brillig-and-the-slit11-did-gyre-and-gimble-in-d0b9860",
 		},
 		{
 			desc: "truncated difference in middle preserved in hash 2",
 			name: "twas-brillig-and-the-slithy-toves-2222-did-gyre-and-gimble-in",
-			want: "csql-twas-brillig-and-the-sli-2-did-gyre-and-gimble-in-34c209d4",
+			want: "csql-twas-brillig-and-the-sli2-did-gyre-and-gimble-in-34c209d4",
 		},
 	}
 	for _, tc := range tcs {
@@ -74,9 +73,8 @@ func TestSafeDnsLabel(t *testing.T) {
 
 }
 
-// TestContainerName container names are a public
 func TestContainerName(t *testing.T) {
-	csql := mustMakeCsql("hello-world", "default")
+	csql := authProxyWorkload("hello-world", "default")
 	got := names.ContainerName(csql)
 	want := "csql-hello-world"
 	if want != got {
@@ -85,9 +83,8 @@ func TestContainerName(t *testing.T) {
 
 }
 
-// TestVolumeName container names are a public
 func TestVolumeName(t *testing.T) {
-	csql := mustMakeCsql("hello-world", "default")
+	csql := authProxyWorkload("hello-world", "default")
 	got := names.VolumeName(csql, &csql.Spec.Instances[0], "temp")
 	want := "csql-hello-world-temp-proj-inst-db"
 	if want != got {
@@ -96,15 +93,13 @@ func TestVolumeName(t *testing.T) {
 
 }
 
-func mustMakeCsql(name string, namespace string) *cloudsqlapi.AuthProxyWorkload {
+func authProxyWorkload(name string, namespace string) *cloudsqlapi.AuthProxyWorkload {
 	// Create a CloudSqlInstance that matches the deployment
 	return &cloudsqlapi.AuthProxyWorkload{
 		TypeMeta:   metav1.TypeMeta{Kind: "AuthProxyWorkload", APIVersion: cloudsqlapi.GroupVersion.String()},
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
 		Spec: cloudsqlapi.AuthProxyWorkloadSpec{
 			Workload: cloudsqlapi.WorkloadSelectorSpec{
-				Kind: "",
-				Name: "",
 				Selector: &metav1.LabelSelector{
 					MatchLabels:      map[string]string{"app": "hello"},
 					MatchExpressions: nil,
