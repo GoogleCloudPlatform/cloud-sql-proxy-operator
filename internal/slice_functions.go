@@ -18,17 +18,21 @@ package internal
 // on slices. It's not worth importing a 3rd party functional library for these
 // functions.
 
-func appendOrReplace[T any](list []T, value T, isEqual func(*T, *T) bool) []T {
+// appendOrReplace checks if the value is in the list using the matches function
+// and then either replaces the first matching value, or if no match was found
+// appends value to the list.
+func appendOrReplace[T any](list []T, value T, matches func(*T, *T) bool) []T {
 	for i := 0; i < len(list); i++ {
-		if isEqual(&list[i], &value) {
+		if matches(&list[i], &value) {
 			list[i] = value
 			return list
 		}
 	}
-	list = append(list, value)
-	return list
+	return append(list, value)
 }
 
+// fnFilter returns a slice containing all values of list where test function
+// returns true.
 func fnFilter[T any](list []T, test func(T) bool) []T {
 	result := make([]T, 0, len(list))
 	for i := 0; i < len(list); i++ {
@@ -39,6 +43,8 @@ func fnFilter[T any](list []T, test func(T) bool) []T {
 	return result
 }
 
+// fnMap returns a slice containing the result of apply(v) for each
+// value in list.
 func fnMap[T any, V any](list []T, apply func(T) V) []V {
 	result := make([]V, len(list))
 	for i := 0; i < len(list); i++ {
@@ -47,13 +53,12 @@ func fnMap[T any, V any](list []T, apply func(T) V) []V {
 	return result
 }
 
+// fnFlatMap returns a slice containing concatenated results of apply(v) for each
+// value in list.
 func fnFlatMap[T any, V any](list []T, apply func(T) []V) []V {
 	result := make([]V, 0, len(list))
 	for i := 0; i < len(list); i++ {
-		oneResult := apply(list[i])
-		for j := 0; j < len(oneResult); j++ {
-			result = append(result, oneResult[j])
-		}
+		result = append(result, apply(list[i])...)
 	}
 	return result
 }
