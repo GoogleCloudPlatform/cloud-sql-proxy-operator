@@ -15,7 +15,6 @@
 package internal
 
 import (
-	"log"
 	"testing"
 
 	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/api/v1alpha1"
@@ -40,33 +39,32 @@ func TestWorkloadMatches(t *testing.T) {
 	cases := []testcases{{
 		desc: "match kind, name, and namespace",
 		sel: cloudsqlapi.WorkloadSelectorSpec{
-			Kind:     "Pod",
-			Name:     "hello",
-			Selector: nil,
+			Kind: "Pod",
+			Name: "hello",
 		},
 		tc: []workloadTestCase{
 			{
-				wl:    workload("Pod", "default", "hello"),
+				wl:    workload(t, "Pod", "default", "hello"),
 				match: true,
 				desc:  "matching pod",
 			},
 			{
-				wl:    workload("Pod", "default", "hello", "app", "pod"),
+				wl:    workload(t, "Pod", "default", "hello", "app", "pod"),
 				match: true,
 				desc:  "matching pod with extra label",
 			},
 			{
-				wl:    workload("Pod", "default", "pod", "app", "pod"),
+				wl:    workload(t, "Pod", "default", "pod", "app", "pod"),
 				match: false,
 				desc:  "pod with different name",
 			},
 			{
-				wl:    workload("Pod", "other", "hello"),
+				wl:    workload(t, "Pod", "other", "hello"),
 				match: false,
 				desc:  "pod with different namespace",
 			},
 			{
-				wl:    workload("Deployment", "default", "hello"),
+				wl:    workload(t, "Deployment", "default", "hello"),
 				match: false,
 				desc:  "different kind",
 			},
@@ -76,35 +74,33 @@ func TestWorkloadMatches(t *testing.T) {
 			desc: "match kind, namespace, and labels",
 			sel: cloudsqlapi.WorkloadSelectorSpec{
 				Kind: "Pod",
-				Name: "",
 				Selector: &metav1.LabelSelector{
-					MatchLabels:      map[string]string{"app": "hello"},
-					MatchExpressions: nil,
+					MatchLabels: map[string]string{"app": "hello"},
 				},
 			},
 			tc: []workloadTestCase{
 				{
-					wl:    workload("Pod", "default", "hello"),
+					wl:    workload(t, "Pod", "default", "hello"),
 					match: false,
 					desc:  "label not set",
 				},
 				{
-					wl:    workload("Pod", "default", "hello", "app", "hello", "type", "frontend"),
+					wl:    workload(t, "Pod", "default", "hello", "app", "hello", "type", "frontend"),
 					match: true,
 					desc:  "matching pod with extra label",
 				},
 				{
-					wl:    workload("Pod", "default", "pod", "app", "nope"),
+					wl:    workload(t, "Pod", "default", "pod", "app", "nope"),
 					match: false,
 					desc:  "pod with different label",
 				},
 				{
-					wl:    workload("Pod", "Other", "hello", "app", "hello", "type", "frontend"),
+					wl:    workload(t, "Pod", "Other", "hello", "app", "hello", "type", "frontend"),
 					match: false,
 					desc:  "pod with different namespace",
 				},
 				{
-					wl:    workload("Deployment", "default", "hello", "app", "hello", "type", "frontend"),
+					wl:    workload(t, "Deployment", "default", "hello", "app", "hello", "type", "frontend"),
 					match: false,
 					desc:  "Deploymnet with different namespace",
 				},
@@ -113,36 +109,33 @@ func TestWorkloadMatches(t *testing.T) {
 		{
 			desc: "match namespace, and labels",
 			sel: cloudsqlapi.WorkloadSelectorSpec{
-				Kind: "",
-				Name: "",
 				Selector: &metav1.LabelSelector{
-					MatchLabels:      map[string]string{"app": "hello"},
-					MatchExpressions: nil,
+					MatchLabels: map[string]string{"app": "hello"},
 				},
 			},
 			tc: []workloadTestCase{
 				{
-					wl:    workload("Pod", "default", "hello", "app", "hello", "type", "frontend"),
+					wl:    workload(t, "Pod", "default", "hello", "app", "hello", "type", "frontend"),
 					match: true,
 					desc:  "matching pod with extra label",
 				},
 				{
-					wl:    workload("Pod", "default", "pod", "app", "nope"),
+					wl:    workload(t, "Pod", "default", "pod", "app", "nope"),
 					match: false,
 					desc:  "pod with different label",
 				},
 				{
-					wl:    workload("Deployment", "default", "hello", "app", "hello", "type", "frontend"),
+					wl:    workload(t, "Deployment", "default", "hello", "app", "hello", "type", "frontend"),
 					match: true,
 					desc:  "deployment with extra label",
 				},
 				{
-					wl:    workload("Deployment", "default", "pod", "app", "nope"),
+					wl:    workload(t, "Deployment", "default", "pod", "app", "nope"),
 					match: false,
 					desc:  "deployment with different label",
 				},
 				{
-					wl:    workload("StatefulSet", "default", "things"),
+					wl:    workload(t, "StatefulSet", "default", "things"),
 					match: false,
 					desc:  "StatefulSet no labels",
 				},
@@ -151,10 +144,7 @@ func TestWorkloadMatches(t *testing.T) {
 		{
 			desc: "match namespace, and label expression",
 			sel: cloudsqlapi.WorkloadSelectorSpec{
-				Kind: "",
-				Name: "",
 				Selector: &metav1.LabelSelector{
-					MatchLabels: nil,
 					MatchExpressions: []metav1.LabelSelectorRequirement{{
 						Key:      "app",
 						Operator: metav1.LabelSelectorOpIn,
@@ -164,27 +154,27 @@ func TestWorkloadMatches(t *testing.T) {
 			},
 			tc: []workloadTestCase{
 				{
-					wl:    workload("Pod", "default", "hello", "app", "hello", "type", "frontend"),
+					wl:    workload(t, "Pod", "default", "hello", "app", "hello", "type", "frontend"),
 					match: true,
 					desc:  "matching pod with extra label",
 				},
 				{
-					wl:    workload("Pod", "other", "hello", "app", "hello", "type", "frontend"),
+					wl:    workload(t, "Pod", "other", "hello", "app", "hello", "type", "frontend"),
 					match: false,
 					desc:  "pod with matching label, different namespace",
 				},
 				{
-					wl:    workload("Pod", "default", "pod", "app", "nope"),
+					wl:    workload(t, "Pod", "default", "pod", "app", "nope"),
 					match: false,
 					desc:  "pod with different label",
 				},
 				{
-					wl:    workload("Deployment", "default", "hello", "app", "hello", "type", "frontend"),
+					wl:    workload(t, "Deployment", "default", "hello", "app", "hello", "type", "frontend"),
 					match: true,
 					desc:  "deployment with extra label",
 				},
 				{
-					wl:    workload("Deployment", "default", "pod", "app", "nope"),
+					wl:    workload(t, "Deployment", "default", "pod", "app", "nope"),
 					match: false,
 					desc:  "deployment with different label",
 				},
@@ -206,7 +196,7 @@ func TestWorkloadMatches(t *testing.T) {
 }
 
 // workload is shorthand to create workload test inputs
-func workload(kind string, ns string, name string, l ...string) Workload {
+func workload(t *testing.T, kind string, ns string, name string, l ...string) Workload {
 	var v Workload
 	switch kind {
 	case "Deployment":
@@ -222,19 +212,19 @@ func workload(kind string, ns string, name string, l ...string) Workload {
 	case "DaemonSet":
 		v = &DaemonSetWorkload{DaemonSet: &appsv1.DaemonSet{TypeMeta: metav1.TypeMeta{Kind: "DaemonSet"}}}
 	default:
-		log.Fatalf("Workload kind %s not supported", kind)
+		t.Fatalf("Workload kind %s not supported", kind)
 	}
-	v.GetObject().SetNamespace(ns)
-	v.GetObject().SetName(name)
+	v.Object().SetNamespace(ns)
+	v.Object().SetName(name)
 	if len(l) > 0 {
 		if len(l)%2 != 0 {
-			log.Fatalf("labels list must have an even number of elements")
+			t.Fatalf("labels list must have an even number of elements")
 		}
 		labels := map[string]string{}
 		for i := 0; i < len(l); i += 2 {
 			labels[l[i]] = l[i+1]
 		}
-		v.GetObject().SetLabels(labels)
+		v.Object().SetLabels(labels)
 	}
 
 	return v
