@@ -85,6 +85,17 @@ func TestContainerName(t *testing.T) {
 
 }
 
+// TestVolumeName container names are a public
+func TestVolumeName(t *testing.T) {
+	csql := mustMakeCsql("hello-world", "default")
+	got := names.VolumeName(csql, &csql.Spec.Instances[0], "temp")
+	want := "csql-hello-world-temp-proj-inst-db"
+	if want != got {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+}
+
 func mustMakeCsql(name string, namespace string) *cloudsqlapi.AuthProxyWorkload {
 	// Create a CloudSqlInstance that matches the deployment
 	return &cloudsqlapi.AuthProxyWorkload{

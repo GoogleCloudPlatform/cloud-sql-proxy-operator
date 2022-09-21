@@ -42,6 +42,8 @@ func ContainerName(r *cloudsqlapi.AuthProxyWorkload) string {
 	return SafePrefixedName(ContainerPrefix, r.GetName())
 }
 
+// VolumeName generates a unique, valid name for a volume based on the AuthProxyWorkload
+// name and the Cloud SQL instance name.
 func VolumeName(r *cloudsqlapi.AuthProxyWorkload, inst *cloudsqlapi.InstanceSpec, mountType string) string {
 	connName := strings.ReplaceAll(strings.ToLower(inst.ConnectionString), ":", "-")
 	return SafePrefixedName(ContainerPrefix, r.GetName()+"-"+mountType+"-"+connName)
