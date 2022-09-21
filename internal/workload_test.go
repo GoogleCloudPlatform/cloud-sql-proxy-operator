@@ -46,27 +46,27 @@ func TestWorkloadMatches(t *testing.T) {
 		},
 		tc: []workloadTestCase{
 			{
-				wl:    mustMakeWorkload("Pod", "default", "hello"),
+				wl:    workload("Pod", "default", "hello"),
 				match: true,
 				desc:  "matching pod",
 			},
 			{
-				wl:    mustMakeWorkload("Pod", "default", "hello", "app", "pod"),
+				wl:    workload("Pod", "default", "hello", "app", "pod"),
 				match: true,
 				desc:  "matching pod with extra label",
 			},
 			{
-				wl:    mustMakeWorkload("Pod", "default", "pod", "app", "pod"),
+				wl:    workload("Pod", "default", "pod", "app", "pod"),
 				match: false,
 				desc:  "pod with different name",
 			},
 			{
-				wl:    mustMakeWorkload("Pod", "other", "hello"),
+				wl:    workload("Pod", "other", "hello"),
 				match: false,
 				desc:  "pod with different namespace",
 			},
 			{
-				wl:    mustMakeWorkload("Deployment", "default", "hello"),
+				wl:    workload("Deployment", "default", "hello"),
 				match: false,
 				desc:  "different kind",
 			},
@@ -84,27 +84,27 @@ func TestWorkloadMatches(t *testing.T) {
 			},
 			tc: []workloadTestCase{
 				{
-					wl:    mustMakeWorkload("Pod", "default", "hello"),
+					wl:    workload("Pod", "default", "hello"),
 					match: false,
 					desc:  "label not set",
 				},
 				{
-					wl:    mustMakeWorkload("Pod", "default", "hello", "app", "hello", "type", "frontend"),
+					wl:    workload("Pod", "default", "hello", "app", "hello", "type", "frontend"),
 					match: true,
 					desc:  "matching pod with extra label",
 				},
 				{
-					wl:    mustMakeWorkload("Pod", "default", "pod", "app", "nope"),
+					wl:    workload("Pod", "default", "pod", "app", "nope"),
 					match: false,
 					desc:  "pod with different label",
 				},
 				{
-					wl:    mustMakeWorkload("Pod", "Other", "hello", "app", "hello", "type", "frontend"),
+					wl:    workload("Pod", "Other", "hello", "app", "hello", "type", "frontend"),
 					match: false,
 					desc:  "pod with different namespace",
 				},
 				{
-					wl:    mustMakeWorkload("Deployment", "default", "hello", "app", "hello", "type", "frontend"),
+					wl:    workload("Deployment", "default", "hello", "app", "hello", "type", "frontend"),
 					match: false,
 					desc:  "Deploymnet with different namespace",
 				},
@@ -122,27 +122,27 @@ func TestWorkloadMatches(t *testing.T) {
 			},
 			tc: []workloadTestCase{
 				{
-					wl:    mustMakeWorkload("Pod", "default", "hello", "app", "hello", "type", "frontend"),
+					wl:    workload("Pod", "default", "hello", "app", "hello", "type", "frontend"),
 					match: true,
 					desc:  "matching pod with extra label",
 				},
 				{
-					wl:    mustMakeWorkload("Pod", "default", "pod", "app", "nope"),
+					wl:    workload("Pod", "default", "pod", "app", "nope"),
 					match: false,
 					desc:  "pod with different label",
 				},
 				{
-					wl:    mustMakeWorkload("Deployment", "default", "hello", "app", "hello", "type", "frontend"),
+					wl:    workload("Deployment", "default", "hello", "app", "hello", "type", "frontend"),
 					match: true,
 					desc:  "deployment with extra label",
 				},
 				{
-					wl:    mustMakeWorkload("Deployment", "default", "pod", "app", "nope"),
+					wl:    workload("Deployment", "default", "pod", "app", "nope"),
 					match: false,
 					desc:  "deployment with different label",
 				},
 				{
-					wl:    mustMakeWorkload("StatefulSet", "default", "things"),
+					wl:    workload("StatefulSet", "default", "things"),
 					match: false,
 					desc:  "StatefulSet no labels",
 				},
@@ -164,27 +164,27 @@ func TestWorkloadMatches(t *testing.T) {
 			},
 			tc: []workloadTestCase{
 				{
-					wl:    mustMakeWorkload("Pod", "default", "hello", "app", "hello", "type", "frontend"),
+					wl:    workload("Pod", "default", "hello", "app", "hello", "type", "frontend"),
 					match: true,
 					desc:  "matching pod with extra label",
 				},
 				{
-					wl:    mustMakeWorkload("Pod", "other", "hello", "app", "hello", "type", "frontend"),
+					wl:    workload("Pod", "other", "hello", "app", "hello", "type", "frontend"),
 					match: false,
 					desc:  "pod with matching label, different namespace",
 				},
 				{
-					wl:    mustMakeWorkload("Pod", "default", "pod", "app", "nope"),
+					wl:    workload("Pod", "default", "pod", "app", "nope"),
 					match: false,
 					desc:  "pod with different label",
 				},
 				{
-					wl:    mustMakeWorkload("Deployment", "default", "hello", "app", "hello", "type", "frontend"),
+					wl:    workload("Deployment", "default", "hello", "app", "hello", "type", "frontend"),
 					match: true,
 					desc:  "deployment with extra label",
 				},
 				{
-					wl:    mustMakeWorkload("Deployment", "default", "pod", "app", "nope"),
+					wl:    workload("Deployment", "default", "pod", "app", "nope"),
 					match: false,
 					desc:  "deployment with different label",
 				},
@@ -192,7 +192,6 @@ func TestWorkloadMatches(t *testing.T) {
 		},
 	}
 
-	t.Parallel()
 	for _, sel := range cases {
 		for _, tc := range sel.tc {
 			t.Run(sel.desc+" "+tc.desc, func(t *testing.T) {
@@ -206,8 +205,8 @@ func TestWorkloadMatches(t *testing.T) {
 
 }
 
-// mustMakeWorkload is shorthand to create workload test inputs
-func mustMakeWorkload(kind string, ns string, name string, l ...string) Workload {
+// workload is shorthand to create workload test inputs
+func workload(kind string, ns string, name string, l ...string) Workload {
 	var v Workload
 	switch kind {
 	case "Deployment":
