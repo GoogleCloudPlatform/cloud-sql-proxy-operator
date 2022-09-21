@@ -127,7 +127,7 @@ var defaultContainerResources = corev1.ResourceRequirements{
 // updates the workload's containers. This does not save the updated workload.
 func ReconcileWorkload(instList cloudsqlapi.AuthProxyWorkloadList, workload Workload) (bool, []*cloudsqlapi.AuthProxyWorkload, *ConfigError) {
 	// if a workload has an owner, then ignore it.
-	if len(workload.GetObject().GetOwnerReferences()) > 0 {
+	if len(workload.Object().GetOwnerReferences()) > 0 {
 		return false, []*cloudsqlapi.AuthProxyWorkload{}, nil
 	}
 
@@ -149,7 +149,7 @@ func filterMatchingInstances(wlList cloudsqlapi.AuthProxyWorkloadList, workload 
 		csqlWorkload := &wlList.Items[i]
 		if workloadMatches(workload, csqlWorkload.Spec.Workload, csqlWorkload.Namespace) {
 			// need to update workload
-			l.Info("Found matching workload", "workload", workload.GetObject().GetNamespace()+"/"+workload.GetObject().GetName(), "wlSelector", csqlWorkload.Spec.Workload, "AuthProxyWorkload", csqlWorkload.Namespace+"/"+csqlWorkload.Name)
+			l.Info("Found matching workload", "workload", workload.Object().GetNamespace()+"/"+workload.Object().GetName(), "wlSelector", csqlWorkload.Spec.Workload, "AuthProxyWorkload", csqlWorkload.Namespace+"/"+csqlWorkload.Name)
 			matchingAuthProxyWorkloads = append(matchingAuthProxyWorkloads, csqlWorkload)
 		}
 	}
@@ -191,7 +191,7 @@ func updateWorkloadAnnotations(csqlWorkload *cloudsqlapi.AuthProxyWorkload, work
 	resultName := names.SafePrefixedName("csqlu-", csqlWorkload.Name)
 	s.InstanceGeneration = fmt.Sprintf("%d", csqlWorkload.GetGeneration())
 
-	ann := workload.GetObject().GetAnnotations()
+	ann := workload.Object().GetAnnotations()
 	if ann == nil {
 		ann = map[string]string{}
 	}
@@ -211,27 +211,28 @@ func updateWorkloadAnnotations(csqlWorkload *cloudsqlapi.AuthProxyWorkload, work
 		}
 		doUpdate = true
 	}
-	workload.GetObject().SetAnnotations(ann)
+	workload.Object().SetAnnotations(ann)
 	s.RequestGeneration = ann[reqName]
 	s.UpdatedGeneration = ann[resultName]
 
 	return doUpdate, s
 }
 
-// UpdateWorkloadContainers Applies the proxy containers from all of the instances listed in matchingAuthProxyWorkloads to the workload
+// UpdateWorkloadContainers applies the proxy containers from all of the
+// instances listed in matchingAuthProxyWorkloads to the workload
 func UpdateWorkloadContainers(workload Workload, matchingAuthProxyWorkloads []*cloudsqlapi.AuthProxyWorkload) (bool, *ConfigError) {
 	state := updateState{
 		nextDbPort: DefaultFirstPort,
 		err: ConfigError{
-			workloadKind:      workload.GetObject().GetObjectKind().GroupVersionKind(),
-			workloadName:      workload.GetObject().GetName(),
-			workloadNamespace: workload.GetObject().GetNamespace(),
+			workloadKind:      workload.Object().GetObjectKind().GroupVersionKind(),
+			workloadName:      workload.Object().GetName(),
+			workloadNamespace: workload.Object().GetNamespace(),
 		},
 	}
 	return state.update(workload, matchingAuthProxyWorkloads)
 }
 
-// updateState Holds internal state while a patricular workload being configured
+// updateState holds internal state while a particular workload being configured
 // with one or more AuthProxyWorkloads.
 type updateState struct {
 	err             ConfigError
@@ -291,7 +292,7 @@ func (state *updateState) addWorkloadEnvVar(envVar corev1.EnvVar, proxy *cloudsq
 // and removing any out-of-date configuration related to deleted AuthProxyWorkloads
 func (state *updateState) update(workload Workload, matchingAuthProxyWorkloads []*cloudsqlapi.AuthProxyWorkload) (bool, *ConfigError) {
 
-	podSpec := workload.GetPodSpec()
+	podSpec := workload.PodSpec()
 	containers := podSpec.Containers
 	updated := false
 
@@ -335,6 +336,8 @@ func (state *updateState) update(workload Workload, matchingAuthProxyWorkloads [
 	// remove all csql containers that don't relate to one of the matchingAuthProxyWorkloads
 	var filteredContainers []corev1.Container
 
+	var removedContainers []corev1.Container
+
 	for j, _ := range containers {
 		container := &containers[j]
 		if strings.HasPrefix(container.Name, names.ContainerPrefix) {
@@ -350,13 +353,16 @@ func (state *updateState) update(workload Workload, matchingAuthProxyWorkloads [
 			} else {
 				// we're removing a container that doesn't match an csqlWorkload
 				updated = true
+				removedContainers = append(removedContainers, *container)
 			}
 		} else {
 			filteredContainers = append(filteredContainers, *container)
 		}
 	}
-	//TODO remove all EnvVar, Volume, and VolumeMount related to deleted resources.
 	podSpec.Containers = filteredContainers
+
+	//TODO remove all EnvVar, Volume, and VolumeMount related to deleted
+	// AuthProxyWorkload resources.
 
 	for i, _ := range podSpec.Containers {
 		state.applyCommonContainerConfig(&podSpec.Containers[i])
@@ -547,7 +553,7 @@ func (state *updateState) UpdateContainer(proxy *cloudsqlapi.AuthProxyWorkload, 
 			container.Args = cliArgs
 		}
 	}
-	l.Info("Updating workload ", "name", workload.GetObject().GetName(),
+	l.Info("Updating workload ", "name", workload.Object().GetName(),
 		"doUpdate", doUpdate,
 		"status", status)
 

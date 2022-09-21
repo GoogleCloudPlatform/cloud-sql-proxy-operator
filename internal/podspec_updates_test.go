@@ -42,13 +42,13 @@ func makeWorkload() *internal.DeploymentWorkload {
 	}}
 }
 
-func makeSimpleAuthProxy(name string, connectionString string) *cloudsqlapi.AuthProxyWorkload {
-	return makeAuthProxy(name, []cloudsqlapi.InstanceSpec{{
+func simpleAuthProxy(name string, connectionString string) *cloudsqlapi.AuthProxyWorkload {
+	return authProxyWorkload(name, []cloudsqlapi.InstanceSpec{{
 		ConnectionString: connectionString,
 	}})
 }
 
-func makeAuthProxy(name string, instances []cloudsqlapi.InstanceSpec) *cloudsqlapi.AuthProxyWorkload {
+func authProxyWorkload(name string, instances []cloudsqlapi.InstanceSpec) *cloudsqlapi.AuthProxyWorkload {
 	return &cloudsqlapi.AuthProxyWorkload{
 		TypeMeta:   metav1.TypeMeta{Kind: "AuthProxyWorkload", APIVersion: cloudsqlapi.GroupVersion.String()},
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default", Generation: 1},
@@ -66,7 +66,7 @@ func makeAuthProxy(name string, instances []cloudsqlapi.InstanceSpec) *cloudsqla
 	}
 }
 
-func makeProxies(wl *internal.DeploymentWorkload, proxies ...*cloudsqlapi.AuthProxyWorkload) []*cloudsqlapi.AuthProxyWorkload {
+func proxies(wl *internal.DeploymentWorkload, proxies ...*cloudsqlapi.AuthProxyWorkload) []*cloudsqlapi.AuthProxyWorkload {
 	for i := 0; i < len(proxies); i++ {
 		internal.MarkWorkloadNeedsUpdate(proxies[i], wl)
 	}
@@ -75,7 +75,7 @@ func makeProxies(wl *internal.DeploymentWorkload, proxies ...*cloudsqlapi.AuthPr
 
 func findContainer(workload *internal.DeploymentWorkload, name string) (corev1.Container, error) {
 	for _, container := range workload.Deployment.Spec.Template.Spec.Containers {
-		if container.Name == "csql-instance1" {
+		if container.Name == name {
 			return container, nil
 		}
 	}
@@ -140,9 +140,9 @@ func TestUpdateWorkload(t *testing.T) {
 	}
 
 	// Create a AuthProxyWorkload that matches the deployment
-	proxy := makeSimpleAuthProxy(wantsName, wantsInstanceName)
+	proxy := simpleAuthProxy(wantsName, wantsInstanceName)
 	proxy.Spec.Instances[0].Port = &wantsPort
-	proxies := makeProxies(wl, proxy)
+	proxies := proxies(wl, proxy)
 
 	// Update the container with new proxies
 	internal.UpdateWorkloadContainers(wl, proxies)
@@ -230,15 +230,14 @@ func TestUpdateWorkloadFixedPort(t *testing.T) {
 	}}
 
 	// Create a AuthProxyWorkload that matches the deployment
-	csqls := []*cloudsqlapi.AuthProxyWorkload{&cloudsqlapi.AuthProxyWorkload{
+	csqls := []*cloudsqlapi.AuthProxyWorkload{{
 		TypeMeta:   metav1.TypeMeta{Kind: "AuthProxyWorkload", APIVersion: cloudsqlapi.GroupVersion.String()},
 		ObjectMeta: metav1.ObjectMeta{Name: "instance1", Namespace: "default", Generation: 1},
 		Spec: cloudsqlapi.AuthProxyWorkloadSpec{
 			Workload: cloudsqlapi.WorkloadSelectorSpec{
 				Kind: "Deployment",
 				Selector: &metav1.LabelSelector{
-					MatchLabels:      map[string]string{"app": "hello"},
-					MatchExpressions: nil,
+					MatchLabels: map[string]string{"app": "hello"},
 				},
 			},
 			Instances: []cloudsqlapi.InstanceSpec{{
@@ -317,7 +316,7 @@ func TestWorkloadNoPortSet(t *testing.T) {
 	}}
 
 	// Create a AuthProxyWorkload that matches the deployment
-	csqls := []*cloudsqlapi.AuthProxyWorkload{&cloudsqlapi.AuthProxyWorkload{
+	csqls := []*cloudsqlapi.AuthProxyWorkload{{
 		TypeMeta:   metav1.TypeMeta{Kind: "AuthProxyWorkload", APIVersion: cloudsqlapi.GroupVersion.String()},
 		ObjectMeta: metav1.ObjectMeta{Name: "instance1", Namespace: "default", Generation: 1},
 		Spec: cloudsqlapi.AuthProxyWorkloadSpec{
@@ -402,7 +401,7 @@ func TestWorkloadUnixVolume(t *testing.T) {
 	}}
 
 	// Create a AuthProxyWorkload that matches the deployment
-	csqls := []*cloudsqlapi.AuthProxyWorkload{&cloudsqlapi.AuthProxyWorkload{
+	csqls := []*cloudsqlapi.AuthProxyWorkload{{
 		TypeMeta:   metav1.TypeMeta{Kind: "AuthProxyWorkload", APIVersion: cloudsqlapi.GroupVersion.String()},
 		ObjectMeta: metav1.ObjectMeta{Name: "instance1", Namespace: "default", Generation: 1},
 		Spec: cloudsqlapi.AuthProxyWorkloadSpec{
@@ -471,6 +470,9 @@ func TestWorkloadUnixVolume(t *testing.T) {
 	if want, got := wantsUnixDir, busyboxContainer.VolumeMounts[0].MountPath; want != got {
 		t.Fatalf("got %v, wants %v. Busybox Container.VolumeMounts.MountPath", got, want)
 	}
+	if want, got := wl.Deployment.Spec.Template.Spec.Volumes[0].Name, busyboxContainer.VolumeMounts[0].Name; want != got {
+		t.Fatalf("got %v, wants %v. Busybox Container.VolumeMounts.MountPath", got, want)
+	}
 
 }
 
@@ -493,7 +495,7 @@ func TestContainerImageChanged(t *testing.T) {
 	}}
 
 	// Create a AuthProxyWorkload that matches the deployment
-	csqls := []*cloudsqlapi.AuthProxyWorkload{&cloudsqlapi.AuthProxyWorkload{
+	csqls := []*cloudsqlapi.AuthProxyWorkload{{
 		TypeMeta:   metav1.TypeMeta{Kind: "AuthProxyWorkload", APIVersion: cloudsqlapi.GroupVersion.String()},
 		ObjectMeta: metav1.ObjectMeta{Name: "instance1", Namespace: "default", Generation: 1},
 		Spec: cloudsqlapi.AuthProxyWorkloadSpec{
@@ -557,7 +559,7 @@ func TestContainerReplaced(t *testing.T) {
 	}}
 
 	// Create a AuthProxyWorkload that matches the deployment
-	csqls := []*cloudsqlapi.AuthProxyWorkload{&cloudsqlapi.AuthProxyWorkload{
+	csqls := []*cloudsqlapi.AuthProxyWorkload{{
 		TypeMeta:   metav1.TypeMeta{Kind: "AuthProxyWorkload", APIVersion: cloudsqlapi.GroupVersion.String()},
 		ObjectMeta: metav1.ObjectMeta{Name: "instance1", Namespace: "default", Generation: 1},
 		Spec: cloudsqlapi.AuthProxyWorkloadSpec{
@@ -826,7 +828,6 @@ func TestProxyCLIArgs(t *testing.T) {
 		},
 	}
 
-	t.Parallel()
 	for i := 0; i < len(testcases); i++ {
 		tc := &testcases[i]
 		t.Run(tc.desc, func(t *testing.T) {
