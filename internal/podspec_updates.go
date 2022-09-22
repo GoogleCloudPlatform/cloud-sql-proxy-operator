@@ -456,178 +456,219 @@ func (state *updateState) update(workload Workload, matchingAuthProxyWorkloads [
 func (state *updateState) UpdateContainer(proxy *cloudsqlapi.AuthProxyWorkload, workload Workload, container *corev1.Container) bool {
 	doUpdate, status := MarkWorkloadUpdated(proxy, workload)
 
-	if doUpdate {
-		var cliArgs []string
-
-		if proxy.Spec.AuthProxyContainer != nil && proxy.Spec.AuthProxyContainer.Container != nil {
-			proxy.Spec.AuthProxyContainer.Container.DeepCopyInto(container)
-			container.Name = names.ContainerName(proxy)
-		} else {
-			container.Name = names.ContainerName(proxy)
-			container.ImagePullPolicy = "IfNotPresent"
-
-			if proxy.Spec.AuthProxyContainer != nil && proxy.Spec.AuthProxyContainer.FUSEDir != "" {
-				state.addError(ErrorCodeFUSENotSupported, "the FUSE filesystem is not yet supported", proxy)
-
-				//TODO fuse...
-				// if FUSE is used, we need to use the 'buster' or 'alpine' image.
-				// for the proxy container. We can't use the default distroless image.
-
-			}
-			if proxy.Spec.AuthProxyContainer != nil && proxy.Spec.AuthProxyContainer.FUSETempDir != "" {
-				state.addError(ErrorCodeFUSENotSupported, "the FUSE filesystem is not yet supported", proxy)
-
-				//TODO fuse...
-				// if FUSE is used, we need to use the 'buster' or 'alpine' image.
-				// for the proxy container. We can't use the default distroless image.
-
-			}
-
-			if proxy.Spec.AuthProxyContainer != nil && proxy.Spec.AuthProxyContainer.Image != "" {
-				container.Image = proxy.Spec.AuthProxyContainer.Image
-			} else {
-				container.Image = DefaultContainerImage
-			}
-
-			if proxy.Spec.AuthProxyContainer != nil && proxy.Spec.AuthProxyContainer.Resources != nil {
-				container.Resources = *proxy.Spec.AuthProxyContainer.Resources.DeepCopy()
-			} else {
-				container.Resources = defaultContainerResources
-			}
-
-			// always enable http port healthchecks
-			cliArgs = append(cliArgs, fmt.Sprintf("--http-port=%d", state.addHealthCheck(proxy)))
-			cliArgs = append(cliArgs, "--health-check")
-			cliArgs = append(cliArgs, "--structured-logs")
-
-			if proxy.Spec.AuthProxyContainer != nil && proxy.Spec.AuthProxyContainer.SQLAdminAPIEndpoint != "" {
-				cliArgs = append(cliArgs, "--sqladmin-api-endpoint="+proxy.Spec.AuthProxyContainer.SQLAdminAPIEndpoint)
-			}
-			if proxy.Spec.AuthProxyContainer != nil && proxy.Spec.AuthProxyContainer.Telemetry != nil {
-				tel := proxy.Spec.AuthProxyContainer.Telemetry
-				if tel != nil {
-					if tel.TelemetrySampleRate != nil {
-						cliArgs = append(cliArgs, fmt.Sprintf("--telemetry-sample-rate=%d", *tel.TelemetrySampleRate))
-					}
-					if tel.DisableTraces != nil && *tel.DisableTraces {
-						cliArgs = append(cliArgs, "--disable-traces")
-					}
-					if tel.DisableMetrics != nil && *tel.DisableMetrics {
-						cliArgs = append(cliArgs, "--disable-metrics")
-					}
-					if tel.PrometheusNamespace != nil || (tel.Prometheus != nil && *tel.Prometheus) {
-						cliArgs = append(cliArgs, "--prometheus")
-					}
-					if tel.PrometheusNamespace != nil {
-						cliArgs = append(cliArgs, fmt.Sprintf("--prometheus-namespace=%s", *tel.PrometheusNamespace))
-					}
-					if tel.TelemetryProject != nil {
-						cliArgs = append(cliArgs, fmt.Sprintf("--telemetry-project=%s", *tel.TelemetryProject))
-					}
-					if tel.TelemetryPrefix != nil {
-						cliArgs = append(cliArgs, fmt.Sprintf("--telemetry-prefix=%s", *tel.TelemetryPrefix))
-					}
-				}
-			}
-
-			//TODO Authorization
-			// --credentials-file
-
-			for _, inst := range proxy.Spec.Instances {
-
-				params := map[string]string{}
-
-				if inst.SocketType == "tcp" ||
-					(inst.SocketType == "" && inst.UnixSocketPath == "") {
-					var port int32
-					if inst.Port == nil {
-						port = state.useNextDbPort()
-					} else {
-						port = *inst.Port
-						if state.isPortInUse(port) {
-							state.addError(ErrorCodePortConflict,
-								fmt.Sprintf("proxy port %d for instance %s is already in use",
-									port, inst.ConnectionString), proxy)
-						}
-						state.addInUsePort(port)
-					}
-					params["port"] = fmt.Sprint(port)
-					if inst.HostEnvName != "" {
-						state.addWorkloadEnvVar(proxy, &inst, corev1.EnvVar{
-							Name:  inst.HostEnvName,
-							Value: "localhost",
-						})
-					}
-					if inst.PortEnvName != "" {
-						state.addWorkloadEnvVar(proxy, &inst, corev1.EnvVar{
-							Name:  inst.PortEnvName,
-							Value: fmt.Sprint(port),
-						})
-					}
-				}
-
-				if inst.SocketType == "unix" ||
-					(inst.SocketType == "" && inst.UnixSocketPath != "") {
-					params["unix-socket"] = inst.UnixSocketPath
-					mountName := names.VolumeName(proxy, &inst, "unix")
-					state.addVolumeMount(proxy, &inst,
-						corev1.VolumeMount{
-							Name:      mountName,
-							ReadOnly:  false,
-							MountPath: inst.UnixSocketPath,
-						},
-						corev1.Volume{
-							Name:         mountName,
-							VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
-						})
-
-					if inst.UnixSocketPathEnvName != "" {
-						state.addWorkloadEnvVar(proxy, &inst, corev1.EnvVar{
-							Name:  inst.UnixSocketPathEnvName,
-							Value: inst.UnixSocketPath,
-						})
-					}
-				}
-
-				if inst.AutoIAMAuthN != nil {
-					if *inst.AutoIAMAuthN {
-						params["auto-iam-authn"] = "true"
-					} else {
-						params["auto-iam-authn"] = "false"
-					}
-				}
-				if inst.PrivateIP != nil {
-					if *inst.PrivateIP {
-						params["private-ip"] = "true"
-					} else {
-						params["private-ip"] = "false"
-					}
-				}
-
-				instArgs := []string{}
-				for k, v := range params {
-					instArgs = append(instArgs, fmt.Sprintf("%s=%s", k, v))
-				}
-
-				// sort the param args to make testing easier. params will always be
-				// in a stable order
-				sort.Strings(instArgs)
-
-				if len(instArgs) > 0 {
-					cliArgs = append(cliArgs, fmt.Sprintf("%s?%s", inst.ConnectionString, strings.Join(instArgs, "&")))
-				} else {
-					cliArgs = append(cliArgs, inst.ConnectionString)
-				}
-
-			}
-			container.Args = cliArgs
-		}
+	if !doUpdate {
+		l.Info("Skipping workload {{workload}}, no update needed.", "name", workload.Object().GetName(),
+			"doUpdate", doUpdate,
+			"status", status)
+		return false
 	}
-	l.Info("Updating workload ", "name", workload.Object().GetName(),
+
+	l.Info("Updating workload {{workload}}, no update needed.", "name", workload.Object().GetName(),
 		"doUpdate", doUpdate,
 		"status", status)
 
+	// if the container was fully overridden, just use that container.
+	if proxy.Spec.AuthProxyContainer != nil && proxy.Spec.AuthProxyContainer.Container != nil {
+		proxy.Spec.AuthProxyContainer.Container.DeepCopyInto(container)
+		container.Name = names.ContainerName(proxy)
+		return doUpdate
+	}
+
+	// Build the container
+	var cliArgs []string
+
+	// always enable http port healthchecks on 0.0.0.0 and structured logs
+	cliArgs = append(cliArgs, fmt.Sprintf("--http-port=%d", state.addHealthCheck(proxy)))
+	cliArgs = append(cliArgs, "--http-address=0.0.0.0")
+	cliArgs = append(cliArgs, "--health-check")
+	cliArgs = append(cliArgs, "--structured-logs")
+
+	container.Name = names.ContainerName(proxy)
+	container.ImagePullPolicy = "IfNotPresent"
+
+	cliArgs = state.applyContainerSpec(proxy, container, cliArgs)
+	cliArgs = state.applyTelemetrySpec(proxy, cliArgs)
+	cliArgs = state.applyAuthenticationSpec(proxy, container, cliArgs)
+
+	// Instances
+	for _, inst := range proxy.Spec.Instances {
+
+		params := map[string]string{}
+
+		// if it is a TCP socket
+		if inst.SocketType == "tcp" ||
+			(inst.SocketType == "" && inst.UnixSocketPath == "") {
+			var port int32
+			if inst.Port == nil {
+				port = state.useNextDbPort()
+			} else {
+				port = *inst.Port
+				if state.isPortInUse(port) {
+					state.addError(ErrorCodePortConflict,
+						fmt.Sprintf("proxy port %d for instance %s is already in use",
+							port, inst.ConnectionString), proxy)
+				}
+				state.addInUsePort(port)
+			}
+			params["port"] = fmt.Sprint(port)
+			if inst.HostEnvName != "" {
+				state.addWorkloadEnvVar(proxy, &inst, corev1.EnvVar{
+					Name:  inst.HostEnvName,
+					Value: "localhost",
+				})
+			}
+			if inst.PortEnvName != "" {
+				state.addWorkloadEnvVar(proxy, &inst, corev1.EnvVar{
+					Name:  inst.PortEnvName,
+					Value: fmt.Sprint(port),
+				})
+			}
+		} else if inst.SocketType == "unix" ||
+			(inst.SocketType == "" && inst.UnixSocketPath != "") {
+			// else if it is a unix socket
+			params["unix-socket"] = inst.UnixSocketPath
+			mountName := names.VolumeName(proxy, &inst, "unix")
+			state.addVolumeMount(proxy, &inst,
+				corev1.VolumeMount{
+					Name:      mountName,
+					ReadOnly:  false,
+					MountPath: inst.UnixSocketPath,
+				},
+				corev1.Volume{
+					Name:         mountName,
+					VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+				})
+
+			if inst.UnixSocketPathEnvName != "" {
+				state.addWorkloadEnvVar(proxy, &inst, corev1.EnvVar{
+					Name:  inst.UnixSocketPathEnvName,
+					Value: inst.UnixSocketPath,
+				})
+			}
+		}
+
+		if inst.AutoIAMAuthN != nil {
+			if *inst.AutoIAMAuthN {
+				params["auto-iam-authn"] = "true"
+			} else {
+				params["auto-iam-authn"] = "false"
+			}
+		}
+		if inst.PrivateIP != nil {
+			if *inst.PrivateIP {
+				params["private-ip"] = "true"
+			} else {
+				params["private-ip"] = "false"
+			}
+		}
+
+		instArgs := []string{}
+		for k, v := range params {
+			instArgs = append(instArgs, fmt.Sprintf("%s=%s", k, v))
+		}
+
+		// sort the param args to make testing easier. params will always be
+		// in a stable order
+		sort.Strings(instArgs)
+
+		if len(instArgs) > 0 {
+			cliArgs = append(cliArgs, fmt.Sprintf("%s?%s", inst.ConnectionString, strings.Join(instArgs, "&")))
+		} else {
+			cliArgs = append(cliArgs, inst.ConnectionString)
+		}
+
+	}
+	container.Args = cliArgs
+
 	return doUpdate
+}
+
+// applyContainerSpec applies settings from cloudsqlapi.AuthProxyContainerSpec
+// to the container
+func (state *updateState) applyContainerSpec(proxy *cloudsqlapi.AuthProxyWorkload, container *corev1.Container, cliArgs []string) []string {
+	if proxy.Spec.AuthProxyContainer == nil {
+		return cliArgs
+	}
+
+	// Fuse
+	if proxy.Spec.AuthProxyContainer.FUSEDir != "" {
+		state.addError(ErrorCodeFUSENotSupported, "the FUSE filesystem is not yet supported", proxy)
+
+		//TODO fuse...
+		// if FUSE is used, we need to use the 'buster' or 'alpine' image.
+		// for the proxy container. We can't use the default distroless image.
+
+	}
+	if proxy.Spec.AuthProxyContainer.FUSETempDir != "" {
+		state.addError(ErrorCodeFUSENotSupported, "the FUSE filesystem is not yet supported", proxy)
+
+		//TODO fuse...
+		// if FUSE is used, we need to use the 'buster' or 'alpine' image.
+		// for the proxy container. We can't use the default distroless image.
+
+	}
+
+	if proxy.Spec.AuthProxyContainer.Image != "" {
+		container.Image = proxy.Spec.AuthProxyContainer.Image
+	} else {
+		container.Image = DefaultContainerImage
+	}
+
+	if proxy.Spec.AuthProxyContainer.Resources != nil {
+		container.Resources = *proxy.Spec.AuthProxyContainer.Resources.DeepCopy()
+	} else {
+		container.Resources = defaultContainerResources
+	}
+	if proxy.Spec.AuthProxyContainer.SQLAdminAPIEndpoint != "" {
+		cliArgs = append(cliArgs, "--sqladmin-api-endpoint="+proxy.Spec.AuthProxyContainer.SQLAdminAPIEndpoint)
+	}
+	if proxy.Spec.AuthProxyContainer.MaxConnections != nil &&
+		*proxy.Spec.AuthProxyContainer.MaxConnections != 0 {
+		cliArgs = append(cliArgs, fmt.Sprintf("--max-connections=%d", *proxy.Spec.AuthProxyContainer.MaxConnections))
+	}
+	if proxy.Spec.AuthProxyContainer.MaxSigtermDelay != nil &&
+		*proxy.Spec.AuthProxyContainer.MaxSigtermDelay != 0 {
+		cliArgs = append(cliArgs, fmt.Sprintf("--max-sigterm-delay=%d", *proxy.Spec.AuthProxyContainer.MaxSigtermDelay))
+	}
+
+	return cliArgs
+}
+
+// applyTelemetrySpec applies settings from cloudsqlapi.TelemetrySpec
+// to the container
+func (state *updateState) applyTelemetrySpec(proxy *cloudsqlapi.AuthProxyWorkload, cliArgs []string) []string {
+	if proxy.Spec.AuthProxyContainer == nil || proxy.Spec.AuthProxyContainer.Telemetry == nil {
+		return cliArgs
+	}
+
+	tel := proxy.Spec.AuthProxyContainer.Telemetry
+	if tel != nil {
+		if tel.TelemetrySampleRate != nil {
+			cliArgs = append(cliArgs, fmt.Sprintf("--telemetry-sample-rate=%d", *tel.TelemetrySampleRate))
+		}
+		if tel.DisableTraces != nil && *tel.DisableTraces {
+			cliArgs = append(cliArgs, "--disable-traces")
+		}
+		if tel.DisableMetrics != nil && *tel.DisableMetrics {
+			cliArgs = append(cliArgs, "--disable-metrics")
+		}
+		if tel.PrometheusNamespace != nil || (tel.Prometheus != nil && *tel.Prometheus) {
+			cliArgs = append(cliArgs, "--prometheus")
+		}
+		if tel.PrometheusNamespace != nil {
+			cliArgs = append(cliArgs, fmt.Sprintf("--prometheus-namespace=%s", *tel.PrometheusNamespace))
+		}
+		if tel.TelemetryProject != nil {
+			cliArgs = append(cliArgs, fmt.Sprintf("--telemetry-project=%s", *tel.TelemetryProject))
+		}
+		if tel.TelemetryPrefix != nil {
+			cliArgs = append(cliArgs, fmt.Sprintf("--telemetry-prefix=%s", *tel.TelemetryPrefix))
+		}
+		if tel.QuotaProject != nil {
+			cliArgs = append(cliArgs, fmt.Sprintf("--quota-project=%s", *tel.QuotaProject))
+		}
+	}
+	return cliArgs
 }
 
 // updateContainerEnv applies global container state to all containers
@@ -707,16 +748,17 @@ func (state *updateState) filterOldEnvVar(c *corev1.Container, oldEnvVar *manage
 	// Restore the original value or remove the env var
 	originalValue, hasOriginalValue := oldEnvVar.OriginalValues[c.Name]
 	if hasOriginalValue {
-		l.Info("Filter restored {{env}} to original value {{val}}.",
+		l.Info("Restored {{env}} to original value {{val}} on {{container}}.",
 			"env", oldEnvVar.OperatorManagedValue.Name,
-			"val", originalValue)
+			"val", originalValue,
+			"container", c.Name)
 		// replace the original value
 		containerEnv.Value = originalValue
 	} else {
 		// remove the element from the array
-		l.Info("Filter removed {{env}} to original value {{val}}.",
+		l.Info("Removed {{env}} on {{container}}.",
 			"env", oldEnvVar.OperatorManagedValue.Name,
-			"val", originalValue)
+			"container", c.Name)
 		c.Env = append(c.Env[0:index], c.Env[index+1:]...)
 	}
 
@@ -816,4 +858,14 @@ func (state *updateState) oldManagedEnv(name string) *managedEnvVar {
 		}
 	}
 	return nil
+}
+
+func (state *updateState) applyAuthenticationSpec(proxy *cloudsqlapi.AuthProxyWorkload, container *corev1.Container, args []string) []string {
+	if proxy.Spec.Authentication == nil {
+		return args
+	}
+
+	//TODO Authentication
+	// --credentials-file
+	return args
 }

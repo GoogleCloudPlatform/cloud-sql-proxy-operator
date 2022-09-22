@@ -165,7 +165,7 @@ type TelemetrySpec struct {
 	// https://cloud.google.com/storage/docs/requester-pays
 	// This sets the proxy container's CLI argument `--quota-project`
 	// +kubebuilder:validation:Optional
-	QuotaProject string `json:"quotaProject,omitempty"`
+	QuotaProject *string `json:"quotaProject,omitempty"`
 
 	// Prometheus Enables Prometheus HTTP endpoint /metrics on localhost
 	// This sets the proxy container's CLI argument `--prometheus`

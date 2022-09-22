@@ -76,7 +76,7 @@ func TestSafePrefixedName(t *testing.T) {
 func TestContainerName(t *testing.T) {
 	csql := authProxyWorkload("hello-world", "default")
 	got := names.ContainerName(csql)
-	want := "csql-hello-world"
+	want := "csql-default-hello-world"
 	if want != got {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -86,7 +86,7 @@ func TestContainerName(t *testing.T) {
 func TestVolumeName(t *testing.T) {
 	csql := authProxyWorkload("hello-world", "default")
 	got := names.VolumeName(csql, &csql.Spec.Instances[0], "temp")
-	want := "csql-hello-world-temp-proj-inst-db"
+	want := "csql-default-hello-world-temp-proj-inst-db"
 	if want != got {
 		t.Errorf("got %v, want %v", got, want)
 	}

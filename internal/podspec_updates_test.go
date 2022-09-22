@@ -124,7 +124,7 @@ func TestUpdateWorkload(t *testing.T) {
 	var (
 		wantsName                      = "instance1"
 		wantsPort                int32 = 8080
-		wantContainerName              = "csql-" + wantsName
+		wantContainerName              = "csql-default-" + wantsName
 		wantsInstanceName              = "project:server:db"
 		wantsUpdatedInstanceName       = "project:server:newdb"
 		wantsInstanceArg               = fmt.Sprintf("%s?port=%d", wantsInstanceName, wantsPort)
@@ -267,7 +267,7 @@ func TestUpdateWorkloadFixedPort(t *testing.T) {
 	}
 
 	// test that the instancename matches the new expected instance name.
-	csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-%s", csqls[0].GetName()))
+	csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-default-%s", csqls[0].GetName()))
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -353,7 +353,7 @@ func TestWorkloadNoPortSet(t *testing.T) {
 	}
 
 	// test that the instancename matches the new expected instance name.
-	csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-%s", csqls[0].GetName()))
+	csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-default-%s", csqls[0].GetName()))
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -433,7 +433,7 @@ func TestWorkloadUnixVolume(t *testing.T) {
 	}
 
 	// test that the instancename matches the new expected instance name.
-	csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-%s", csqls[0].GetName()))
+	csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-default-%s", csqls[0].GetName()))
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -526,7 +526,7 @@ func TestContainerImageChanged(t *testing.T) {
 	}
 
 	// test that the instancename matches the new expected instance name.
-	csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-%s", csqls[0].GetName()))
+	csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-default-%s", csqls[0].GetName()))
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -590,7 +590,7 @@ func TestContainerReplaced(t *testing.T) {
 	}
 
 	// test that the instancename matches the new expected instance name.
-	csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-%s", csqls[0].GetName()))
+	csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-default-%s", csqls[0].GetName()))
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -861,7 +861,7 @@ func TestProxyCLIArgs(t *testing.T) {
 			}
 
 			// test that the instancename matches the new expected instance name.
-			csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-%s", csqls[0].GetName()))
+			csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-default-%s", csqls[0].GetName()))
 			if err != nil {
 				t.Fatalf(err.Error())
 			}
@@ -941,7 +941,10 @@ func TestProperCleanupOfEnvAndVolumes(t *testing.T) {
 	}
 
 	// do it again to make sure its idempotent
+	csqls[0].SetGeneration(csqls[0].GetGeneration() + 1)
+	internal.MarkWorkloadNeedsUpdate(csqls[0], wl)
 	internal.UpdateWorkloadContainers(wl, csqls)
+
 	if !annSet {
 		t.Fatalf("wants csql-env annotation, got no annotation set")
 	}
