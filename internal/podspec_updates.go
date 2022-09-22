@@ -24,6 +24,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/json"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -232,20 +234,42 @@ func UpdateWorkloadContainers(workload Workload, matchingAuthProxyWorkloads []*c
 	return state.update(workload, matchingAuthProxyWorkloads)
 }
 
+type managedEnvVar struct {
+	AuthProxyWorkload    types.NamespacedName `json:"authProxyWorkload"`
+	ConnectionString     string               `json:"connectionString,omitempty"`
+	OriginalValues       map[string]string    `json:"originalValues,omitempty"`
+	OperatorManagedValue corev1.EnvVar        `json:"operatorManagedValue"`
+}
+
+type managedVolume struct {
+	authProxyWorkload types.NamespacedName
+	connectionString  string
+	volume            corev1.Volume
+	volumeMount       corev1.VolumeMount
+}
+
 // updateState holds internal state while a particular workload being configured
 // with one or more AuthProxyWorkloads.
 type updateState struct {
-	err             ConfigError
-	portsInUse      []int32
-	workloadEnvVars []corev1.EnvVar
-	nextDbPort      int32
-	volumeMounts    []corev1.VolumeMount
-	volumes         []corev1.Volume
+	err                   ConfigError
+	portsInUse            []int32
+	oldWorkloadEnvVars    []*managedEnvVar
+	workloadEnvVars       []*managedEnvVar
+	nextDbPort            int32
+	volumeMounts          []*managedVolume
+	removedContainerNames []string
 }
 
-func (state *updateState) addVolumeMount(mnt corev1.VolumeMount, vol corev1.Volume) {
-	state.volumeMounts = append(state.volumeMounts, mnt)
-	state.volumes = append(state.volumes, vol)
+func (state *updateState) addVolumeMount(proxy *cloudsqlapi.AuthProxyWorkload, inst *cloudsqlapi.InstanceSpec, mnt corev1.VolumeMount, vol corev1.Volume) {
+	state.volumeMounts = append(state.volumeMounts, &managedVolume{
+		authProxyWorkload: types.NamespacedName{
+			Namespace: proxy.Namespace,
+			Name:      proxy.Name,
+		},
+		connectionString: inst.ConnectionString,
+		volume:           vol,
+		volumeMount:      mnt,
+	})
 }
 
 func (state *updateState) addInUsePort(port int32) {
@@ -272,11 +296,12 @@ func (state *updateState) useNextDbPort() int32 {
 }
 
 // addWorkloadEnvVar adds or replaces the envVar based on its Name, returning the old and new values
-func (state *updateState) addWorkloadEnvVar(envVar corev1.EnvVar, proxy *cloudsqlapi.AuthProxyWorkload) {
+func (state *updateState) addWorkloadEnvVar(proxy *cloudsqlapi.AuthProxyWorkload, inst *cloudsqlapi.InstanceSpec, envVar corev1.EnvVar) {
+
 	for i := 0; i < len(state.workloadEnvVars); i++ {
-		if state.workloadEnvVars[i].Name == envVar.Name {
-			old := state.workloadEnvVars[i]
-			state.workloadEnvVars[i] = envVar
+		if state.workloadEnvVars[i].OperatorManagedValue.Name == envVar.Name {
+			old := state.workloadEnvVars[i].OperatorManagedValue
+			state.workloadEnvVars[i].OperatorManagedValue = envVar
 			if old.Value != envVar.Value {
 				state.addError(ErrorCodeEnvConflict,
 					fmt.Sprintf("environment variable named %s already exists", envVar.Name), proxy)
@@ -284,14 +309,57 @@ func (state *updateState) addWorkloadEnvVar(envVar corev1.EnvVar, proxy *cloudsq
 			return
 		}
 	}
-	state.workloadEnvVars = append(state.workloadEnvVars, envVar)
+	state.workloadEnvVars = append(state.workloadEnvVars, &managedEnvVar{
+		AuthProxyWorkload: types.NamespacedName{
+			Namespace: proxy.Namespace,
+			Name:      proxy.Name,
+		},
+		ConnectionString:     inst.ConnectionString,
+		OriginalValues:       map[string]string{},
+		OperatorManagedValue: envVar,
+	})
 	return
+}
+
+// loadOldEnvVarState loads from annotation the original state of the env vars
+func (state *updateState) loadOldEnvVarState(wl Workload) {
+	ann := wl.Object().GetAnnotations()
+	if ann != nil {
+		val, exists := ann["csql-env"]
+		if exists {
+			err := json.Unmarshal([]byte(val), &state.oldWorkloadEnvVars)
+			if err != nil {
+				errStr := err.Error()
+				fmt.Printf("unable to unmarshal old environment workload vars, %v", errStr)
+			}
+			err = json.Unmarshal([]byte(val), &state.workloadEnvVars)
+			if err != nil {
+				errStr := err.Error()
+				fmt.Printf("unable to unmarshal old environment workload vars, %v", errStr)
+			}
+		}
+	}
+}
+
+// saveEnvVarState saves the most recent state from updated workloads
+func (state *updateState) saveEnvVarState(wl Workload) {
+	ann := wl.Object().GetAnnotations()
+	if ann == nil {
+		ann = map[string]string{}
+	}
+	bytes, err := json.Marshal(state.workloadEnvVars)
+	if err != nil {
+		l.Info("unable to marshal old environment workload vars, %v", err)
+		return
+	}
+	ann["csql-env"] = string(bytes)
+	wl.Object().SetAnnotations(ann)
 }
 
 // update Reconciles the state of a workload, applying the matching AuthProxyWorkloads
 // and removing any out-of-date configuration related to deleted AuthProxyWorkloads
 func (state *updateState) update(workload Workload, matchingAuthProxyWorkloads []*cloudsqlapi.AuthProxyWorkload) (bool, *ConfigError) {
-
+	state.loadOldEnvVarState(workload)
 	podSpec := workload.PodSpec()
 	containers := podSpec.Containers
 	updated := false
@@ -335,8 +403,7 @@ func (state *updateState) update(workload Workload, matchingAuthProxyWorkloads [
 
 	// remove all csql containers that don't relate to one of the matchingAuthProxyWorkloads
 	var filteredContainers []corev1.Container
-
-	var removedContainers []corev1.Container
+	var removedContainerNames []string
 
 	for j, _ := range containers {
 		container := &containers[j]
@@ -353,19 +420,19 @@ func (state *updateState) update(workload Workload, matchingAuthProxyWorkloads [
 			} else {
 				// we're removing a container that doesn't match an csqlWorkload
 				updated = true
-				removedContainers = append(removedContainers, *container)
+				removedContainerNames = append(removedContainerNames, container.Name)
 			}
 		} else {
 			filteredContainers = append(filteredContainers, *container)
 		}
 	}
+	state.removedContainerNames = removedContainerNames
+
 	podSpec.Containers = filteredContainers
 
-	//TODO remove all EnvVar, Volume, and VolumeMount related to deleted
-	// AuthProxyWorkload resources.
-
 	for i, _ := range podSpec.Containers {
-		state.applyCommonContainerConfig(&podSpec.Containers[i])
+		state.updateContainerEnv(&podSpec.Containers[i])
+		state.applyContainerVolumes(&podSpec.Containers[i])
 	}
 	state.applyVolumes(&podSpec)
 
@@ -379,6 +446,9 @@ func (state *updateState) update(workload Workload, matchingAuthProxyWorkloads [
 	} else {
 		err = nil
 	}
+
+	state.saveEnvVarState(workload)
+
 	return updated, err
 }
 
@@ -483,16 +553,16 @@ func (state *updateState) UpdateContainer(proxy *cloudsqlapi.AuthProxyWorkload, 
 					}
 					params["port"] = fmt.Sprint(port)
 					if inst.HostEnvName != "" {
-						state.addWorkloadEnvVar(corev1.EnvVar{
+						state.addWorkloadEnvVar(proxy, &inst, corev1.EnvVar{
 							Name:  inst.HostEnvName,
 							Value: "localhost",
-						}, proxy)
+						})
 					}
 					if inst.PortEnvName != "" {
-						state.addWorkloadEnvVar(corev1.EnvVar{
+						state.addWorkloadEnvVar(proxy, &inst, corev1.EnvVar{
 							Name:  inst.PortEnvName,
 							Value: fmt.Sprint(port),
-						}, proxy)
+						})
 					}
 				}
 
@@ -500,7 +570,7 @@ func (state *updateState) UpdateContainer(proxy *cloudsqlapi.AuthProxyWorkload, 
 					(inst.SocketType == "" && inst.UnixSocketPath != "") {
 					params["unix-socket"] = inst.UnixSocketPath
 					mountName := names.VolumeName(proxy, &inst, "unix")
-					state.addVolumeMount(
+					state.addVolumeMount(proxy, &inst,
 						corev1.VolumeMount{
 							Name:      mountName,
 							ReadOnly:  false,
@@ -512,10 +582,10 @@ func (state *updateState) UpdateContainer(proxy *cloudsqlapi.AuthProxyWorkload, 
 						})
 
 					if inst.UnixSocketPathEnvName != "" {
-						state.addWorkloadEnvVar(corev1.EnvVar{
+						state.addWorkloadEnvVar(proxy, &inst, corev1.EnvVar{
 							Name:  inst.UnixSocketPathEnvName,
 							Value: inst.UnixSocketPath,
-						}, proxy)
+						})
 					}
 				}
 
@@ -564,16 +634,92 @@ func (state *updateState) UpdateContainer(proxy *cloudsqlapi.AuthProxyWorkload, 
 func (state *updateState) updateContainerEnv(c *corev1.Container) {
 	for i := 0; i < len(state.workloadEnvVars); i++ {
 		var found bool
+		operatorEnv := state.workloadEnvVars[i].OperatorManagedValue
+		oldManagedEnv := state.oldManagedEnv(operatorEnv.Name)
+
 		for j := 0; j < len(c.Env); j++ {
-			if state.workloadEnvVars[i].Name == c.Env[j].Name {
+			if operatorEnv.Name == c.Env[j].Name {
 				found = true
-				c.Env[j] = state.workloadEnvVars[i]
+
+				if oldManagedEnv == nil {
+					l.Info("Override env {{env}} on container {{container}} from {{old}} to {{new}}",
+						"env", operatorEnv.Name,
+						"container", c.Name,
+						"old", c.Env[j].Value,
+						"new", operatorEnv.Value)
+					state.workloadEnvVars[i].OriginalValues[c.Name] = c.Env[j].Value
+				}
+				c.Env[j] = operatorEnv
 			}
 		}
 		if !found {
-			c.Env = append(c.Env, state.workloadEnvVars[i])
+			c.Env = append(c.Env, operatorEnv)
 		}
 	}
+
+	// filter and restore csql env vars
+	for i := 0; i < len(state.oldWorkloadEnvVars); i++ {
+		oldEnvVar := state.oldWorkloadEnvVars[i]
+		state.filterOldEnvVar(c, oldEnvVar)
+	}
+}
+
+func (state *updateState) filterOldEnvVar(c *corev1.Container, oldEnvVar *managedEnvVar) {
+
+	// Check if this env var belongs to a removed workload
+	var workloadRemoved bool
+	removedName := names.ContainerNameFromNamespacedName(oldEnvVar.AuthProxyWorkload)
+	for j := 0; j < len(state.removedContainerNames); j++ {
+		if state.removedContainerNames[j] == removedName {
+			workloadRemoved = true
+		}
+	}
+	if !workloadRemoved {
+		return
+	}
+
+	// Check if this env var was replaced with a new one of the same name
+	var newEnvVarWithSameName bool
+	for j := 0; j < len(state.workloadEnvVars) && !newEnvVarWithSameName; j++ {
+		mev := state.workloadEnvVars[j]
+		if mev.OperatorManagedValue.Name == oldEnvVar.OperatorManagedValue.Name &&
+			mev.AuthProxyWorkload != oldEnvVar.AuthProxyWorkload {
+			newEnvVarWithSameName = true
+		}
+	}
+	if newEnvVarWithSameName {
+		return
+	}
+
+	// Check if the container has an env var with this name
+	var containerEnv *corev1.EnvVar
+	var index int
+	for j := 0; j < len(c.Env) && containerEnv == nil; j++ {
+		if oldEnvVar.OperatorManagedValue.Name == c.Env[j].Name {
+			containerEnv = &c.Env[j]
+			index = j
+		}
+	}
+	if containerEnv == nil {
+		return
+	}
+
+	// Restore the original value or remove the env var
+	originalValue, hasOriginalValue := oldEnvVar.OriginalValues[c.Name]
+	if hasOriginalValue {
+		l.Info("Filter restored {{env}} to original value {{val}}.",
+			"env", oldEnvVar.OperatorManagedValue.Name,
+			"val", originalValue)
+		// replace the original value
+		containerEnv.Value = originalValue
+	} else {
+		// remove the element from the array
+		l.Info("Filter removed {{env}} to original value {{val}}.",
+			"env", oldEnvVar.OperatorManagedValue.Name,
+			"val", originalValue)
+		c.Env = append(c.Env[0:index], c.Env[index+1:]...)
+	}
+
 }
 
 // applyContainerVolumes applies global container state to all containers
@@ -581,15 +727,29 @@ func (state *updateState) applyContainerVolumes(c *corev1.Container) {
 	for i := 0; i < len(state.volumeMounts); i++ {
 		var found bool
 		for j := 0; j < len(c.VolumeMounts); j++ {
-			if state.workloadEnvVars[i].Name == c.VolumeMounts[j].Name {
+			if state.volumeMounts[i].volumeMount.Name == c.VolumeMounts[j].Name {
 				found = true
-				c.VolumeMounts[j] = state.volumeMounts[i]
+				c.VolumeMounts[j] = state.volumeMounts[i].volumeMount
 			}
 		}
 		if !found {
-			c.VolumeMounts = append(c.VolumeMounts, state.volumeMounts[i])
+			c.VolumeMounts = append(c.VolumeMounts, state.volumeMounts[i].volumeMount)
 		}
 	}
+	// filter removed csql volumeMounts
+	var filteredMounts []corev1.VolumeMount
+	for i := 0; i < len(c.VolumeMounts); i++ {
+		var removed bool
+		for j := 0; j < len(state.removedContainerNames); j++ {
+			if strings.HasPrefix(c.VolumeMounts[i].Name, state.removedContainerNames[j]) {
+				removed = true
+			}
+		}
+		if !removed {
+			filteredMounts = append(filteredMounts, c.VolumeMounts[i])
+		}
+	}
+	c.VolumeMounts = filteredMounts
 }
 
 // applyVolumes applies global container state to all containers
@@ -597,20 +757,30 @@ func (state *updateState) applyVolumes(spec *corev1.PodSpec) {
 	for i := 0; i < len(state.volumeMounts); i++ {
 		var found bool
 		for j := 0; j < len(spec.Volumes); j++ {
-			if state.workloadEnvVars[i].Name == spec.Volumes[j].Name {
+			if state.volumeMounts[i].volume.Name == spec.Volumes[j].Name {
 				found = true
-				spec.Volumes[j] = state.volumes[i]
+				spec.Volumes[j] = state.volumeMounts[i].volume
 			}
 		}
 		if !found {
-			spec.Volumes = append(spec.Volumes, state.volumes[i])
+			spec.Volumes = append(spec.Volumes, state.volumeMounts[i].volume)
 		}
 	}
-}
 
-func (state *updateState) applyCommonContainerConfig(c *corev1.Container) {
-	state.updateContainerEnv(c)
-	state.applyContainerVolumes(c)
+	// filter removed csql volumes
+	var filteredVolumes []corev1.Volume
+	for i := 0; i < len(spec.Volumes); i++ {
+		var removed bool
+		for j := 0; j < len(state.removedContainerNames); j++ {
+			if strings.HasPrefix(spec.Volumes[i].Name, state.removedContainerNames[j]) {
+				removed = true
+			}
+		}
+		if !removed {
+			filteredVolumes = append(filteredVolumes, spec.Volumes[i])
+		}
+	}
+	spec.Volumes = filteredVolumes
 }
 
 func (state *updateState) addHealthCheck(csqlWorkload *cloudsqlapi.AuthProxyWorkload) int32 {
@@ -637,4 +807,13 @@ func (state *updateState) addHealthCheck(csqlWorkload *cloudsqlapi.AuthProxyWork
 
 func (state *updateState) addError(errorCode string, description string, proxy *cloudsqlapi.AuthProxyWorkload) {
 	state.err.add(errorCode, description, proxy)
+}
+
+func (state *updateState) oldManagedEnv(name string) *managedEnvVar {
+	for i := 0; i < len(state.oldWorkloadEnvVars); i++ {
+		if state.oldWorkloadEnvVars[i].OperatorManagedValue.Name == name {
+			return state.oldWorkloadEnvVars[i]
+		}
+	}
+	return nil
 }
