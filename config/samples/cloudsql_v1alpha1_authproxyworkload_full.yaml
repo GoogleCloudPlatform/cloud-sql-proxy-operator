@@ -1,0 +1,84 @@
+# Copyright 2022 Google LLC.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+apiVersion: cloudsql.cloud.google.com/v1alpha1
+kind: AuthProxyWorkload
+metadata:
+  name: webapi-proxy
+  namespace: "commerce"
+spec:
+  # This controls the proxy on
+  # the v1/Deployment labeled app=webapi
+  workload:
+    kind: Deployment.apps
+    selector: # A LabelSelector
+      matchLabels:
+        app: "webapi"
+  # Declares how the proxy connects to google drive
+  authentication:
+    gcloudAuth: true
+    credentialsFileSecret: "commerce/product-gcloud-key"
+    credentialsFileKey: "gcloud.json"
+  # Proxy container configuration
+  proxyContainer:
+    # Resource requests for the proxy container
+    resources:
+      requests:
+        cpu: 0.5
+        mem: 2Gi
+      limits:
+        cpu: 1.0
+        mem: 4Gi
+    # The container image to use in the proxy container
+    image: "gcr.io/cloudsql/proxy:2.1"
+    # Used for testing only.
+    sqlAdminEndpointUrl: "https://cloud.google.com/sqladmin/v2beta1"
+    # K8s Container spec for the proxy, overrides all other setting
+    container: {}
+    # Proxy container telemetry settings, matching the CLI telemetry settings
+    telemetry:
+      prometheusNamespace: "commerce.proxy"
+      httpPort: 9001
+      disableTraces: false
+      telemetrySampleRate: "5"
+      disableMetrics: "3"
+      telemetryPrefix: "commerce_db_proxy"
+  # Proxy container instances
+  instances:
+    # instance connection to product_catalog
+    - connectionString: "commerce:commercedb:product_catalog"
+      # Set environment varaibles on all containers in this workload with connection
+      # information for this instance. The other containers in the workload's PodSpec
+      # will have environment variables added containing the value of the
+      # tcp host and port or unix path. The application should read these
+      # environment variables to connect to the database.
+      portEnvName: PRODUCT_DB_PORT # The tcp port on this proxy for the instance
+      hostEnvName: PRODUCT_DB_HOST # The tcp hostname always 127.0.0.1
+      socketPathEnvName: PRODUCT_DB_UNIX_SOCKET # The path to the unix socket
+      fuseVolumePathEnvName: PRODUCT_DB_FUSE_PATH # The path to the fuse volume
+      #Configure the proxy instance
+      port: 4433
+      unixSocket: /mnt/proxy/
+      autoIamAuthn: false
+      privateIp: false
+      fuse: false
+    # instance connection to order_processing
+    - connectionString: "commerce:commercedb:order_processing"
+      autoIAMAuthn: "true"
+      portEnvName: ORDER_DB_PORT
+      hostEnvName: ORDER_DB_HOST
+    # instance connection to a shared config called "crm-database" (Future, not Initial GA)
+    - connectionString: "crm:crmdb:customers"
+      autoIAMAuthn: "true"
+      portEnvName: CRM_DB_PORT
+      hostEnvName: CRM_DB_HOST
