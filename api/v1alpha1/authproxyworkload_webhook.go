@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package v1alpha1
 
 import (
@@ -38,7 +39,6 @@ var _ webhook.Defaulter = &AuthProxyWorkload{}
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *AuthProxyWorkload) Default() {
 	authproxyworkloadlog.Info("default", "name", r.Name)
-
 	// TODO(user): fill in your defaulting logic.
 }
 

@@ -17,6 +17,7 @@ package controllers
 import (
 	cloudsqlv1alpha1 "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -41,8 +42,9 @@ func SetupManagers(mgr manager.Manager) error {
 	var err error
 
 	r := &AuthProxyWorkloadReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:          mgr.GetClient(),
+		Scheme:          mgr.GetScheme(),
+		recentlyDeleted: map[types.NamespacedName]bool{},
 	}
 	err = r.SetupWithManager(mgr)
 	if err != nil {
@@ -65,6 +67,12 @@ func SetupManagers(mgr manager.Manager) error {
 	// kubebuilder to scaffold additional controllers here.
 	// When kubebuilder scaffolds a new controller here, please
 	// adjust the code so it follows the pattern above.
+
+	err = SetupWorkloadControllers(mgr)
+	if err != nil {
+		setupLog.Error(err, "unable to create workload admission webhook controller")
+		return err
+	}
 
 	setupLog.Info("Configuring reconcilers complete.")
 	return nil

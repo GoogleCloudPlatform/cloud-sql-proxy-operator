@@ -212,7 +212,7 @@ func TestWorkloadMatches(t *testing.T) {
 }
 
 // workload is shorthand to create workload test inputs
-func workload(t *testing.T, kind string, ns string, name string, l ...string) Workload {
+func workload(t *testing.T, kind, ns, name string, l ...string) Workload {
 	var v Workload
 	switch kind {
 	case "Deployment":

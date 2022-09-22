@@ -70,7 +70,6 @@ func TestSafePrefixedName(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestContainerName(t *testing.T) {
@@ -80,7 +79,6 @@ func TestContainerName(t *testing.T) {
 	if want != got {
 		t.Errorf("got %v, want %v", got, want)
 	}
-
 }
 
 func TestVolumeName(t *testing.T) {
@@ -90,10 +88,9 @@ func TestVolumeName(t *testing.T) {
 	if want != got {
 		t.Errorf("got %v, want %v", got, want)
 	}
-
 }
 
-func authProxyWorkload(name string, namespace string) *cloudsqlapi.AuthProxyWorkload {
+func authProxyWorkload(name, namespace string) *cloudsqlapi.AuthProxyWorkload {
 	// Create a CloudSqlInstance that matches the deployment
 	return &cloudsqlapi.AuthProxyWorkload{
 		TypeMeta:   metav1.TypeMeta{Kind: "AuthProxyWorkload", APIVersion: cloudsqlapi.GroupVersion.String()},
@@ -109,5 +106,4 @@ func authProxyWorkload(name string, namespace string) *cloudsqlapi.AuthProxyWork
 		},
 		Status: cloudsqlapi.AuthProxyWorkloadStatus{},
 	}
-
 }
