@@ -1,4 +1,23 @@
 
+# Import the local file
+#
+# should include
+#
+include build.env
+
+# Should be set by build.env
+PROXY_PROJECT_DIR ?= $(PWD)/bin/cloudsql-proxy
+GCLOUD_PROJECT_ID ?= error-no-project-id-set
+
+# Enable CRD Generation
+CRD_OPTIONS ?= "crd"
+
+
+# The local dev architecture
+GOOS:=$(shell go env GOOS)
+GOARCH:=$(shell go env GOARCH)
+
+
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
@@ -27,11 +46,15 @@ github_lint: pre_commit ## run the the github workflow lint check locally
 
 .PHONY: pre_commit ## run checks to make sure boilerplate workflows will pass
 pre_commit: git_workdir_clean  ## Run all the formatting and checks before committing
+	make lint
+	@git diff --exit-code --stat || (echo ; echo ; echo "ERROR: Lint tools caused changes to the working dir. "; echo "       Please review the changes before you commit."; echo ; exit 1)
+	@echo "Pre commit checks OK"
+
+.PHONY: lint
+lint: ## runs code format and validation tools
 	make build manifests
 	make add_copyright_header
 	make go_fmt yaml_fmt
-	@git diff --exit-code --stat || (echo ; echo ; echo "ERROR: Lint tools caused changes to the working dir. "; echo "       Please review the changes before you commit."; echo ; exit 1)
-	@echo "Pre commit checks OK"
 
 .PHONY: git_workdir_clean
 git_workdir_clean: # Checks if the git working directory is clean. Fails if there are unstaged changes.
@@ -108,10 +131,17 @@ test: manifests generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out
 
 ##@ Build
+# Load active version from version.txt
+VERSION=$(shell cat $(PWD)/version.txt | tr -d '\n')
+BUILD_VERSION=$(shell $(PWD)/tools/build-version.sh | tr -d '\n')
+GO_BUILD_FLAGS = -ldflags "-X main.version=$(VERSION) -X main.buildVersion=$(BUILD_VERSION)"
 
 .PHONY: build
 build: generate fmt vet manifests ## Build manager binary.
 	go build -o bin/manager main.go
+	go build $(GO_BUILD_FLAGS) -o bin/manager  main.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build $(GO_BUILD_FLAGS) -o bin/manager_linux_arm64 main.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(GO_BUILD_FLAGS) -o bin/manager_linux_amd64 main.go
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
