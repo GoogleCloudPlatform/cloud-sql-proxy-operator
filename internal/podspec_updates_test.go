@@ -454,12 +454,12 @@ func TestWorkloadUnixVolume(t *testing.T) {
 		}
 	}
 
-	// test that volume exists
+	// test that Volume exists
 	if want, got := 1, len(wl.Deployment.Spec.Template.Spec.Volumes); want != got {
 		t.Fatalf("got %v, wants %v. PodSpec.Volumes", got, want)
 	}
 
-	// test that volume mount exists on busybox
+	// test that Volume mount exists on busybox
 	busyboxContainer, err := findContainer(wl, "busybox")
 	if err != nil {
 		t.Fatalf(err.Error())
@@ -624,7 +624,7 @@ func basicProxy(spec cloudsqlapi.AuthProxyWorkloadSpec) *cloudsqlapi.AuthProxyWo
 	return proxy
 }
 
-func ptr[T int | int32 | string](i T) *T {
+func ptr[T int | int32 | int64 | string](i T) *T {
 	return &i
 }
 
@@ -772,7 +772,10 @@ func TestProxyCLIArgs(t *testing.T) {
 						DisableTraces:       &wantTrue,
 						DisableMetrics:      &wantTrue,
 						Prometheus:          &wantTrue,
+						QuotaProject:        ptr("qp"),
 					},
+					MaxConnections:  ptr(int64(10)),
+					MaxSigtermDelay: ptr(int64(20)),
 				},
 				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "hello:world:one",
@@ -790,6 +793,9 @@ func TestProxyCLIArgs(t *testing.T) {
 				"--disable-traces",
 				"--disable-metrics",
 				"--prometheus",
+				"--quota-project=qp",
+				"--max-connections=10",
+				"--max-sigterm-delay=20",
 			},
 		},
 		{
@@ -976,12 +982,12 @@ func TestProperCleanupOfEnvAndVolumes(t *testing.T) {
 		}
 	}
 
-	// test that volume exists
+	// test that Volume exists
 	if want, got := 1, len(wl.Deployment.Spec.Template.Spec.Volumes); want != got {
 		t.Fatalf("got %v, wants %v. PodSpec.Volumes", got, want)
 	}
 
-	// test that volume mount exists on busybox
+	// test that Volume mount exists on busybox
 	busyboxContainer, err := findContainer(wl, "busybox")
 	if err != nil {
 		t.Fatalf(err.Error())
