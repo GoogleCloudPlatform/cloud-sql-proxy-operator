@@ -31,21 +31,10 @@ import (
 
 var l = logf.Log.WithName("internal.workload")
 
-const DefaultContainerImage = "us-central1-docker.pkg.dev/csql-operator-test/test76e6d646e2caac1c458c/proxy-v2:latest" //TODO get the right name here.
-
 // Constants for well known error codes and defaults. These are exposed on the
 // package and documented here so that they appear in the godoc. These also
 // need to be documented in the CRD
 const (
-	// ErrorCodePortConflict occurs when an explicit port assignment for a workload
-	// is in conflict with a port assignment from the pod or another proxy container.
-	ErrorCodePortConflict = "PortConflict"
-
-	// ErrorCodeEnvConflict occurs when an the environment code does not work.
-	ErrorCodeEnvConflict = "EnvVarConflict"
-
-	// ErrorCodeEnvConflict occurs when any FUSE configuration is set, because fuse is not yet supported.
-	ErrorCodeFUSENotSupported = "FUSENotSupported"
 
 	// DefaultFirstPort is the first port number chose for an instance listener by the
 	// proxy.
@@ -66,25 +55,25 @@ type ConfigError struct {
 	details []ConfigErrorDetail
 }
 
-func (c *ConfigError) DetailedErrors() []ConfigErrorDetail {
-	return c.details
+func (e *ConfigError) DetailedErrors() []ConfigErrorDetail {
+	return e.details
 }
 
-func (err *ConfigError) Error() string {
+func (e *ConfigError) Error() string {
 	return fmt.Sprintf("found %d configuration errors on workload %s %s/%s: %v",
-		len(err.details),
-		err.workloadKind.String(),
-		err.workloadNamespace,
-		err.workloadName,
-		err.details)
+		len(e.details),
+		e.workloadKind.String(),
+		e.workloadNamespace,
+		e.workloadName,
+		e.details)
 }
 
-func (err *ConfigError) add(errorCode, description string, proxy *cloudsqlapi.AuthProxyWorkload) {
-	err.details = append(err.details,
+func (e *ConfigError) add(errorCode, description string, proxy *cloudsqlapi.AuthProxyWorkload) {
+	e.details = append(e.details,
 		ConfigErrorDetail{
-			WorkloadKind:       err.workloadKind,
-			WorkloadName:       err.workloadName,
-			WorkloadNamespace:  err.workloadNamespace,
+			WorkloadKind:       e.workloadKind,
+			WorkloadName:       e.workloadName,
+			WorkloadNamespace:  e.workloadNamespace,
 			AuthProxyNamespace: proxy.GetNamespace(),
 			AuthProxyName:      proxy.GetName(),
 			ErrorCode:          errorCode,
@@ -134,11 +123,21 @@ func ReconcileWorkload(instList cloudsqlapi.AuthProxyWorkloadList, workload Work
 	}
 
 	matchingAuthProxyWorkloads := filterMatchingInstances(instList, workload)
+
 	updated, err := UpdateWorkloadContainers(workload, matchingAuthProxyWorkloads)
-	if updated {
-		return true, matchingAuthProxyWorkloads, err
+	// if there was an error updating workloads, return the error
+	if err != nil {
+		return updated, matchingAuthProxyWorkloads, err
 	}
-	return false, []*cloudsqlapi.AuthProxyWorkload{}, nil
+
+	// if this was not updated, then return nil and an empty array because
+	// no AuthProxyWorkloads were applied
+	if !updated {
+		return updated, []*cloudsqlapi.AuthProxyWorkload{}, nil
+	}
+
+	// if this was updated return matching AuthProxyWorkloads
+	return updated, matchingAuthProxyWorkloads, nil
 
 }
 
@@ -150,7 +149,10 @@ func filterMatchingInstances(wlList cloudsqlapi.AuthProxyWorkloadList, workload 
 		csqlWorkload := &wlList.Items[i]
 		if workloadMatches(workload, csqlWorkload.Spec.Workload, csqlWorkload.Namespace) {
 			// need to update workload
-			l.Info("Found matching workload", "workload", workload.Object().GetNamespace()+"/"+workload.Object().GetName(), "wlSelector", csqlWorkload.Spec.Workload, "AuthProxyWorkload", csqlWorkload.Namespace+"/"+csqlWorkload.Name)
+			l.Info("Found matching workload",
+				"workload", workload.Object().GetNamespace()+"/"+workload.Object().GetName(),
+				"wlSelector", csqlWorkload.Spec.Workload,
+				"AuthProxyWorkload", csqlWorkload.Namespace+"/"+csqlWorkload.Name)
 			matchingAuthProxyWorkloads = append(matchingAuthProxyWorkloads, csqlWorkload)
 		}
 	}
@@ -187,8 +189,8 @@ func MarkWorkloadUpdated(csqlWorkload *cloudsqlapi.AuthProxyWorkload, workload W
 // responsible for applying the AuthProxyWorkloads that apply to a workload
 // when the workload is created or modified.
 func updateWorkloadAnnotations(csqlWorkload *cloudsqlapi.AuthProxyWorkload, workload Workload, doingUpdate bool) (bool, workloadUpdateStatus) {
-	s := workloadUpdateStatus{}
-	doUpdate := false
+	var s workloadUpdateStatus
+	var doUpdate bool
 	reqName := names.SafePrefixedName("csqlr-", csqlWorkload.Namespace+"-"+csqlWorkload.Name)
 	resultName := names.SafePrefixedName("csqlu-", csqlWorkload.Namespace+"-"+csqlWorkload.Name)
 	s.InstanceGeneration = fmt.Sprintf("%d", csqlWorkload.GetGeneration())
@@ -235,6 +237,13 @@ type managedEnvVar struct {
 	OperatorManagedValue corev1.EnvVar        `json:"operatorManagedValue"`
 }
 
+type managedPort struct {
+	AuthProxyWorkload types.NamespacedName `json:"authProxyWorkload"`
+	ConnectionString  string               `json:"connectionString,omitempty"`
+	Port              int32                `json:"port,omitempty"`
+	OriginalValues    map[string]int32     `json:"originalValues,omitempty"`
+}
+
 type managedVolume struct {
 	AuthProxyWorkload types.NamespacedName `json:"authProxyWorkload"`
 	ConnectionString  string               `json:"connectionString"`
@@ -246,40 +255,41 @@ type managedVolume struct {
 // with one or more AuthProxyWorkloads.
 type updateState struct {
 	err                   ConfigError
-	portsInUse            []int32 //TODO move portsInUse state to workloadMods
 	oldMods               workloadMods
 	mods                  workloadMods
 	nextDbPort            int32
 	removedContainerNames []string
 }
 
-// workloadMods
+// workloadMods holds all modifications to this workload done by the operator so
+// so that it can be undone later.
 type workloadMods struct {
-	EnvVars      []*managedEnvVar `json:"envVars"`
-	VolumeMounts []*managedVolume `json:"volumeMounts"`
-	//TODO: implement managedPorts like managedVolume
+	AuthProxyWorkloads []types.NamespacedName `json:"authProxyWorkloads"`
+	EnvVars            []*managedEnvVar       `json:"envVars"`
+	VolumeMounts       []*managedVolume       `json:"volumeMounts"`
+	Ports              []*managedPort         `json:"ports"`
 }
 
-func (state *updateState) addVolumeMount(proxy *cloudsqlapi.AuthProxyWorkload, inst *cloudsqlapi.InstanceSpec, mnt corev1.VolumeMount, vol corev1.Volume) {
-	state.mods.VolumeMounts = append(state.mods.VolumeMounts, &managedVolume{
+func (s *updateState) addVolumeMount(p *cloudsqlapi.AuthProxyWorkload, is *cloudsqlapi.InstanceSpec, m corev1.VolumeMount, v corev1.Volume) {
+	s.mods.VolumeMounts = append(s.mods.VolumeMounts, &managedVolume{
 		AuthProxyWorkload: types.NamespacedName{
-			Namespace: proxy.Namespace,
-			Name:      proxy.Name,
+			Namespace: p.Namespace,
+			Name:      p.Name,
 		},
-		ConnectionString: inst.ConnectionString,
-		Volume:           vol,
-		VolumeMount:      mnt,
+		ConnectionString: is.ConnectionString,
+		Volume:           v,
+		VolumeMount:      m,
 	})
 }
 
-func (state *updateState) addInUsePort(port int32) {
-	state.portsInUse = append(state.portsInUse, port)
+func (s *updateState) addInUsePort(p int32, containerName string) {
+	s.addPort(p, containerName, types.NamespacedName{}, "")
 }
 
 // isPortInUse checks if the port is in use.
-func (state *updateState) isPortInUse(port int32) bool {
-	for i := 0; i < len(state.portsInUse); i++ {
-		if port == state.portsInUse[i] {
+func (s *updateState) isPortInUse(p int32) bool {
+	for i := 0; i < len(s.mods.Ports); i++ {
+		if p == s.mods.Ports[i].Port {
 			return true
 		}
 	}
@@ -287,29 +297,101 @@ func (state *updateState) isPortInUse(port int32) bool {
 }
 
 // useNextDbPort consumes the next available db port, marking that port as "in-use."
-func (state *updateState) useNextDbPort() int32 {
-	for state.isPortInUse(state.nextDbPort) {
-		state.nextDbPort++
+func (s *updateState) useInstancePort(p *cloudsqlapi.AuthProxyWorkload, is *cloudsqlapi.InstanceSpec) int32 {
+	n := types.NamespacedName{
+		Namespace: p.Namespace,
+		Name:      p.Name,
 	}
-	state.addInUsePort(state.nextDbPort)
-	return state.nextDbPort
+
+	//Does a managedPort already exist for this workload+instance?
+	var proxyPort *managedPort
+	for _, mp := range s.mods.Ports {
+		if mp.AuthProxyWorkload == n && mp.ConnectionString == is.ConnectionString {
+			proxyPort = mp
+			break
+		}
+	}
+
+	// Update the managedPort for this workload+instance
+	if proxyPort != nil {
+		if is.Port != nil && proxyPort.Port != *is.Port {
+			if s.isPortInUse(*is.Port) {
+				s.addError(cloudsqlapi.ErrorCodePortConflict,
+					fmt.Sprintf("proxy port %d for instance %s is already in use",
+						*is.Port, is.ConnectionString), p)
+			}
+			proxyPort.Port = *is.Port
+		}
+		return proxyPort.Port
+	}
+
+	// Since this is a new workload+instance, figure out the port number
+	var port int32
+	if is.Port != nil {
+		port = *is.Port
+	} else {
+		for s.isPortInUse(s.nextDbPort) {
+			s.nextDbPort++
+		}
+		port = s.nextDbPort
+	}
+
+	if s.isPortInUse(port) {
+		s.addError(cloudsqlapi.ErrorCodePortConflict,
+			fmt.Sprintf("proxy port %d for instance %s is already in use",
+				port, is.ConnectionString), p)
+	}
+
+	s.addPort(port, "", n, is.ConnectionString)
+
+	return port
+}
+
+func (s *updateState) addPort(p int32, containerName string, n types.NamespacedName, connectionString string) {
+	var mp *managedPort
+
+	for i := 0; i < len(s.mods.Ports); i++ {
+		if s.mods.Ports[i].Port == p {
+			mp = s.mods.Ports[i]
+		}
+	}
+
+	if mp == nil {
+		mp = &managedPort{
+			AuthProxyWorkload: n,
+			ConnectionString:  connectionString,
+			Port:              p,
+			OriginalValues:    map[string]int32{},
+		}
+		s.mods.Ports = append(s.mods.Ports, mp)
+	}
+	if containerName != "" && !strings.HasPrefix(containerName, names.ContainerPrefix) {
+		mp.OriginalValues[containerName] = p
+	}
+
+}
+func (s *updateState) useNextDbPort(p *cloudsqlapi.AuthProxyWorkload, is *cloudsqlapi.InstanceSpec) int32 {
+	for s.isPortInUse(s.nextDbPort) {
+		s.nextDbPort++
+	}
+	return s.nextDbPort
 }
 
 // addWorkloadEnvVar adds or replaces the envVar based on its Name, returning the old and new values
-func (state *updateState) addWorkloadEnvVar(proxy *cloudsqlapi.AuthProxyWorkload, inst *cloudsqlapi.InstanceSpec, envVar corev1.EnvVar) {
+func (s *updateState) addWorkloadEnvVar(proxy *cloudsqlapi.AuthProxyWorkload, inst *cloudsqlapi.InstanceSpec, envVar corev1.EnvVar) {
 
-	for i := 0; i < len(state.mods.EnvVars); i++ {
-		if state.mods.EnvVars[i].OperatorManagedValue.Name == envVar.Name {
-			old := state.mods.EnvVars[i].OperatorManagedValue
-			state.mods.EnvVars[i].OperatorManagedValue = envVar
+	for i := 0; i < len(s.mods.EnvVars); i++ {
+		if s.mods.EnvVars[i].OperatorManagedValue.Name == envVar.Name {
+			old := s.mods.EnvVars[i].OperatorManagedValue
+			s.mods.EnvVars[i].OperatorManagedValue = envVar
 			if old.Value != envVar.Value {
-				state.addError(ErrorCodeEnvConflict,
+				s.addError(cloudsqlapi.ErrorCodeEnvConflict,
 					fmt.Sprintf("environment variable named %s already exists", envVar.Name), proxy)
 			}
 			return
 		}
 	}
-	state.mods.EnvVars = append(state.mods.EnvVars, &managedEnvVar{
+	s.mods.EnvVars = append(s.mods.EnvVars, &managedEnvVar{
 		AuthProxyWorkload: types.NamespacedName{
 			Namespace: proxy.Namespace,
 			Name:      proxy.Name,
@@ -324,32 +406,34 @@ func (state *updateState) addWorkloadEnvVar(proxy *cloudsqlapi.AuthProxyWorkload
 // loadOldEnvVarState loads the state connecting EnvVar changes done by the
 // AuthProxyWorkload workload webhook from an annotation on that workload. This
 // enables changes to be checked and reverted when a AuthProxyWorkload is removed.
-func (state *updateState) loadOldEnvVarState(wl Workload) {
+func (s *updateState) loadOldEnvVarState(wl Workload) {
 	ann := wl.Object().GetAnnotations()
-	if ann != nil {
-		val, exists := ann["csql-env"]
-		if exists {
-			err := json.Unmarshal([]byte(val), &state.oldMods)
-			if err != nil {
-				errStr := err.Error()
-				fmt.Printf("unable to unmarshal old environment workload vars, %v", errStr)
-			}
-			err = json.Unmarshal([]byte(val), &state.mods)
-			if err != nil {
-				errStr := err.Error()
-				fmt.Printf("unable to unmarshal old environment workload vars, %v", errStr)
-			}
-		}
+	if ann == nil {
+		return
+	}
+
+	val, exists := ann["csql-env"]
+	if !exists {
+		return
+	}
+
+	err := json.Unmarshal([]byte(val), &s.oldMods)
+	if err != nil {
+		l.Info("unable to unmarshal old environment workload vars", "error", err)
+	}
+	err = json.Unmarshal([]byte(val), &s.mods)
+	if err != nil {
+		l.Info("unable to unmarshal old environment workload vars", "error", err)
 	}
 }
 
 // saveEnvVarState saves the most recent state from updated workloads
-func (state *updateState) saveEnvVarState(wl Workload) {
+func (s *updateState) saveEnvVarState(wl Workload) {
 	ann := wl.Object().GetAnnotations()
 	if ann == nil {
 		ann = map[string]string{}
 	}
-	bytes, err := json.Marshal(state.mods)
+	bytes, err := json.Marshal(s.mods)
 	if err != nil {
 		l.Info("unable to marshal old environment workload vars, %v", err)
 		return
@@ -360,15 +444,15 @@ func (state *updateState) saveEnvVarState(wl Workload) {
 
 // update Reconciles the state of a workload, applying the matching AuthProxyWorkloads
 // and removing any out-of-date configuration related to deleted AuthProxyWorkloads
-func (state *updateState) update(workload Workload, matchingAuthProxyWorkloads []*cloudsqlapi.AuthProxyWorkload) (bool, *ConfigError) {
-	state.loadOldEnvVarState(workload)
+func (s *updateState) update(workload Workload, matchingAuthProxyWorkloads []*cloudsqlapi.AuthProxyWorkload) (bool, *ConfigError) {
+	s.loadOldEnvVarState(workload)
 	podSpec := workload.PodSpec()
 	containers := podSpec.Containers
-	updated := false
+	var updated bool
 
 	var nonAuthProxyContainers []corev1.Container
 	for i := 0; i < len(containers); i++ {
-		if strings.Index(containers[i].Name, names.ContainerPrefix) != 0 {
+		if !strings.HasPrefix(containers[i].Name, names.ContainerPrefix) {
 			nonAuthProxyContainers = append(nonAuthProxyContainers, containers[i])
 		}
 	}
@@ -376,14 +460,14 @@ func (state *updateState) update(workload Workload, matchingAuthProxyWorkloads [
 	for i := 0; i < len(nonAuthProxyContainers); i++ {
 		c := nonAuthProxyContainers[i]
 		for j := 0; j < len(c.Ports); j++ {
-			state.portsInUse = append(state.portsInUse, c.Ports[j].ContainerPort)
+			s.addInUsePort(c.Ports[j].ContainerPort, c.Name)
 		}
 	}
 
 	// add all new containers and update existing containers
 	for i, _ := range matchingAuthProxyWorkloads {
 		inst := matchingAuthProxyWorkloads[i]
-
+		s.addAuthProxyWorkload(inst)
 		var instContainer *corev1.Container
 
 		for j, _ := range containers {
@@ -395,11 +479,11 @@ func (state *updateState) update(workload Workload, matchingAuthProxyWorkloads [
 		}
 		if instContainer == nil {
 			newContainer := corev1.Container{}
-			state.UpdateContainer(inst, workload, &newContainer)
+			s.UpdateContainer(inst, workload, &newContainer)
 			containers = append(containers, newContainer)
 			updated = true
 		} else {
-			updated = state.UpdateContainer(inst, workload, instContainer)
+			updated = s.UpdateContainer(inst, workload, instContainer)
 		}
 	}
 
@@ -409,53 +493,54 @@ func (state *updateState) update(workload Workload, matchingAuthProxyWorkloads [
 
 	for j, _ := range containers {
 		container := &containers[j]
-		if strings.HasPrefix(container.Name, names.ContainerPrefix) {
-			found := false
-			for i, _ := range matchingAuthProxyWorkloads {
-				if names.ContainerName(matchingAuthProxyWorkloads[i]) == container.Name {
-					found = true
-					break
-				}
-			}
-			if found {
-				filteredContainers = append(filteredContainers, *container)
-			} else {
-				// we're removing a container that doesn't match an csqlWorkload
-				updated = true
-				removedContainerNames = append(removedContainerNames, container.Name)
-			}
-		} else {
+		if !strings.HasPrefix(container.Name, names.ContainerPrefix) {
 			filteredContainers = append(filteredContainers, *container)
+			continue
+		}
+
+		var found bool
+		for i, _ := range matchingAuthProxyWorkloads {
+			if names.ContainerName(matchingAuthProxyWorkloads[i]) == container.Name {
+				found = true
+				break
+			}
+		}
+		if found {
+			filteredContainers = append(filteredContainers, *container)
+		} else {
+			// we're removing a container that doesn't match an csqlWorkload
+			updated = true
+			removedContainerNames = append(removedContainerNames, container.Name)
 		}
 	}
-	state.removedContainerNames = removedContainerNames
+	s.removedContainerNames = removedContainerNames
 
 	podSpec.Containers = filteredContainers
 
 	for i, _ := range podSpec.Containers {
-		state.updateContainerEnv(&podSpec.Containers[i])
-		state.applyContainerVolumes(&podSpec.Containers[i])
+		s.updateContainerEnv(&podSpec.Containers[i])
+		s.applyContainerVolumes(&podSpec.Containers[i])
 	}
-	state.applyVolumes(&podSpec)
-
-	workload.SetPodSpec(podSpec)
+	s.applyVolumes(&podSpec)
 
 	// only return ConfigError if there were reported
 	// errors during processing.
-	var err *ConfigError
-	if len(state.err.details) > 0 {
-		err = &state.err
-	} else {
-		err = nil
+	if len(s.err.details) > 0 {
+		var err *ConfigError
+		err = &s.err
+		return updated, err
 	}
 
-	state.saveEnvVarState(workload)
+	if updated {
+		workload.SetPodSpec(podSpec)
+		s.saveEnvVarState(workload)
+	}
 
-	return updated, err
+	return updated, nil
 }
 
 // UpdateContainer Creates or updates the proxy container in the workload's PodSpec
-func (state *updateState) UpdateContainer(proxy *cloudsqlapi.AuthProxyWorkload, workload Workload, container *corev1.Container) bool {
+func (s *updateState) UpdateContainer(proxy *cloudsqlapi.AuthProxyWorkload, workload Workload, container *corev1.Container) bool {
 	doUpdate, status := MarkWorkloadUpdated(proxy, workload)
 
 	if !doUpdate {
@@ -480,7 +565,7 @@ func (state *updateState) UpdateContainer(proxy *cloudsqlapi.AuthProxyWorkload, 
 	var cliArgs []string
 
 	// always enable http port healthchecks on 0.0.0.0 and structured logs
-	cliArgs = append(cliArgs, fmt.Sprintf("--http-port=%d", state.addHealthCheck(proxy)))
+	cliArgs = append(cliArgs, fmt.Sprintf("--http-port=%d", s.addHealthCheck(proxy)))
 	cliArgs = append(cliArgs, "--http-address=0.0.0.0")
 	cliArgs = append(cliArgs, "--health-check")
 	cliArgs = append(cliArgs, "--structured-logs")
@@ -488,9 +573,9 @@ func (state *updateState) UpdateContainer(proxy *cloudsqlapi.AuthProxyWorkload, 
 	container.Name = names.ContainerName(proxy)
 	container.ImagePullPolicy = "IfNotPresent"
 
-	cliArgs = state.applyContainerSpec(proxy, container, cliArgs)
-	cliArgs = state.applyTelemetrySpec(proxy, cliArgs)
-	cliArgs = state.applyAuthenticationSpec(proxy, container, cliArgs)
+	cliArgs = s.applyContainerSpec(proxy, container, cliArgs)
+	cliArgs = s.applyTelemetrySpec(proxy, cliArgs)
+	cliArgs = s.applyAuthenticationSpec(proxy, container, cliArgs)
 
 	// Instances
 	for _, inst := range proxy.Spec.Instances {
@@ -500,37 +585,25 @@ func (state *updateState) UpdateContainer(proxy *cloudsqlapi.AuthProxyWorkload, 
 		// if it is a TCP socket
 		if inst.SocketType == "tcp" ||
 			(inst.SocketType == "" && inst.UnixSocketPath == "") {
-			var port int32
-			if inst.Port == nil {
-				port = state.useNextDbPort()
-			} else {
-				port = *inst.Port
-				if state.isPortInUse(port) {
-					state.addError(ErrorCodePortConflict,
-						fmt.Sprintf("proxy port %d for instance %s is already in use",
-							port, inst.ConnectionString), proxy)
-				}
-				state.addInUsePort(port)
-			}
+			port := s.useInstancePort(proxy, &inst)
 			params["port"] = fmt.Sprint(port)
 			if inst.HostEnvName != "" {
-				state.addWorkloadEnvVar(proxy, &inst, corev1.EnvVar{
+				s.addWorkloadEnvVar(proxy, &inst, corev1.EnvVar{
 					Name:  inst.HostEnvName,
 					Value: "localhost",
 				})
 			}
 			if inst.PortEnvName != "" {
-				state.addWorkloadEnvVar(proxy, &inst, corev1.EnvVar{
+				s.addWorkloadEnvVar(proxy, &inst, corev1.EnvVar{
 					Name:  inst.PortEnvName,
 					Value: fmt.Sprint(port),
 				})
 			}
-		} else if inst.SocketType == "unix" ||
-			(inst.SocketType == "" && inst.UnixSocketPath != "") {
+		} else {
 			// else if it is a unix socket
 			params["unix-socket"] = inst.UnixSocketPath
 			mountName := names.VolumeName(proxy, &inst, "unix")
-			state.addVolumeMount(proxy, &inst,
+			s.addVolumeMount(proxy, &inst,
 				corev1.VolumeMount{
 					Name:      mountName,
 					ReadOnly:  false,
@@ -542,7 +615,7 @@ func (state *updateState) UpdateContainer(proxy *cloudsqlapi.AuthProxyWorkload, 
 				})
 
 			if inst.UnixSocketPathEnvName != "" {
-				state.addWorkloadEnvVar(proxy, &inst, corev1.EnvVar{
+				s.addWorkloadEnvVar(proxy, &inst, corev1.EnvVar{
 					Name:  inst.UnixSocketPathEnvName,
 					Value: inst.UnixSocketPath,
 				})
@@ -564,7 +637,7 @@ func (state *updateState) UpdateContainer(proxy *cloudsqlapi.AuthProxyWorkload, 
 			}
 		}
 
-		instArgs := []string{}
+		var instArgs []string
 		for k, v := range params {
 			instArgs = append(instArgs, fmt.Sprintf("%s=%s", k, v))
 		}
@@ -587,40 +660,30 @@ func (state *updateState) UpdateContainer(proxy *cloudsqlapi.AuthProxyWorkload, 
 
 // applyContainerSpec applies settings from cloudsqlapi.AuthProxyContainerSpec
 // to the container
-func (state *updateState) applyContainerSpec(proxy *cloudsqlapi.AuthProxyWorkload, container *corev1.Container, cliArgs []string) []string {
+func (s *updateState) applyContainerSpec(proxy *cloudsqlapi.AuthProxyWorkload, container *corev1.Container, cliArgs []string) []string {
 	if proxy.Spec.AuthProxyContainer == nil {
 		return cliArgs
 	}
 
 	// Fuse
-	if proxy.Spec.AuthProxyContainer.FUSEDir != "" {
-		state.addError(ErrorCodeFUSENotSupported, "the FUSE filesystem is not yet supported", proxy)
+	if proxy.Spec.AuthProxyContainer.FUSEDir != "" || proxy.Spec.AuthProxyContainer.FUSETempDir != "" {
+		s.addError(cloudsqlapi.ErrorCodeFUSENotSupported, "the FUSE filesystem is not yet supported", proxy)
 
 		//TODO fuse...
 		// if FUSE is used, we need to use the 'buster' or 'alpine' image.
-		// for the proxy container. We can't use the default distroless image.
-
-	}
-	if proxy.Spec.AuthProxyContainer.FUSETempDir != "" {
-		state.addError(ErrorCodeFUSENotSupported, "the FUSE filesystem is not yet supported", proxy)
-
-		//TODO fuse...
-		// if FUSE is used, we need to use the 'buster' or 'alpine' image.
-		// for the proxy container. We can't use the default distroless image.
 
 	}
 
+	container.Image = s.defaultProxyImage()
 	if proxy.Spec.AuthProxyContainer.Image != "" {
 		container.Image = proxy.Spec.AuthProxyContainer.Image
-	} else {
-		container.Image = DefaultContainerImage
 	}
 
+	container.Resources = defaultContainerResources
 	if proxy.Spec.AuthProxyContainer.Resources != nil {
 		container.Resources = *proxy.Spec.AuthProxyContainer.Resources.DeepCopy()
-	} else {
-		container.Resources = defaultContainerResources
 	}
+
 	if proxy.Spec.AuthProxyContainer.SQLAdminAPIEndpoint != "" {
 		cliArgs = append(cliArgs, "--sqladmin-api-endpoint="+proxy.Spec.AuthProxyContainer.SQLAdminAPIEndpoint)
 	}
@@ -638,47 +701,46 @@ func (state *updateState) applyContainerSpec(proxy *cloudsqlapi.AuthProxyWorkloa
 
 // applyTelemetrySpec applies settings from cloudsqlapi.TelemetrySpec
 // to the container
-func (state *updateState) applyTelemetrySpec(proxy *cloudsqlapi.AuthProxyWorkload, cliArgs []string) []string {
+func (s *updateState) applyTelemetrySpec(proxy *cloudsqlapi.AuthProxyWorkload, cliArgs []string) []string {
 	if proxy.Spec.AuthProxyContainer == nil || proxy.Spec.AuthProxyContainer.Telemetry == nil {
 		return cliArgs
 	}
-
 	tel := proxy.Spec.AuthProxyContainer.Telemetry
-	if tel != nil {
-		if tel.TelemetrySampleRate != nil {
-			cliArgs = append(cliArgs, fmt.Sprintf("--telemetry-sample-rate=%d", *tel.TelemetrySampleRate))
-		}
-		if tel.DisableTraces != nil && *tel.DisableTraces {
-			cliArgs = append(cliArgs, "--disable-traces")
-		}
-		if tel.DisableMetrics != nil && *tel.DisableMetrics {
-			cliArgs = append(cliArgs, "--disable-metrics")
-		}
-		if tel.PrometheusNamespace != nil || (tel.Prometheus != nil && *tel.Prometheus) {
-			cliArgs = append(cliArgs, "--prometheus")
-		}
-		if tel.PrometheusNamespace != nil {
-			cliArgs = append(cliArgs, fmt.Sprintf("--prometheus-namespace=%s", *tel.PrometheusNamespace))
-		}
-		if tel.TelemetryProject != nil {
-			cliArgs = append(cliArgs, fmt.Sprintf("--telemetry-project=%s", *tel.TelemetryProject))
-		}
-		if tel.TelemetryPrefix != nil {
-			cliArgs = append(cliArgs, fmt.Sprintf("--telemetry-prefix=%s", *tel.TelemetryPrefix))
-		}
-		if tel.QuotaProject != nil {
-			cliArgs = append(cliArgs, fmt.Sprintf("--quota-project=%s", *tel.QuotaProject))
-		}
+
+	if tel.TelemetrySampleRate != nil {
+		cliArgs = append(cliArgs, fmt.Sprintf("--telemetry-sample-rate=%d", *tel.TelemetrySampleRate))
 	}
+	if tel.DisableTraces != nil && *tel.DisableTraces {
+		cliArgs = append(cliArgs, "--disable-traces")
+	}
+	if tel.DisableMetrics != nil && *tel.DisableMetrics {
+		cliArgs = append(cliArgs, "--disable-metrics")
+	}
+	if tel.PrometheusNamespace != nil || (tel.Prometheus != nil && *tel.Prometheus) {
+		cliArgs = append(cliArgs, "--prometheus")
+	}
+	if tel.PrometheusNamespace != nil {
+		cliArgs = append(cliArgs, fmt.Sprintf("--prometheus-namespace=%s", *tel.PrometheusNamespace))
+	}
+	if tel.TelemetryProject != nil {
+		cliArgs = append(cliArgs, fmt.Sprintf("--telemetry-project=%s", *tel.TelemetryProject))
+	}
+	if tel.TelemetryPrefix != nil {
+		cliArgs = append(cliArgs, fmt.Sprintf("--telemetry-prefix=%s", *tel.TelemetryPrefix))
+	}
+	if tel.QuotaProject != nil {
+		cliArgs = append(cliArgs, fmt.Sprintf("--quota-project=%s", *tel.QuotaProject))
+	}
+
 	return cliArgs
 }
 
 // updateContainerEnv applies global container state to all containers
-func (state *updateState) updateContainerEnv(c *corev1.Container) {
-	for i := 0; i < len(state.mods.EnvVars); i++ {
+func (s *updateState) updateContainerEnv(c *corev1.Container) {
+	for i := 0; i < len(s.mods.EnvVars); i++ {
 		var found bool
-		operatorEnv := state.mods.EnvVars[i].OperatorManagedValue
-		oldManagedEnv := state.oldManagedEnv(operatorEnv.Name)
+		operatorEnv := s.mods.EnvVars[i].OperatorManagedValue
+		oldManagedEnv := s.oldManagedEnv(operatorEnv.Name)
 
 		for j := 0; j < len(c.Env); j++ {
 			if operatorEnv.Name == c.Env[j].Name {
@@ -690,7 +752,7 @@ func (state *updateState) updateContainerEnv(c *corev1.Container) {
 						"container", c.Name,
 						"old", c.Env[j].Value,
 						"new", operatorEnv.Value)
-					state.mods.EnvVars[i].OriginalValues[c.Name] = c.Env[j].Value
+					s.mods.EnvVars[i].OriginalValues[c.Name] = c.Env[j].Value
 				}
 				c.Env[j] = operatorEnv
 			}
@@ -701,19 +763,19 @@ func (state *updateState) updateContainerEnv(c *corev1.Container) {
 	}
 
 	// filter and restore csql env vars
-	for i := 0; i < len(state.oldMods.EnvVars); i++ {
-		oldEnvVar := state.oldMods.EnvVars[i]
-		state.filterOldEnvVar(c, oldEnvVar)
+	for i := 0; i < len(s.oldMods.EnvVars); i++ {
+		oldEnvVar := s.oldMods.EnvVars[i]
+		s.filterOldEnvVar(c, oldEnvVar)
 	}
 }
 
-func (state *updateState) filterOldEnvVar(c *corev1.Container, oldEnvVar *managedEnvVar) {
+func (s *updateState) filterOldEnvVar(c *corev1.Container, oldEnvVar *managedEnvVar) {
 
 	// Check if this env var belongs to a removed workload
 	var workloadRemoved bool
 	removedName := names.ContainerNameFromNamespacedName(oldEnvVar.AuthProxyWorkload)
-	for j := 0; j < len(state.removedContainerNames); j++ {
-		if state.removedContainerNames[j] == removedName {
+	for j := 0; j < len(s.removedContainerNames); j++ {
+		if s.removedContainerNames[j] == removedName {
 			workloadRemoved = true
 		}
 	}
@@ -723,8 +785,8 @@ func (state *updateState) filterOldEnvVar(c *corev1.Container, oldEnvVar *manage
 
 	// Check if this env var was replaced with a new one of the same name
 	var newEnvVarWithSameName bool
-	for j := 0; j < len(state.mods.EnvVars) && !newEnvVarWithSameName; j++ {
-		mev := state.mods.EnvVars[j]
+	for j := 0; j < len(s.mods.EnvVars) && !newEnvVarWithSameName; j++ {
+		mev := s.mods.EnvVars[j]
 		if mev.OperatorManagedValue.Name == oldEnvVar.OperatorManagedValue.Name &&
 			mev.AuthProxyWorkload != oldEnvVar.AuthProxyWorkload {
 			newEnvVarWithSameName = true
@@ -767,25 +829,25 @@ func (state *updateState) filterOldEnvVar(c *corev1.Container, oldEnvVar *manage
 }
 
 // applyContainerVolumes applies global container state to all containers
-func (state *updateState) applyContainerVolumes(c *corev1.Container) {
-	for i := 0; i < len(state.mods.VolumeMounts); i++ {
+func (s *updateState) applyContainerVolumes(c *corev1.Container) {
+	for i := 0; i < len(s.mods.VolumeMounts); i++ {
 		var found bool
 		for j := 0; j < len(c.VolumeMounts); j++ {
-			if state.mods.VolumeMounts[i].VolumeMount.Name == c.VolumeMounts[j].Name {
+			if s.mods.VolumeMounts[i].VolumeMount.Name == c.VolumeMounts[j].Name {
 				found = true
-				c.VolumeMounts[j] = state.mods.VolumeMounts[i].VolumeMount
+				c.VolumeMounts[j] = s.mods.VolumeMounts[i].VolumeMount
 			}
 		}
 		if !found {
-			c.VolumeMounts = append(c.VolumeMounts, state.mods.VolumeMounts[i].VolumeMount)
+			c.VolumeMounts = append(c.VolumeMounts, s.mods.VolumeMounts[i].VolumeMount)
 		}
 	}
 	// filter removed csql VolumeMounts
 	var filteredMounts []corev1.VolumeMount
 	for i := 0; i < len(c.VolumeMounts); i++ {
 		var removed bool
-		for j := 0; j < len(state.removedContainerNames); j++ {
-			if strings.HasPrefix(c.VolumeMounts[i].Name, state.removedContainerNames[j]) {
+		for j := 0; j < len(s.removedContainerNames); j++ {
+			if strings.HasPrefix(c.VolumeMounts[i].Name, s.removedContainerNames[j]) {
 				removed = true
 			}
 		}
@@ -797,17 +859,17 @@ func (state *updateState) applyContainerVolumes(c *corev1.Container) {
 }
 
 // applyVolumes applies global container state to all containers
-func (state *updateState) applyVolumes(spec *corev1.PodSpec) {
-	for i := 0; i < len(state.mods.VolumeMounts); i++ {
+func (s *updateState) applyVolumes(spec *corev1.PodSpec) {
+	for i := 0; i < len(s.mods.VolumeMounts); i++ {
 		var found bool
 		for j := 0; j < len(spec.Volumes); j++ {
-			if state.mods.VolumeMounts[i].Volume.Name == spec.Volumes[j].Name {
+			if s.mods.VolumeMounts[i].Volume.Name == spec.Volumes[j].Name {
 				found = true
-				spec.Volumes[j] = state.mods.VolumeMounts[i].Volume
+				spec.Volumes[j] = s.mods.VolumeMounts[i].Volume
 			}
 		}
 		if !found {
-			spec.Volumes = append(spec.Volumes, state.mods.VolumeMounts[i].Volume)
+			spec.Volumes = append(spec.Volumes, s.mods.VolumeMounts[i].Volume)
 		}
 	}
 
@@ -815,8 +877,8 @@ func (state *updateState) applyVolumes(spec *corev1.PodSpec) {
 	var filteredVolumes []corev1.Volume
 	for i := 0; i < len(spec.Volumes); i++ {
 		var removed bool
-		for j := 0; j < len(state.removedContainerNames); j++ {
-			if strings.HasPrefix(spec.Volumes[i].Name, state.removedContainerNames[j]) {
+		for j := 0; j < len(s.removedContainerNames); j++ {
+			if strings.HasPrefix(spec.Volumes[i].Name, s.removedContainerNames[j]) {
 				removed = true
 			}
 		}
@@ -827,47 +889,59 @@ func (state *updateState) applyVolumes(spec *corev1.PodSpec) {
 	spec.Volumes = filteredVolumes
 }
 
-func (state *updateState) addHealthCheck(csqlWorkload *cloudsqlapi.AuthProxyWorkload) int32 {
+func (s *updateState) addHealthCheck(csqlWorkload *cloudsqlapi.AuthProxyWorkload) int32 {
 	var port int32
+	port = DefaultHealthCheckPort
 	if csqlWorkload.Spec.AuthProxyContainer != nil &&
 		csqlWorkload.Spec.AuthProxyContainer.Telemetry != nil &&
 		csqlWorkload.Spec.AuthProxyContainer.Telemetry.HTTPPort != nil {
 		port = *csqlWorkload.Spec.AuthProxyContainer.Telemetry.HTTPPort
-		if state.isPortInUse(port) {
-			state.addError(ErrorCodePortConflict,
-				fmt.Sprintf("telemetry httpPort %d is already in use", port), csqlWorkload)
-		}
 	} else {
-		port = DefaultHealthCheckPort
-		for state.isPortInUse(port) {
-			port++
-		}
-		state.addInUsePort(port)
+
 	}
+
+	if s.isPortInUse(port) {
+		s.addError(cloudsqlapi.ErrorCodePortConflict,
+			fmt.Sprintf("telemetry httpPort %d is already in use", port), csqlWorkload)
+	}
+
 	//TODO add healthcheck to podspec
 
 	return port
 }
 
-func (state *updateState) addError(errorCode string, description string, proxy *cloudsqlapi.AuthProxyWorkload) {
-	state.err.add(errorCode, description, proxy)
+func (s *updateState) addError(errorCode string, description string, proxy *cloudsqlapi.AuthProxyWorkload) {
+	s.err.add(errorCode, description, proxy)
 }
 
-func (state *updateState) oldManagedEnv(name string) *managedEnvVar {
-	for i := 0; i < len(state.oldMods.EnvVars); i++ {
-		if state.oldMods.EnvVars[i].OperatorManagedValue.Name == name {
-			return state.oldMods.EnvVars[i]
+func (s *updateState) oldManagedEnv(name string) *managedEnvVar {
+	for i := 0; i < len(s.oldMods.EnvVars); i++ {
+		if s.oldMods.EnvVars[i].OperatorManagedValue.Name == name {
+			return s.oldMods.EnvVars[i]
 		}
 	}
 	return nil
 }
 
-func (state *updateState) applyAuthenticationSpec(proxy *cloudsqlapi.AuthProxyWorkload, container *corev1.Container, args []string) []string {
+func (s *updateState) applyAuthenticationSpec(proxy *cloudsqlapi.AuthProxyWorkload, container *corev1.Container, args []string) []string {
 	if proxy.Spec.Authentication == nil {
 		return args
 	}
 
-	//TODO Authentication
+	//TODO Authentication needs end-to-end test in place before we can check
+	// that it is implemented correctly.
 	// --credentials-file
 	return args
+}
+
+func (s *updateState) defaultProxyImage() string {
+	//TODO look this up from the public registry
+	return "us-central1-docker.pkg.dev/csql-operator-test/test76e6d646e2caac1c458c/proxy-v2:latest"
+}
+
+func (s *updateState) addAuthProxyWorkload(p *cloudsqlapi.AuthProxyWorkload) {
+	s.mods.AuthProxyWorkloads = append(s.mods.AuthProxyWorkloads, types.NamespacedName{
+		Namespace: p.Namespace,
+		Name:      p.Name,
+	})
 }

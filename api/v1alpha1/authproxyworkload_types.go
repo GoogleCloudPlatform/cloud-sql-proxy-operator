@@ -20,9 +20,22 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-// ConditionUpToDate indicates whether the reconciliation loop
-// has properly processed the latest generation of an AuthProxyInstance
-const ConditionUpToDate = "UpToDate"
+const (
+	// ConditionUpToDate indicates whether the reconciliation loop
+	// has properly processed the latest generation of an AuthProxyInstance
+	ConditionUpToDate = "UpToDate"
+
+	// ErrorCodePortConflict occurs when an explicit port assignment for a workload
+	// is in conflict with a port assignment from the pod or another proxy container.
+	ErrorCodePortConflict = "PortConflict"
+
+	// ErrorCodeEnvConflict occurs when an the environment code does not work.
+	ErrorCodeEnvConflict = "EnvVarConflict"
+
+	// ErrorCodeFUSENotSupported occurs when any FUSE configuration is set,
+	// because fuse is not yet supported.
+	ErrorCodeFUSENotSupported = "FUSENotSupported"
+)
 
 // AuthProxyWorkloadSpec defines the desired state of AuthProxyWorkload
 type AuthProxyWorkloadSpec struct {

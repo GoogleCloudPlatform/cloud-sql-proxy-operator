@@ -29,7 +29,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	// Log is the test logger used by the integration tests and server.
+	// logger is the test logger used by the integration tests and server.
 	logger := zap.New(zap.UseFlagOptions(&zap.Options{
 		Development: true,
 		TimeEncoder: zapcore.ISO8601TimeEncoder,
