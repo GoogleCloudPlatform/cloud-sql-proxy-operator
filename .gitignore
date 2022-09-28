@@ -6,6 +6,7 @@
 *.so
 *.dylib
 bin
+tmp
 testbin/*
 
 # Test binary, build with `go test -c`
@@ -24,3 +25,6 @@ testbin/*
 *.swo
 *~
 .bin
+
+# Ignore secrets for the build
+/build.env
