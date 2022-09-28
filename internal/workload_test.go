@@ -15,14 +15,30 @@
 package internal
 
 import (
+	"os"
 	"testing"
 
 	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/api/v1alpha1"
+	"go.uber.org/zap/zapcore"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
+
+func TestMain(m *testing.M) {
+	// logger is the test logger used by the integration tests and server.
+	logger := zap.New(zap.UseFlagOptions(&zap.Options{
+		Development: true,
+		TimeEncoder: zapcore.ISO8601TimeEncoder,
+	}))
+	ctrl.SetLogger(logger)
+
+	result := m.Run()
+	os.Exit(result)
+}
 
 func TestWorkloadMatches(t *testing.T) {
 	type workloadTestCase struct {

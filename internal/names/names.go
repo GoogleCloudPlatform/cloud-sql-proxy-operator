@@ -22,11 +22,18 @@ import (
 	"strings"
 
 	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/api/v1alpha1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // ContainerPrefix is the name prefix used on containers added to PodSpecs
 // by this operator.
 const ContainerPrefix = "csql-"
+
+// ContainerNameFromNamespacedName generates a valid name for a container, following
+// identical logic to ContainerName
+func ContainerNameFromNamespacedName(r types.NamespacedName) string {
+	return SafePrefixedName(ContainerPrefix, r.Namespace+"-"+r.Name)
+}
 
 // ContainerName generates a valid name for a corev1.Container object that
 // implements this cloudsql instance. Names must be 63 characters or less and
@@ -35,14 +42,14 @@ const ContainerPrefix = "csql-"
 // we are prepending 'csql-' ContainerPrefix as a marker, the generated name with
 // the prefix could be longer than 63 characters.
 func ContainerName(r *cloudsqlapi.AuthProxyWorkload) string {
-	return SafePrefixedName(ContainerPrefix, r.GetName())
+	return SafePrefixedName(ContainerPrefix, r.GetNamespace()+"-"+r.GetName())
 }
 
 // VolumeName generates a unique, valid name for a volume based on the AuthProxyWorkload
 // name and the Cloud SQL instance name.
 func VolumeName(r *cloudsqlapi.AuthProxyWorkload, inst *cloudsqlapi.InstanceSpec, mountType string) string {
 	connName := strings.ReplaceAll(strings.ToLower(inst.ConnectionString), ":", "-")
-	return SafePrefixedName(ContainerPrefix, r.GetName()+"-"+mountType+"-"+connName)
+	return SafePrefixedName(ContainerPrefix, r.GetNamespace()+"-"+r.GetName()+"-"+mountType+"-"+connName)
 }
 
 // SafePrefixedName adds a prefix to a name and shortens it while preserving its uniqueness
