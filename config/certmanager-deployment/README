@@ -1,6 +1,7 @@
 The Cert Manager is used during end-to-end tests to distribute the
 mutual TLS authentication certs used between the cloud-sql-proxy-operator
-and the kubernetes API. This is used during E2E tests.
+and the kubernetes API. This is only used during E2E tests. cert-managger is not
+distributed as part of this operator.
 
 The Makefile will download an appropriate file to this directory from
 the certmanager website. This file should not be added to git.
