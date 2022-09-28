@@ -20,6 +20,3 @@ sourceFileExtensions:
   - 'go'
   - 'yaml'
   - 'yml'
-ignoreFiles:
-  # because it's owned by a different project, but it is apache 2
-  - 'config/certmanager-deployment/cert-manager.yaml'
