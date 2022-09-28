@@ -171,7 +171,6 @@ func TestUpdateWorkload(t *testing.T) {
 	t.Logf("Containers: {%v}", wl.Deployment.Spec.Template.Spec.Containers)
 
 	// test that the container has the proper name following the conventions
-	t.Log("test that the container has the proper name following the conventions")
 	foundContainer, err := findContainer(wl, wantContainerName)
 	if err != nil {
 		t.Fatal(err)
@@ -767,20 +766,20 @@ func TestProxyCLIArgs(t *testing.T) {
 }
 
 func TestProperCleanupOfEnvAndVolumes(t *testing.T) {
-	var wantsInstanceName = "project:server:db"
-	var wantsUnixDir = "/mnt/db"
-
-	var wantsInstanceName2 = "project:server:db2"
-	var wantsPort = int32(5000)
-
-	var wantContainerArgs = []string{
-		fmt.Sprintf("%s?unix-socket=%s", wantsInstanceName, wantsUnixDir),
-		fmt.Sprintf("%s?port=%d", wantsInstanceName2, wantsPort),
-	}
-	var wantWorkloadEnv = map[string]string{
-		"DB_SOCKET_PATH": wantsUnixDir,
-		"DB_PORT":        "5000",
-	}
+	var (
+		wantsInstanceName  = "project:server:db"
+		wantsUnixDir       = "/mnt/db"
+		wantsInstanceName2 = "project:server:db2"
+		wantsPort          = int32(5000)
+		wantContainerArgs  = []string{
+			fmt.Sprintf("%s?unix-socket=%s", wantsInstanceName, wantsUnixDir),
+			fmt.Sprintf("%s?port=%d", wantsInstanceName2, wantsPort),
+		}
+		wantWorkloadEnv = map[string]string{
+			"DB_SOCKET_PATH": wantsUnixDir,
+			"DB_PORT":        "5000",
+		}
+	)
 
 	// Create a deployment
 	wl := deploymentWorkload()
@@ -912,11 +911,16 @@ func TestProperCleanupOfEnvAndVolumes(t *testing.T) {
 
 }
 
-func assertErrorCodeContains(t *testing.T, gotError *internal.ConfigError, wantErrors []string) {
-	if gotError == nil {
+func assertErrorCodeContains(t *testing.T, gotErr error, wantErrors []string) {
+	if gotErr == nil {
 		if len(wantErrors) > 0 {
 			t.Errorf("got missing errors, wants errors with codes %v", wantErrors)
 		}
+		return
+	}
+	gotError, ok := gotErr.(*internal.ConfigError)
+	if !ok {
+		t.Errorf("got an error %v, wants error of type *internal.ConfigError", gotErr)
 		return
 	}
 

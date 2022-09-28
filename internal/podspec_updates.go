@@ -116,10 +116,10 @@ var defaultContainerResources = corev1.ResourceRequirements{
 
 // ReconcileWorkload finds all AuthProxyWorkload resources matching this workload and then
 // updates the workload's containers. This does not save the updated workload.
-func ReconcileWorkload(instList cloudsqlapi.AuthProxyWorkloadList, workload Workload) (bool, []*cloudsqlapi.AuthProxyWorkload, *ConfigError) {
+func ReconcileWorkload(instList cloudsqlapi.AuthProxyWorkloadList, workload Workload) (bool, []*cloudsqlapi.AuthProxyWorkload, error) {
 	// if a workload has an owner, then ignore it.
 	if len(workload.Object().GetOwnerReferences()) > 0 {
-		return false, []*cloudsqlapi.AuthProxyWorkload{}, nil
+		return false, nil, nil
 	}
 
 	matchingAuthProxyWorkloads := filterMatchingInstances(instList, workload)
@@ -133,7 +133,7 @@ func ReconcileWorkload(instList cloudsqlapi.AuthProxyWorkloadList, workload Work
 	// if this was not updated, then return nil and an empty array because
 	// no AuthProxyWorkloads were applied
 	if !updated {
-		return updated, []*cloudsqlapi.AuthProxyWorkload{}, nil
+		return updated, nil, nil
 	}
 
 	// if this was updated return matching AuthProxyWorkloads
@@ -159,9 +159,9 @@ func filterMatchingInstances(wl cloudsqlapi.AuthProxyWorkloadList, workload Work
 	return matchingAuthProxyWorkloads
 }
 
-// workloadUpdateStatus describes when a workload was last updated, mostly
+// WorkloadUpdateStatus describes when a workload was last updated, mostly
 // used to log errors
-type workloadUpdateStatus struct {
+type WorkloadUpdateStatus struct {
 	InstanceGeneration    string
 	LastRequstGeneration  string
 	RequestGeneration     string
@@ -171,14 +171,14 @@ type workloadUpdateStatus struct {
 
 // MarkWorkloadNeedsUpdate Updates annotations on the workload indicating that it may need an update.
 // returns true if the workload actually needs an update.
-func MarkWorkloadNeedsUpdate(csqlWorkload *cloudsqlapi.AuthProxyWorkload, workload Workload) (bool, workloadUpdateStatus) {
+func MarkWorkloadNeedsUpdate(csqlWorkload *cloudsqlapi.AuthProxyWorkload, workload Workload) (bool, WorkloadUpdateStatus) {
 	return updateWorkloadAnnotations(csqlWorkload, workload, false)
 }
 
 // MarkWorkloadUpdated Updates annotations on the workload indicating that it
 // has been updated, returns true of any modifications were made to the workload.
 // for the AuthProxyWorkload.
-func MarkWorkloadUpdated(csqlWorkload *cloudsqlapi.AuthProxyWorkload, workload Workload) (bool, workloadUpdateStatus) {
+func MarkWorkloadUpdated(csqlWorkload *cloudsqlapi.AuthProxyWorkload, workload Workload) (bool, WorkloadUpdateStatus) {
 	return updateWorkloadAnnotations(csqlWorkload, workload, true)
 }
 
@@ -188,8 +188,8 @@ func MarkWorkloadUpdated(csqlWorkload *cloudsqlapi.AuthProxyWorkload, workload W
 // tracking which version should be applied, The workload admission webhook is
 // responsible for applying the AuthProxyWorkloads that apply to a workload
 // when the workload is created or modified.
-func updateWorkloadAnnotations(csqlWorkload *cloudsqlapi.AuthProxyWorkload, workload Workload, doingUpdate bool) (bool, workloadUpdateStatus) {
-	var s workloadUpdateStatus
+func updateWorkloadAnnotations(csqlWorkload *cloudsqlapi.AuthProxyWorkload, workload Workload, doingUpdate bool) (bool, WorkloadUpdateStatus) {
+	var s WorkloadUpdateStatus
 	var doUpdate bool
 	reqName := names.SafePrefixedName("csqlr-", csqlWorkload.Namespace+"-"+csqlWorkload.Name)
 	resultName := names.SafePrefixedName("csqlu-", csqlWorkload.Namespace+"-"+csqlWorkload.Name)
@@ -218,7 +218,7 @@ func updateWorkloadAnnotations(csqlWorkload *cloudsqlapi.AuthProxyWorkload, work
 
 // UpdateWorkloadContainers applies the proxy containers from all of the
 // instances listed in matchingAuthProxyWorkloads to the workload
-func UpdateWorkloadContainers(workload Workload, matchingAuthProxyWorkloads []*cloudsqlapi.AuthProxyWorkload) (bool, *ConfigError) {
+func UpdateWorkloadContainers(workload Workload, matchingAuthProxyWorkloads []*cloudsqlapi.AuthProxyWorkload) (bool, error) {
 	state := updateState{
 		nextDbPort: DefaultFirstPort,
 		err: ConfigError{
@@ -370,12 +370,6 @@ func (s *updateState) addPort(p int32, containerName string, n types.NamespacedN
 	}
 
 }
-func (s *updateState) useNextDbPort(p *cloudsqlapi.AuthProxyWorkload, is *cloudsqlapi.InstanceSpec) int32 {
-	for s.isPortInUse(s.nextDbPort) {
-		s.nextDbPort++
-	}
-	return s.nextDbPort
-}
 
 // addWorkloadEnvVar adds or replaces the envVar based on its Name, returning the old and new values
 func (s *updateState) addWorkloadEnvVar(proxy *cloudsqlapi.AuthProxyWorkload, inst *cloudsqlapi.InstanceSpec, envVar corev1.EnvVar) {
@@ -444,7 +438,7 @@ func (s *updateState) saveEnvVarState(wl Workload) {
 
 // update Reconciles the state of a workload, applying the matching AuthProxyWorkloads
 // and removing any out-of-date configuration related to deleted AuthProxyWorkloads
-func (s *updateState) update(workload Workload, matchingAuthProxyWorkloads []*cloudsqlapi.AuthProxyWorkload) (bool, *ConfigError) {
+func (s *updateState) update(workload Workload, matchingAuthProxyWorkloads []*cloudsqlapi.AuthProxyWorkload) (bool, error) {
 	s.loadOldEnvVarState(workload)
 	podSpec := workload.PodSpec()
 	containers := podSpec.Containers
@@ -901,7 +895,7 @@ func (s *updateState) addHealthCheck(csqlWorkload *cloudsqlapi.AuthProxyWorkload
 				fmt.Sprintf("telemetry httpPort %d is already in use", port), csqlWorkload)
 		}
 	} else {
-		for port = DefaultHealthCheckPort; !s.isPortInUse(port); port++ {
+		for port = DefaultHealthCheckPort; s.isPortInUse(port); port++ {
 			// start with DefaultHealthCheck and increment port until it is set to an unused port
 		}
 	}
