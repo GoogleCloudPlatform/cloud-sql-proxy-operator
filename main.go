@@ -33,10 +33,10 @@ import (
 )
 
 var (
-	scheme       = k8sruntime.NewScheme()
-	setupLog     = ctrl.Log.WithName("setup")
-	version      = "unknown"
-	buildVersion = "unknown"
+	scheme   = k8sruntime.NewScheme()
+	setupLog = ctrl.Log.WithName("setup")
+	version  = "unknown"
+	buildID  = "unknown"
 )
 
 func init() {
@@ -60,7 +60,7 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 	ctrl.Log.Info("Starting Cloud SQL Proxy Operator")
-	ctrl.Log.Info(fmt.Sprintf("Version: %v Build: %v", version, buildVersion))
+	ctrl.Log.Info(fmt.Sprintf("Version: %v Build: %v", version, buildID))
 	ctrl.Log.Info(fmt.Sprintf("Runtime: %v %v/%v", runtime.Version(), runtime.GOOS, runtime.GOARCH))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{

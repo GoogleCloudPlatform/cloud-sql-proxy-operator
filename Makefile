@@ -1,12 +1,15 @@
-
-# Import the local file
-#
-# should include
-#
+# Import the local build environment file. This holds configuration specific
+# to the local environment. build.sample.env describes the required configuration
+# environment variables.
 include build.env
 
+# if build.env is missing, copy build.sample.env to build.env
+build.env:
+	test -f $@ || cp build.sample.env build.env
+
+
 # Should be set by build.env
-PROXY_PROJECT_DIR ?= $(PWD)/bin/cloudsql-proxy
+PROXY_PROJECT_DIR ?= $(PWD)/tmp/cloud-sql-proxy
 GCLOUD_PROJECT_ID ?= error-no-project-id-set
 
 # Enable CRD Generation
@@ -133,8 +136,8 @@ test: manifests generate fmt vet envtest ## Run tests.
 ##@ Build
 # Load active version from version.txt
 VERSION=$(shell cat $(PWD)/version.txt | tr -d '\n')
-BUILD_VERSION=$(shell $(PWD)/tools/build-version.sh | tr -d '\n')
-GO_BUILD_FLAGS = -ldflags "-X main.version=$(VERSION) -X main.buildVersion=$(BUILD_VERSION)"
+BUILD_ID=$(shell $(PWD)/tools/build-identifier.sh | tr -d '\n')
+GO_BUILD_FLAGS = -ldflags "-X main.version=$(VERSION) -X main.buildID=$(BUILD_ID)"
 
 .PHONY: build
 build: generate fmt vet manifests ## Build manager binary.

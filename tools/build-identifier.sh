@@ -1,5 +1,8 @@
 #!/bin/bash
-
+##
+# build-identifier uses the HEAD Git SHA to provide a unique id number for a build.
+# If the working directory is dirty, it will append the current timestamp
+# to the HEAD Git SHA so that the build identifier is unique.
 NOW=$(date -u "+%Y%m%dT%H%M" | tr -d "\n")
 GIT_HEAD=$( git rev-parse head | tr -d "\n")
 

@@ -62,7 +62,7 @@ fi
 set -x
 
 cd "$PROJECT_DIR"
-IMAGE_VERSION=$( "$SCRIPT_DIR/build-version.sh" | tr -d '\n' )
+IMAGE_VERSION=$( "$SCRIPT_DIR/build-identifier.sh" | tr -d '\n' )
 if [[ -z "${LOAD:-}" ]] ; then
   IMAGE_URL="${REPO_URL}/${IMAGE_NAME}:${IMAGE_VERSION}"
   LOAD_ARG="--push"
