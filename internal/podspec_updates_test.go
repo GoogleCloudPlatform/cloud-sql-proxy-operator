@@ -49,7 +49,7 @@ func simpleAuthProxy(name string, connectionString string) *cloudsqlapi.AuthProx
 }
 
 func authProxyWorkload(name string, instances []cloudsqlapi.InstanceSpec) *cloudsqlapi.AuthProxyWorkload {
-	return basicProxy(name, cloudsqlapi.AuthProxyWorkloadSpec{
+	return authProxyWorkloadFromSpec(name, cloudsqlapi.AuthProxyWorkloadSpec{
 		Workload: cloudsqlapi.WorkloadSelectorSpec{
 			Kind: "Deployment",
 			Selector: &metav1.LabelSelector{
@@ -59,7 +59,7 @@ func authProxyWorkload(name string, instances []cloudsqlapi.InstanceSpec) *cloud
 		Instances: instances,
 	})
 }
-func basicProxy(name string, spec cloudsqlapi.AuthProxyWorkloadSpec) *cloudsqlapi.AuthProxyWorkload {
+func authProxyWorkloadFromSpec(name string, spec cloudsqlapi.AuthProxyWorkloadSpec) *cloudsqlapi.AuthProxyWorkload {
 	proxy := &cloudsqlapi.AuthProxyWorkload{
 		TypeMeta:   metav1.TypeMeta{Kind: "AuthProxyWorkload", APIVersion: cloudsqlapi.GroupVersion.String()},
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default", Generation: 1},
@@ -129,9 +129,10 @@ func hasArg(workload *internal.DeploymentWorkload, containerName string, argValu
 
 func logPodSpec(t *testing.T, wl *internal.DeploymentWorkload) {
 	podSpecYaml, err := yaml.Marshal(wl.Deployment.Spec.Template.Spec)
-	if err == nil {
-		t.Logf("PodSpec: %s", string(podSpecYaml))
+	if err != nil {
+		t.Errorf("unexpected error while marshaling PodSpec to yaml, %v", err)
 	}
+	t.Logf("PodSpec: %s", string(podSpecYaml))
 }
 
 func TestUpdateWorkload(t *testing.T) {
@@ -173,7 +174,7 @@ func TestUpdateWorkload(t *testing.T) {
 	t.Log("test that the container has the proper name following the conventions")
 	foundContainer, err := findContainer(wl, wantContainerName)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 
 	// test that the container args have the expected args
@@ -201,7 +202,7 @@ func TestUpdateWorkload(t *testing.T) {
 	// test that the container has the proper name following the conventions
 	foundContainer, err = findContainer(wl, wantContainerName)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 
 	// test that the container args have the expected args
@@ -277,7 +278,7 @@ func TestUpdateWorkloadFixedPort(t *testing.T) {
 	for wantKey, wantValue := range wantWorkloadEnv {
 		gotEnvVar, err := findEnvVar(wl, "busybox", wantKey)
 		if err != nil {
-			t.Errorf(err.Error())
+			t.Error(err)
 			logPodSpec(t, wl)
 		} else {
 			if gotEnvVar.Value != wantValue {
@@ -535,7 +536,6 @@ func TestProxyCLIArgs(t *testing.T) {
 		{
 			desc: "default cli config",
 			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{},
 				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "hello:world:db",
 					Port:             &wantPort,
@@ -551,7 +551,6 @@ func TestProxyCLIArgs(t *testing.T) {
 		{
 			desc: "port explicitly set",
 			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{},
 				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "hello:world:db",
 					Port:             &wantPort,
@@ -563,7 +562,6 @@ func TestProxyCLIArgs(t *testing.T) {
 		{
 			desc: "fuse not supported error",
 			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{},
 				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "hello:world:db",
 				}},
@@ -577,7 +575,6 @@ func TestProxyCLIArgs(t *testing.T) {
 		{
 			desc: "port implicitly set and increments",
 			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{},
 				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "hello:world:one",
 					PortEnvName:      "DB_PORT",
@@ -594,7 +591,6 @@ func TestProxyCLIArgs(t *testing.T) {
 		{
 			desc: "env name conflict causes error",
 			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{},
 				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "hello:world:one",
 					PortEnvName:      "DB_PORT",
@@ -612,7 +608,6 @@ func TestProxyCLIArgs(t *testing.T) {
 		{
 			desc: "auto-iam-authn set",
 			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{},
 				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "hello:world:one",
 					PortEnvName:      "DB_PORT",
@@ -631,7 +626,6 @@ func TestProxyCLIArgs(t *testing.T) {
 		{
 			desc: "private-ip set",
 			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{},
 				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "hello:world:one",
 					PortEnvName:      "DB_PORT",
@@ -650,7 +644,6 @@ func TestProxyCLIArgs(t *testing.T) {
 		{
 			desc: "telemetry flags",
 			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{},
 				AuthProxyContainer: &cloudsqlapi.AuthProxyContainerSpec{
 					SQLAdminAPIEndpoint: "https://example.com",
 					Telemetry: &cloudsqlapi.TelemetrySpec{
@@ -691,7 +684,6 @@ func TestProxyCLIArgs(t *testing.T) {
 		{
 			desc: "port conflict with other instance causes error",
 			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{},
 				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "hello:world:one",
 					PortEnvName:      "DB_PORT_1",
@@ -711,7 +703,6 @@ func TestProxyCLIArgs(t *testing.T) {
 		{
 			desc: "port conflict with workload container",
 			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{},
 				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "hello:world:one",
 					PortEnvName:      "DB_PORT_1",
@@ -743,7 +734,7 @@ func TestProxyCLIArgs(t *testing.T) {
 			}}
 
 			// Create a AuthProxyWorkload that matches the deployment
-			csqls := []*cloudsqlapi.AuthProxyWorkload{basicProxy("instance1", tc.proxySpec)}
+			csqls := []*cloudsqlapi.AuthProxyWorkload{authProxyWorkloadFromSpec("instance1", tc.proxySpec)}
 
 			// Indicate that the workload needs an update
 			internal.MarkWorkloadNeedsUpdate(csqls[0], wl)

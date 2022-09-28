@@ -94,15 +94,15 @@ type ConfigErrorDetail struct {
 	WorkloadNamespace string
 }
 
-func (err *ConfigErrorDetail) Error() string {
+func (e *ConfigErrorDetail) Error() string {
 	return fmt.Sprintf("error %s %s while applying AuthProxyWorkload %s/%s to workload  %s %s/%s",
-		err.ErrorCode,
-		err.Description,
-		err.AuthProxyNamespace,
-		err.AuthProxyName,
-		err.WorkloadKind.String(),
-		err.WorkloadNamespace,
-		err.WorkloadName)
+		e.ErrorCode,
+		e.Description,
+		e.AuthProxyNamespace,
+		e.AuthProxyName,
+		e.WorkloadKind.String(),
+		e.WorkloadNamespace,
+		e.WorkloadName)
 
 }
 
@@ -127,7 +127,7 @@ func ReconcileWorkload(instList cloudsqlapi.AuthProxyWorkloadList, workload Work
 	updated, err := UpdateWorkloadContainers(workload, matchingAuthProxyWorkloads)
 	// if there was an error updating workloads, return the error
 	if err != nil {
-		return updated, matchingAuthProxyWorkloads, err
+		return false, nil, err
 	}
 
 	// if this was not updated, then return nil and an empty array because
@@ -143,10 +143,10 @@ func ReconcileWorkload(instList cloudsqlapi.AuthProxyWorkloadList, workload Work
 
 // filterMatchingInstances returns a list of AuthProxyWorkload whose selectors match
 // the workload.
-func filterMatchingInstances(wlList cloudsqlapi.AuthProxyWorkloadList, workload Workload) []*cloudsqlapi.AuthProxyWorkload {
-	matchingAuthProxyWorkloads := make([]*cloudsqlapi.AuthProxyWorkload, 0, len(wlList.Items))
-	for i, _ := range wlList.Items {
-		csqlWorkload := &wlList.Items[i]
+func filterMatchingInstances(wl cloudsqlapi.AuthProxyWorkloadList, workload Workload) []*cloudsqlapi.AuthProxyWorkload {
+	matchingAuthProxyWorkloads := make([]*cloudsqlapi.AuthProxyWorkload, 0, len(wl.Items))
+	for i, _ := range wl.Items {
+		csqlWorkload := &wl.Items[i]
 		if workloadMatches(workload, csqlWorkload.Spec.Workload, csqlWorkload.Namespace) {
 			// need to update workload
 			l.Info("Found matching workload",
@@ -891,18 +891,19 @@ func (s *updateState) applyVolumes(spec *corev1.PodSpec) {
 
 func (s *updateState) addHealthCheck(csqlWorkload *cloudsqlapi.AuthProxyWorkload) int32 {
 	var port int32
-	port = DefaultHealthCheckPort
-	if csqlWorkload.Spec.AuthProxyContainer != nil &&
-		csqlWorkload.Spec.AuthProxyContainer.Telemetry != nil &&
-		csqlWorkload.Spec.AuthProxyContainer.Telemetry.HTTPPort != nil {
-		port = *csqlWorkload.Spec.AuthProxyContainer.Telemetry.HTTPPort
+
+	cs := csqlWorkload.Spec.AuthProxyContainer
+	// if the TelemetrySpec.HTTPPort is explicitly set
+	if cs != nil && cs.Telemetry != nil && cs.Telemetry.HTTPPort != nil {
+		port = *cs.Telemetry.HTTPPort
+		if s.isPortInUse(port) {
+			s.addError(cloudsqlapi.ErrorCodePortConflict,
+				fmt.Sprintf("telemetry httpPort %d is already in use", port), csqlWorkload)
+		}
 	} else {
-
-	}
-
-	if s.isPortInUse(port) {
-		s.addError(cloudsqlapi.ErrorCodePortConflict,
-			fmt.Sprintf("telemetry httpPort %d is already in use", port), csqlWorkload)
+		for port = DefaultHealthCheckPort; !s.isPortInUse(port); port++ {
+			// start with DefaultHealthCheck and increment port until it is set to an unused port
+		}
 	}
 
 	//TODO add healthcheck to podspec
