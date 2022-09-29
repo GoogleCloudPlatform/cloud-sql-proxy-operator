@@ -56,7 +56,7 @@ func TestCreateResource(t *testing.T) {
 	)
 
 	// First, set up the k8s namespace for this test.
-	helpers.CreateOrPatchNamespace(t, ctx, integration.Client, namespace)
+	helpers.CreateOrPatchNamespace(ctx, t, integration.Client, namespace)
 
 	// Fill in the resource with appropriate details.
 	resource := &cloudsqlapi.AuthProxyWorkload{

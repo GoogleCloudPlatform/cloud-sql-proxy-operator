@@ -145,7 +145,7 @@ func ReconcileWorkload(instList cloudsqlapi.AuthProxyWorkloadList, workload Work
 // the workload.
 func filterMatchingInstances(wl cloudsqlapi.AuthProxyWorkloadList, workload Workload) []*cloudsqlapi.AuthProxyWorkload {
 	matchingAuthProxyWorkloads := make([]*cloudsqlapi.AuthProxyWorkload, 0, len(wl.Items))
-	for i, _ := range wl.Items {
+	for i := range wl.Items {
 		csqlWorkload := &wl.Items[i]
 		if workloadMatches(workload, csqlWorkload.Spec.Workload, csqlWorkload.Namespace) {
 			// need to update workload
@@ -303,7 +303,7 @@ func (s *updateState) useInstancePort(p *cloudsqlapi.AuthProxyWorkload, is *clou
 		Name:      p.Name,
 	}
 
-	//Does a managedPort already exist for this workload+instance?
+	// Does a managedPort already exist for this workload+instance?
 	var proxyPort *managedPort
 	for _, mp := range s.mods.Ports {
 		if mp.AuthProxyWorkload == n && mp.ConnectionString == is.ConnectionString {
@@ -459,12 +459,12 @@ func (s *updateState) update(workload Workload, matchingAuthProxyWorkloads []*cl
 	}
 
 	// add all new containers and update existing containers
-	for i, _ := range matchingAuthProxyWorkloads {
+	for i := range matchingAuthProxyWorkloads {
 		inst := matchingAuthProxyWorkloads[i]
 		s.addAuthProxyWorkload(inst)
 		var instContainer *corev1.Container
 
-		for j, _ := range containers {
+		for j := range containers {
 			container := &containers[j]
 			if container.Name == names.ContainerName(inst) {
 				instContainer = container
@@ -485,7 +485,7 @@ func (s *updateState) update(workload Workload, matchingAuthProxyWorkloads []*cl
 	var filteredContainers []corev1.Container
 	var removedContainerNames []string
 
-	for j, _ := range containers {
+	for j := range containers {
 		container := &containers[j]
 		if !strings.HasPrefix(container.Name, names.ContainerPrefix) {
 			filteredContainers = append(filteredContainers, *container)
@@ -493,7 +493,7 @@ func (s *updateState) update(workload Workload, matchingAuthProxyWorkloads []*cl
 		}
 
 		var found bool
-		for i, _ := range matchingAuthProxyWorkloads {
+		for i := range matchingAuthProxyWorkloads {
 			if names.ContainerName(matchingAuthProxyWorkloads[i]) == container.Name {
 				found = true
 				break
@@ -511,7 +511,7 @@ func (s *updateState) update(workload Workload, matchingAuthProxyWorkloads []*cl
 
 	podSpec.Containers = filteredContainers
 
-	for i, _ := range podSpec.Containers {
+	for i := range podSpec.Containers {
 		s.updateContainerEnv(&podSpec.Containers[i])
 		s.applyContainerVolumes(&podSpec.Containers[i])
 	}
@@ -663,7 +663,7 @@ func (s *updateState) applyContainerSpec(proxy *cloudsqlapi.AuthProxyWorkload, c
 	if proxy.Spec.AuthProxyContainer.FUSEDir != "" || proxy.Spec.AuthProxyContainer.FUSETempDir != "" {
 		s.addError(cloudsqlapi.ErrorCodeFUSENotSupported, "the FUSE filesystem is not yet supported", proxy)
 
-		//TODO fuse...
+		// TODO fuse...
 		// if FUSE is used, we need to use the 'buster' or 'alpine' image.
 
 	}
@@ -900,7 +900,7 @@ func (s *updateState) addHealthCheck(csqlWorkload *cloudsqlapi.AuthProxyWorkload
 		}
 	}
 
-	//TODO add healthcheck to podspec
+	// TODO add healthcheck to podspec
 
 	return port
 }
@@ -923,14 +923,14 @@ func (s *updateState) applyAuthenticationSpec(proxy *cloudsqlapi.AuthProxyWorklo
 		return args
 	}
 
-	//TODO Authentication needs end-to-end test in place before we can check
+	// TODO Authentication needs end-to-end test in place before we can check
 	// that it is implemented correctly.
 	// --credentials-file
 	return args
 }
 
 func (s *updateState) defaultProxyImage() string {
-	//TODO look this up from the public registry
+	// TODO look this up from the public registry
 	return "us-central1-docker.pkg.dev/csql-operator-test/test76e6d646e2caac1c458c/proxy-v2:latest"
 }
 
