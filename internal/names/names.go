@@ -69,7 +69,7 @@ func SafePrefixedName(prefix, instName string) string {
 	if len(instName)+containerPrefixLen > maxNameLen {
 		// string shortener that will still produce a name that is still unique
 		// even though it is truncated.
-		checksum := hash([]byte(instName))
+		checksum := mustHash([]byte(instName))
 		hashSuffix := fmt.Sprintf("-%x", checksum)
 		hashSuffixLen := len(hashSuffix)
 		truncateLen := (maxNameLen - hashSuffixLen - containerPrefixLen) / 2
@@ -83,13 +83,13 @@ func SafePrefixedName(prefix, instName string) string {
 	return strings.ToLower(prefix + instName)
 }
 
-// hash simply returns the checksum for a slice of bytes
-func hash(bytes []byte) uint32 {
+// mustHash simply returns the checksum for a slice of bytes
+func mustHash(bytes []byte) uint32 {
 	h := fnv.New32a()
 	i, err := h.Write(bytes)
 
 	if err != nil || i != len(bytes) {
-		panic(fmt.Errorf("unable to calculate hash for bytes %v %v", bytes, err))
+		panic(fmt.Errorf("unable to calculate mustHash for bytes %v %v", bytes, err))
 	}
 
 	return h.Sum32()

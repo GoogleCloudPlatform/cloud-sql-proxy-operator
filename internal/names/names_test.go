@@ -49,12 +49,12 @@ func TestSafePrefixedName(t *testing.T) {
 			want: "csql-twas-brillig-and-the-slithy-toves-did-gyre-and-gimble-in-t",
 		},
 		{
-			desc: "truncated difference in middle preserved in hash 1",
+			desc: "truncated difference in middle preserved in mustHash 1",
 			name: "twas-brillig-and-the-slithy-toves-1111-did-gyre-and-gimble-in",
 			want: "csql-twas-brillig-and-the-slit11-did-gyre-and-gimble-in-d0b9860",
 		},
 		{
-			desc: "truncated difference in middle preserved in hash 2",
+			desc: "truncated difference in middle preserved in mustHash 2",
 			name: "twas-brillig-and-the-slithy-toves-2222-did-gyre-and-gimble-in",
 			want: "csql-twas-brillig-and-the-sli2-did-gyre-and-gimble-in-34c209d4",
 		},
