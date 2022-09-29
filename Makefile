@@ -58,6 +58,7 @@ lint: ## runs code format and validation tools
 	make build manifests
 	make add_copyright_header
 	make go_fmt yaml_fmt
+	make go_lint
 
 .PHONY: git_workdir_clean
 git_workdir_clean: # Checks if the git working directory is clean. Fails if there are unstaged changes.
@@ -93,6 +94,12 @@ $(YAML_FILES_MISSING_HEADER):
 $(GO_FILES_MISSING_HEADER):
 	cat hack/boilerplate.go.txt $@ > $@.tmp && mv $@.tmp $@
 	go fmt $@
+
+.PHONY: go_lint
+go_lint: golangci-lint ## Run go lint tools, fail if unchecked errors
+	# Implements golang CI based on settings described here:
+	# See https://betterprogramming.pub/how-to-improve-code-quality-with-an-automatic-check-in-go-d18a5eb85f09
+	$(GOLANGCI_LINT) run --fix --fast ./...
 
 ##@ General
 
@@ -136,7 +143,7 @@ test: manifests generate fmt vet envtest ## Run tests.
 ##@ Build
 # Load active version from version.txt
 VERSION=$(shell cat $(PWD)/version.txt | tr -d '\n')
-BUILD_ID=$(shell $(PWD)/tools/build-identifier.sh | tr -d '\n')
+BUILD_ID:=$(shell $(PWD)/tools/build-identifier.sh | tr -d '\n')
 GO_BUILD_FLAGS = -ldflags "-X main.version=$(VERSION) -X main.buildID=$(BUILD_ID)"
 
 .PHONY: build
@@ -191,6 +198,7 @@ $(LOCALBIN):
 ## Tool Binaries
 KUSTOMIZE ?= $(LOCALBIN)/kustomize
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
+GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 
 ## Tool Versions
@@ -212,6 +220,11 @@ $(CONTROLLER_GEN): $(LOCALBIN)
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
 	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+
+.PHONY: golangci-lint
+golangci-lint: $(GOLANGCI_LINT) ## Download controller-gen locally if necessary.
+$(GOLANGCI_LINT): $(LOCALBIN)
+	test -s $@ || GOBIN=$(LOCALBIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
 config/certmanager-deployment/certmanager-deployment.yaml: ## Download the cert-manager deployment
 	test -s $@ || curl -L -o $@ \
