@@ -30,6 +30,7 @@ import (
 // CreateOrPatchNamespace ensures that a namespace exists with the given name
 // in kubernetes, or fails the test as fatal.
 func CreateOrPatchNamespace(ctx context.Context, t *testing.T, k8sClient client.Client, name string) {
+	t.Helper()
 	var newNS = corev1.Namespace{
 		TypeMeta:   metav1.TypeMeta{Kind: "Namespace", APIVersion: "v1"},
 		ObjectMeta: metav1.ObjectMeta{Name: name},
@@ -38,8 +39,9 @@ func CreateOrPatchNamespace(ctx context.Context, t *testing.T, k8sClient client.
 		newNS.ObjectMeta.Name = name
 		return nil
 	})
+
 	if err != nil {
-		t.Fatalf("unable to verify existance of namespace %v, %v", name, err)
+		t.Fatalf("unable to verify existence of namespace %v, %v", name, err)
 	}
 
 	var gotNS corev1.Namespace
@@ -48,9 +50,8 @@ func CreateOrPatchNamespace(ctx context.Context, t *testing.T, k8sClient client.
 	})
 
 	if err != nil {
-		t.Fatalf("unable to verify existance of namespace %v, %v", name, err)
+		t.Fatalf("unable to verify existence of namespace %v, %v", name, err)
 	}
-
 }
 
 // RetryUntilSuccess runs `f` until it no longer returns an error, or it has
@@ -63,11 +64,13 @@ func RetryUntilSuccess(t TestLogger, attempts int, sleep time.Duration, f func()
 			time.Sleep(sleep)
 			sleep *= 2
 		}
+
 		err = f()
 		if err == nil {
 			return nil
 		}
 	}
+
 	return fmt.Errorf("after %d attempts, last error: %s", attempts, err)
 }
 

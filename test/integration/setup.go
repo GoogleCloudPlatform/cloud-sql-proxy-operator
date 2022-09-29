@@ -163,11 +163,15 @@ func EnvTestSetup() (func(), error) {
 	addrPort := fmt.Sprintf("%s:%d", o.LocalServingHost, o.LocalServingPort)
 
 	err = helpers.RetryUntilSuccess(&helpers.TestSetupLogger{Logger: Log}, 5, 2*time.Second, func() error {
-		conn, err := tls.DialWithDialer(dialer, "tcp", addrPort, &tls.Config{InsecureSkipVerify: true})
+
+		// whyNoLint:Ignore InsecureSkipVerify warning, this is only for local testing.
+		conn, err := tls.DialWithDialer(dialer, "tcp", addrPort, &tls.Config{InsecureSkipVerify: true}) //nolint:gosec
 		if err != nil {
 			return err
 		}
+
 		conn.Close()
+
 		return nil
 	})
 

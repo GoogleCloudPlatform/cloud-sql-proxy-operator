@@ -14,5 +14,6 @@
 resources:
   - manifests.yaml
   - service.yaml
+  - core_webhook.yaml
 configurations:
   - kustomizeconfig.yaml
