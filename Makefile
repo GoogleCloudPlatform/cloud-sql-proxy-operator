@@ -143,7 +143,7 @@ test: manifests generate fmt vet envtest ## Run tests.
 ##@ Build
 # Load active version from version.txt
 VERSION=$(shell cat $(PWD)/version.txt | tr -d '\n')
-BUILD_ID=$(shell $(PWD)/tools/build-identifier.sh | tr -d '\n')
+BUILD_ID:=$(shell $(PWD)/tools/build-identifier.sh | tr -d '\n')
 GO_BUILD_FLAGS = -ldflags "-X main.version=$(VERSION) -X main.buildID=$(BUILD_ID)"
 
 .PHONY: build
