@@ -18,6 +18,7 @@
 package integration_test
 
 import (
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -27,6 +28,7 @@ import (
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/test/integration"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/yaml"
 )
 
 func TestMain(m *testing.M) {
@@ -110,6 +112,69 @@ func TestCreateResource(t *testing.T) {
 	}
 }
 
+func TestDeleteResource(t *testing.T) {
+	const (
+		name            = "instance1"
+		ns              = "default"
+		expectedConnStr = "proj:inst:db"
+	)
+
+	namespace := helpers.NewNamespaceName("create")
+	ctx := integration.TestContext()
+	tctx := &helpers.TestCaseParams{
+		T:                t,
+		Client:           integration.Client,
+		Namespace:        namespace,
+		ConnectionString: "region:project:inst",
+		ProxyImageURL:    "proxy-image:latest",
+	}
+
+	key := types.NamespacedName{Name: name, Namespace: ns}
+	err := helpers.CreateAuthProxyWorkload(ctx, tctx, key, "app", expectedConnStr)
+	if err != nil {
+		t.Errorf("Unable to create auth proxy workload %v", err)
+		return
+	}
+
+	res, err := helpers.GetAuthProxyWorkload(ctx, tctx, key)
+	if err != nil {
+		t.Errorf("Unable to find entity after create %v", err)
+		return
+	}
+
+	resourceYaml, _ := yaml.Marshal(res)
+	t.Logf("Resource Yaml: %s", string(resourceYaml))
+
+	if connStr := res.Spec.Instances[0].ConnectionString; connStr != expectedConnStr {
+		t.Errorf("was %v, wants %v, spec.cloudSqlInstance", connStr, expectedConnStr)
+	}
+
+	if wlstatus := helpers.GetConditionStatus(res.Status.Conditions, cloudsqlapi.ConditionUpToDate); wlstatus != metav1.ConditionTrue {
+		t.Errorf("was %v, wants %v, status.condition[up-to-date]", wlstatus, metav1.ConditionTrue)
+	}
+	time.Sleep(5 * time.Second)
+
+	err = integration.Client.Delete(ctx, res)
+	if err != nil {
+		t.Error(err)
+	}
+
+	time.Sleep(5 * time.Second)
+	err = helpers.RetryUntilSuccess(t, 3, 5*time.Second, func() error {
+		err = integration.Client.Get(ctx, key, res)
+		// The test passes when this returns an error,
+		// because that means the resource was deleted.
+		if err != nil {
+			return nil
+		}
+		return fmt.Errorf("was nil, wants error when looking up deleted AuthProxyWorkload resource")
+	})
+	if err != nil {
+		t.Error(err)
+	}
+
+}
+
 func TestModifiesNewDeployment(t *testing.T) {
 	tctx := &helpers.TestCaseParams{
 		T:                t,
@@ -119,4 +184,15 @@ func TestModifiesNewDeployment(t *testing.T) {
 		ProxyImageURL:    "proxy-image:latest",
 	}
 	helpers.TestModifiesNewDeployment(tctx)
+}
+
+func TestModifiesExistingDeployment(t *testing.T) {
+	tctx := &helpers.TestCaseParams{
+		T:                t,
+		Client:           integration.Client,
+		Namespace:        helpers.NewNamespaceName("modifiesexistingdeployment"),
+		ConnectionString: "region:project:inst",
+		ProxyImageURL:    "proxy-image:latest",
+	}
+	helpers.TestModifiesExistingDeployment(tctx, true)
 }
