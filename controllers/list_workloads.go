@@ -31,8 +31,8 @@ import (
 
 // listWorkloads produces a list of Workload's that match the WorkloadSelectorSpec
 // in the specified namespace.
-func (r *AuthProxyWorkloadReconciler) listWorkloads(ctx context.Context, workloadSelector cloudsqlapi.WorkloadSelectorSpec, csqlWorkloadNs string) ([]internal.Workload, error) {
-	ns := csqlWorkloadNs
+func (r *AuthProxyWorkloadReconciler) listWorkloads(ctx context.Context, workloadSelector cloudsqlapi.WorkloadSelectorSpec, csqlWorkloadNS string) ([]internal.Workload, error) {
+	ns := csqlWorkloadNS
 	if workloadSelector.Namespace != "" {
 		ns = workloadSelector.Namespace
 	}
