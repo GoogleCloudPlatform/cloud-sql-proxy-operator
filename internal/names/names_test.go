@@ -49,12 +49,12 @@ func TestSafePrefixedName(t *testing.T) {
 			want: "csql-twas-brillig-and-the-slithy-toves-did-gyre-and-gimble-in-t",
 		},
 		{
-			desc: "truncated difference in middle preserved in hash 1",
+			desc: "truncated difference in middle preserved in mustHash 1",
 			name: "twas-brillig-and-the-slithy-toves-1111-did-gyre-and-gimble-in",
 			want: "csql-twas-brillig-and-the-slit11-did-gyre-and-gimble-in-d0b9860",
 		},
 		{
-			desc: "truncated difference in middle preserved in hash 2",
+			desc: "truncated difference in middle preserved in mustHash 2",
 			name: "twas-brillig-and-the-slithy-toves-2222-did-gyre-and-gimble-in",
 			want: "csql-twas-brillig-and-the-sli2-did-gyre-and-gimble-in-34c209d4",
 		},
@@ -70,7 +70,6 @@ func TestSafePrefixedName(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestContainerName(t *testing.T) {
@@ -80,7 +79,6 @@ func TestContainerName(t *testing.T) {
 	if want != got {
 		t.Errorf("got %v, want %v", got, want)
 	}
-
 }
 
 func TestVolumeName(t *testing.T) {
@@ -90,10 +88,9 @@ func TestVolumeName(t *testing.T) {
 	if want != got {
 		t.Errorf("got %v, want %v", got, want)
 	}
-
 }
 
-func authProxyWorkload(name string, namespace string) *cloudsqlapi.AuthProxyWorkload {
+func authProxyWorkload(name, namespace string) *cloudsqlapi.AuthProxyWorkload {
 	// Create a CloudSqlInstance that matches the deployment
 	return &cloudsqlapi.AuthProxyWorkload{
 		TypeMeta:   metav1.TypeMeta{Kind: "AuthProxyWorkload", APIVersion: cloudsqlapi.GroupVersion.String()},
@@ -109,5 +106,4 @@ func authProxyWorkload(name string, namespace string) *cloudsqlapi.AuthProxyWork
 		},
 		Status: cloudsqlapi.AuthProxyWorkloadStatus{},
 	}
-
 }

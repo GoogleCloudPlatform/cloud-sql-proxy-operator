@@ -36,7 +36,7 @@ func ContainerNameFromNamespacedName(r types.NamespacedName) string {
 }
 
 // ContainerName generates a valid name for a corev1.Container object that
-// implements this cloudsql instance. Names must be 63 characters or less and
+// implements this cloudsql instance. Names must be 63 characters or fewer and
 // adhere to the rfc1035/rfc1123 label (DNS_LABEL) format.  r.ObjectMeta.Name
 // already is required to be 63 characters or less because it is a name. Because
 // we are prepending 'csql-' ContainerPrefix as a marker, the generated name with
@@ -61,29 +61,36 @@ func VolumeName(r *cloudsqlapi.AuthProxyWorkload, inst *cloudsqlapi.InstanceSpec
 // to match containers and volumes to configuration. If the names are generated
 // differently between one version of the operator and the next, the operator
 // will break. Existing workloads will not be correctly updated.
-func SafePrefixedName(prefix string, instName string) string {
+func SafePrefixedName(prefix, instName string) string {
 	const maxNameLen = 63 // maximum character limit for a name
+
 	containerPrefixLen := len(prefix)
 
 	if len(instName)+containerPrefixLen > maxNameLen {
 		// string shortener that will still produce a name that is still unique
 		// even though it is truncated.
-		checksum := hash([]byte(instName))
+		checksum := mustHash([]byte(instName))
 		hashSuffix := fmt.Sprintf("-%x", checksum)
 		hashSuffixLen := len(hashSuffix)
 		truncateLen := (maxNameLen - hashSuffixLen - containerPrefixLen) / 2
 		namePrefix := instName[:truncateLen]
 		nameSuffix := instName[len(instName)-truncateLen:]
+
 		return strings.ToLower(strings.Join(
 			[]string{prefix, namePrefix, nameSuffix, hashSuffix}, ""))
 	}
-	return strings.ToLower(prefix + instName)
 
+	return strings.ToLower(prefix + instName)
 }
 
-// hash simply returns the checksum for a slice of bytes
-func hash(bytes []byte) uint32 {
+// mustHash simply returns the checksum for a slice of bytes
+func mustHash(bytes []byte) uint32 {
 	h := fnv.New32a()
-	h.Write(bytes)
+	i, err := h.Write(bytes)
+
+	if err != nil || i != len(bytes) {
+		panic(fmt.Errorf("unable to calculate mustHash for bytes %v %v", bytes, err))
+	}
+
 	return h.Sum32()
 }
