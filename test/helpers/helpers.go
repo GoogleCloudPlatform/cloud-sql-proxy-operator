@@ -57,6 +57,7 @@ func CreateOrPatchNamespace(ctx context.Context, t *testing.T, k8sClient client.
 // returned an error `attempts` number of times. It waits `sleep` duration
 // between failed attempts. It returns the error from the last attempt.
 func RetryUntilSuccess(t TestLogger, attempts int, sleep time.Duration, f func() error) (err error) {
+	t.Helper()
 	for i := 0; i < attempts; i++ {
 		if i > 0 {
 			t.Logf("retrying after attempt %d, %v", i, err)
@@ -74,6 +75,7 @@ func RetryUntilSuccess(t TestLogger, attempts int, sleep time.Duration, f func()
 // TestLogger interface hides the Logf function from *testing.T so that
 // the helper package can be reused in both integration and e2e tests.
 type TestLogger interface {
+	Helper()
 	Logf(format string, args ...interface{})
 }
 
@@ -83,4 +85,7 @@ type TestSetupLogger struct {
 
 func (l *TestSetupLogger) Logf(format string, args ...interface{}) {
 	l.Logger.Info(fmt.Sprintf(format, args...))
+}
+func (l *TestSetupLogger) Helper() {
+	// do nothing. This is
 }

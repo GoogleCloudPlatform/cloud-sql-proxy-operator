@@ -102,3 +102,14 @@ func TestCreateResource(t *testing.T) {
 		t.Errorf("got %v, want %v resource wantName", got, wantName)
 	}
 }
+
+func TestModifiesNewDeployment(t *testing.T) {
+	tctx := &helpers.TestcaseContext{
+		T:                t,
+		Client:           integration.Client,
+		Namespace:        helpers.NewNamespaceName("modifiesnewdeployment"),
+		ConnectionString: "region:project:inst",
+		ProxyImageURL:    "proxy-image:latest",
+	}
+	helpers.TestModifiesNewDeployment(tctx)
+}
