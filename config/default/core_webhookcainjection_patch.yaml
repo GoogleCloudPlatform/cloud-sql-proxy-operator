@@ -11,17 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-resources:
-  - manager.yaml
-generatorOptions:
-  disableNameSuffixHash: true
-configMapGenerator:
-  - files:
-      - controller_manager_config.yaml
-    name: manager-config
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-images:
-  - name: controller
-    newName: us-central1-docker.pkg.dev/csql-operator-test/test76e6d646e2caac1c458c/cloud-sql-auth-proxy-operator
-    newTag: e517b36afb2ecd8fee7ca61b21681c7bb78d12d9-dirty-20220916T1511
+# This patch add annotation to admission webhook config and
+# the variables $(CERTIFICATE_NAMESPACE) and $(CERTIFICATE_NAME) will be substituted by kustomize.
+
+# Required to inject the CA Certificate configuration into the webhook definition
+# for core workloads
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: mutating-core-webhook-configuration
+  annotations:
+    cert-manager.io/inject-ca-from: $(CERTIFICATE_NAMESPACE)/$(CERTIFICATE_NAME)

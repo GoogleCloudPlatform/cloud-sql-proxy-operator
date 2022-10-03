@@ -18,7 +18,6 @@
 package integration_test
 
 import (
-	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -28,7 +27,6 @@ import (
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/test/integration"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/rand"
 )
 
 func TestMain(m *testing.M) {
@@ -48,15 +46,24 @@ func TestMain(m *testing.M) {
 }
 
 func TestCreateResource(t *testing.T) {
+
 	var (
-		namespace   = fmt.Sprintf("testcreate-%d", rand.IntnRange(1000, 9999))
+		namespace   = helpers.NewNamespaceName("create")
 		wantName    = "instance1"
 		resourceKey = types.NamespacedName{Name: wantName, Namespace: namespace}
 		ctx         = integration.TestContext()
+
+		tctx = &helpers.TestCaseParams{
+			T:                t,
+			Client:           integration.Client,
+			Namespace:        namespace,
+			ConnectionString: "region:project:inst",
+			ProxyImageURL:    "proxy-image:latest",
+		}
 	)
 
 	// First, set up the k8s namespace for this test.
-	helpers.CreateOrPatchNamespace(ctx, t, integration.Client, namespace)
+	helpers.CreateOrPatchNamespace(ctx, tctx)
 
 	// Fill in the resource with appropriate details.
 	resource := &cloudsqlapi.AuthProxyWorkload{
@@ -74,7 +81,7 @@ func TestCreateResource(t *testing.T) {
 				Name: "busybox",
 			},
 			Instances: []cloudsqlapi.InstanceSpec{{
-				ConnectionString: "project:region:instance1",
+				ConnectionString: tctx.ConnectionString,
 			}},
 		},
 	}
@@ -101,4 +108,15 @@ func TestCreateResource(t *testing.T) {
 	if got := retrievedResource.GetName(); got != wantName {
 		t.Errorf("got %v, want %v resource wantName", got, wantName)
 	}
+}
+
+func TestModifiesNewDeployment(t *testing.T) {
+	tctx := &helpers.TestCaseParams{
+		T:                t,
+		Client:           integration.Client,
+		Namespace:        helpers.NewNamespaceName("modifiesnewdeployment"),
+		ConnectionString: "region:project:inst",
+		ProxyImageURL:    "proxy-image:latest",
+	}
+	helpers.TestModifiesNewDeployment(tctx)
 }

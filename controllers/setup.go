@@ -66,6 +66,12 @@ func SetupManagers(mgr manager.Manager) error {
 	// When kubebuilder scaffolds a new controller here, please
 	// adjust the code so it follows the pattern above.
 
+	err = SetupWorkloadControllers(mgr)
+	if err != nil {
+		setupLog.Error(err, "unable to create workload admission webhook controller")
+		return err
+	}
+
 	setupLog.Info("Configuring reconcilers complete.")
 	return nil
 }
