@@ -123,7 +123,7 @@ func ReconcileWorkload(pl *cloudsqlapi.AuthProxyWorkloadList, wl Workload) (bool
 		return false, nil, nil
 	}
 
-	matchingAuthProxyWorkloads := filterMatchingInstances(pl, wl)
+	matchingAuthProxyWorkloads := filterMatchingProxies(pl, wl)
 
 	updated, err := UpdateWorkloadContainers(wl, matchingAuthProxyWorkloads)
 	// if there was an error updating workloads, return the error
@@ -142,27 +142,26 @@ func ReconcileWorkload(pl *cloudsqlapi.AuthProxyWorkloadList, wl Workload) (bool
 
 }
 
-// filterMatchingInstances returns a list of AuthProxyWorkload whose selectors match
+// filterMatchingProxies returns a list of AuthProxyWorkload whose selectors match
 // the workload.
-func filterMatchingInstances(pl *cloudsqlapi.AuthProxyWorkloadList, wl Workload) []*cloudsqlapi.AuthProxyWorkload {
-	matchingAuthProxyWorkloads := make([]*cloudsqlapi.AuthProxyWorkload, 0, len(pl.Items))
-	for i := range pl.Items {
-		p := &pl.Items[i]
+func filterMatchingProxies(pl *cloudsqlapi.AuthProxyWorkloadList, wl Workload) []*cloudsqlapi.AuthProxyWorkload {
+	proxies := make([]*cloudsqlapi.AuthProxyWorkload, 0, len(pl.Items))
+	for _, p := range pl.Items {
 		if workloadMatches(wl, p.Spec.Workload, p.Namespace) {
 			// if this is pending deletion, exclude it.
 			if !p.ObjectMeta.DeletionTimestamp.IsZero() {
 				continue
 			}
 
-			matchingAuthProxyWorkloads = append(matchingAuthProxyWorkloads, p)
+			proxies = append(proxies, p)
 			// need to update wl
-			l.Info("Found matching wl",
+			l.Info("Found proxies wl",
 				"wl", wl.Object().GetNamespace()+"/"+wl.Object().GetName(),
 				"wlSelector", p.Spec.Workload,
 				"AuthProxyWorkload", p.Namespace+"/"+p.Name)
 		}
 	}
-	return matchingAuthProxyWorkloads
+	return proxies
 }
 
 // WorkloadUpdateStatus describes when a workload was last updated, mostly

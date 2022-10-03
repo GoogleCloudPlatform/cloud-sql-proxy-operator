@@ -147,7 +147,7 @@ type AuthenticationSpec struct {
 	// GCloudAuth true when we should use the Google Cloud metadata server to authenticate.
 	// This sets the Cloud SQL Proxy container's CLI argument `--gcloud-auth`
 	//+kubebuilder:validation:Optional
-	GCloudAuth bool `json:"gcloudAuth,omitempty"`
+	GCloudAuth *bool `json:"gcloudAuth,omitempty"`
 }
 
 // AuthProxyContainerSpec specifies configuration for the proxy container.
@@ -392,7 +392,7 @@ type AuthProxyWorkload struct {
 type AuthProxyWorkloadList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []AuthProxyWorkload `json:"items"`
+	Items           []*AuthProxyWorkload `json:"items"`
 }
 
 // init registers these resource definitions with the controller-runtime framework.
