@@ -49,41 +49,50 @@ type WorkloadAdmissionWebhook struct {
 	decoder *admission.Decoder
 }
 
-// InjectDecoder Dependency injection required by KubeBuilder controller runtime
+// InjectDecoder Dependency injection required by KubeBuilder controller runtime.
 func (a *WorkloadAdmissionWebhook) InjectDecoder(d *admission.Decoder) error {
 	a.decoder = d
 	return nil
 }
 
-// Handle is the MutatingWebhookController implementation. It uses the ModifierStore
-// configured in main.go to update the
+// Handle is the MutatingWebhookController implemnentation which will update
+// the proxy sidecars on all workloads to match the AuthProxyWorkload config.
 func (a *WorkloadAdmissionWebhook) Handle(ctx context.Context, req admission.Request) admission.Response {
 	l := logf.FromContext(ctx)
-	l.Info("/mutate-workload request received", "kind", req.Kind.Kind, "ns", req.Namespace, "name", req.Name)
+	l.Info("/mutate-workload request received",
+		"kind", req.Kind.Kind, "ns", req.Namespace, "name", req.Name)
 
-	wl, response, cantProcessRequest := a.makeWorkload(req)
-	if cantProcessRequest {
-		l.Info("/mutate-workload request can't be processed", "kind", req.Kind.Kind, "ns", req.Namespace, "name", req.Name)
-		return response
+	wl, err := a.makeWorkload(req)
+	if err != nil {
+		l.Info("/mutate-workload request can't be processed",
+			"kind", req.Kind.Kind, "ns", req.Namespace, "name", req.Name)
+		return admission.Errored(http.StatusInternalServerError, err)
 	}
 
-	var updated bool
-	var instList cloudsqlapi.AuthProxyWorkloadList
-	err := a.Client.List(ctx, &instList, client.InNamespace(wl.Object().GetNamespace()))
+	var (
+		updated  bool
+		instList = &cloudsqlapi.AuthProxyWorkloadList{}
+	)
+	err = a.Client.List(ctx, instList, client.InNamespace(wl.Object().GetNamespace()))
 	if err != nil {
-		l.Error(err, "Unable to list CloudSqlClient resources in webhook", "kind", req.Kind.Kind, "ns", req.Namespace, "name", req.Name)
-		return admission.Errored(http.StatusInternalServerError, fmt.Errorf("unable to list CloudSqlClient resources"))
+		l.Error(err, "Unable to list CloudSqlClient resources in webhook",
+			"kind", req.Kind.Kind, "ns", req.Namespace, "name", req.Name)
+		return admission.Errored(http.StatusInternalServerError,
+			fmt.Errorf("unable to list CloudSqlClient resources"))
 	}
 
 	l.Info("Workload before modification", "len(containers)", len(wl.PodSpec().Containers))
-	updated, matchingInstances, wlConfigErr := internal.ReconcileWorkload(&instList, wl)
+	updated, matchingInstances, wlConfigErr := internal.ReconcileWorkload(instList, wl)
 	if wlConfigErr != nil {
-		l.Error(wlConfigErr, "Unable to reconcile workload result in webhook: "+wlConfigErr.Error(), "kind", req.Kind.Kind, "ns", req.Namespace, "name", req.Name)
-		return admission.Errored(http.StatusInternalServerError, fmt.Errorf("there is an AuthProxyWorkloadConfiguration error reconciling this workload %v", wlConfigErr))
+		l.Error(wlConfigErr, "Unable to reconcile workload result in webhook: "+wlConfigErr.Error(),
+			"kind", req.Kind.Kind, "ns", req.Namespace, "name", req.Name)
+		return admission.Errored(http.StatusInternalServerError,
+			fmt.Errorf("there is an AuthProxyWorkloadConfiguration error reconciling this workload %v", wlConfigErr))
 	}
 
 	if updated {
-		l.Info(fmt.Sprintf("Workload operation %s on kind %s named %s/%s required an update", req.Operation, req.Kind, req.Namespace, req.Name))
+		l.Info(fmt.Sprintf("Workload operation %s on kind %s named %s/%s required an update",
+			req.Operation, req.Kind, req.Namespace, req.Name))
 		for _, inst := range matchingInstances {
 			l.Info(fmt.Sprintf("inst %v %v/%v updated at instance resource version %v",
 				wl.Object().GetObjectKind().GroupVersionKind().String(),
@@ -95,8 +104,10 @@ func (a *WorkloadAdmissionWebhook) Handle(ctx context.Context, req admission.Req
 	result := wl.Object()
 	marshaledRes, err := json.Marshal(result)
 	if err != nil {
-		l.Error(err, "Unable to marshal workload result in webhook", "kind", req.Kind.Kind, "ns", req.Namespace, "name", req.Name)
-		return admission.Errored(http.StatusInternalServerError, fmt.Errorf("unable to marshal workload result"))
+		l.Error(err, "Unable to marshal workload result in webhook",
+			"kind", req.Kind.Kind, "ns", req.Namespace, "name", req.Name)
+		return admission.Errored(http.StatusInternalServerError,
+			fmt.Errorf("unable to marshal workload result"))
 	}
 
 	if updated {
@@ -113,53 +124,52 @@ func (a *WorkloadAdmissionWebhook) Handle(ctx context.Context, req admission.Req
 }
 
 // makeWorkload creates a Workload from a request.
-func (a *WorkloadAdmissionWebhook) makeWorkload(req admission.Request) (internal.Workload, admission.Response, bool) {
-	var wl internal.Workload
+func (a *WorkloadAdmissionWebhook) makeWorkload(
+	req admission.Request) (internal.Workload, error) {
 	switch req.Kind.Kind {
 	case "Deployment":
-		d := appsv1.Deployment{}
+		var d appsv1.Deployment
 		err := a.decoder.Decode(req, &d)
 		if err != nil {
-			return nil, admission.Errored(http.StatusBadRequest, err), true
+			return nil, err
 		}
-		wl = &internal.DeploymentWorkload{Deployment: &d}
+		return &internal.DeploymentWorkload{Deployment: &d}, nil
 	case "CronJob":
-		d := batchv1.CronJob{}
+		var d batchv1.CronJob
 		err := a.decoder.Decode(req, &d)
 		if err != nil {
-			return nil, admission.Errored(http.StatusBadRequest, err), true
+			return nil, err
 		}
-		wl = &internal.CronJobWorkload{CronJob: &d}
+		return &internal.CronJobWorkload{CronJob: &d}, nil
 	case "Job":
-		d := batchv1.Job{}
+		var d batchv1.Job
 		err := a.decoder.Decode(req, &d)
 		if err != nil {
-			return nil, admission.Errored(http.StatusBadRequest, err), true
+			return nil, err
 		}
-		wl = &internal.JobWorkload{Job: &d}
+		return &internal.JobWorkload{Job: &d}, nil
 	case "StatefulSet":
-		d := appsv1.StatefulSet{}
+		var d appsv1.StatefulSet
 		err := a.decoder.Decode(req, &d)
 		if err != nil {
-			return nil, admission.Errored(http.StatusBadRequest, err), true
+			return nil, err
 		}
-		wl = &internal.StatefulSetWorkload{StatefulSet: &d}
+		return &internal.StatefulSetWorkload{StatefulSet: &d}, nil
 	case "DaemonSet":
-		d := appsv1.DaemonSet{}
+		var d appsv1.DaemonSet
 		err := a.decoder.Decode(req, &d)
 		if err != nil {
-			return nil, admission.Errored(http.StatusBadRequest, err), true
+			return nil, err
 		}
-		wl = &internal.DaemonSetWorkload{DaemonSet: &d}
+		return &internal.DaemonSetWorkload{DaemonSet: &d}, nil
 	case "Pod":
-		d := corev1.Pod{}
+		var d corev1.Pod
 		err := a.decoder.Decode(req, &d)
 		if err != nil {
-			return nil, admission.Errored(http.StatusBadRequest, err), true
+			return nil, err
 		}
-		wl = &internal.PodWorkload{Pod: &d}
+		return &internal.PodWorkload{Pod: &d}, nil
 	default:
-		return nil, admission.Errored(http.StatusInternalServerError, fmt.Errorf("unsupported resource kind %s", req.Kind.Kind)), true
+		return nil, fmt.Errorf("unsupported resource kind %s", req.Kind.Kind)
 	}
-	return wl, admission.Response{}, false
 }

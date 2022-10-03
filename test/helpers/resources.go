@@ -17,7 +17,6 @@ package helpers
 import (
 	"context"
 	"fmt"
-	"testing"
 	"time"
 
 	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/api/v1alpha1"
@@ -25,20 +24,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	yaml2 "k8s.io/apimachinery/pkg/util/yaml"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// CreateBusyboxDeployment creates a simple busybox deployment, using the
-// key as its namespace and name. It also sets the label "app"= appLabel
-func CreateBusyboxDeployment(
-	ctx context.Context,
-	t *testing.T,
-	k8sClient client.Client,
-	key types.NamespacedName,
-	appLabel string,
-) (*appsv1.Deployment, error) {
-	t.Helper()
-	yaml := `apiVersion: apps/appsv1
+const busyboxDeployYaml = `apiVersion: apps/appsv1
 kind: Deployment
 metadata:
   name: busybox-deployment-
@@ -63,44 +51,51 @@ spec:
         imagePullPolicy: IfNotPresent
         command: ['sh', '-c', 'echo Container 1 is Running ; sleep 3600']
 `
-	d := appsv1.Deployment{}
 
-	err := yaml2.Unmarshal([]byte(yaml), &d)
+// CreateBusyboxDeployment creates a simple busybox deployment, using the
+// key as its namespace and name. It also sets the label "app"= appLabel.
+func CreateBusyboxDeployment(ctx context.Context, tctx *TestCaseParams,
+	name, appLabel string) (*appsv1.Deployment, error) {
+	tctx.T.Helper()
+
+	d := &appsv1.Deployment{}
+
+	err := yaml2.Unmarshal([]byte(busyboxDeployYaml), &d)
 	if err != nil {
 		return nil, err
 	}
-	d.ObjectMeta.Name = key.Name
-	d.ObjectMeta.Namespace = key.Namespace
-	d.ObjectMeta.Labels = map[string]string{"app": appLabel}
+	d.Name = name
+	d.Namespace = tctx.Namespace
+	d.Labels = map[string]string{"app": appLabel}
 
-	err = k8sClient.Create(ctx, &d)
+	err = tctx.Client.Create(ctx, d)
 	if err != nil {
 		return nil, err
 	}
-	cd := appsv1.Deployment{}
-	err = RetryUntilSuccess(t, 5, 1*time.Second, func() error {
-		return k8sClient.Get(ctx, key, &cd)
+
+	cd := &appsv1.Deployment{}
+	err = RetryUntilSuccess(tctx.T, 5, 1*time.Second, func() error {
+		return tctx.Client.Get(ctx, types.NamespacedName{
+			Namespace: tctx.Namespace,
+			Name:      name,
+		}, cd)
 	})
 	if err != nil {
 		return nil, err
 	}
-	return &cd, nil
+	return cd, nil
 }
 
 // GetAuthProxyWorkload finds an AuthProxyWorkload resource named key, waits for its
 // "UpToDate" condition to be "True", and the returns it. Fails after 30 seconds
 // if the containers does not match.
-func GetAuthProxyWorkload(
-	ctx context.Context,
-	t *testing.T,
-	k8sClient client.Client,
-	key types.NamespacedName,
-) (*cloudsqlapi.AuthProxyWorkload, error) {
-	t.Helper()
+func GetAuthProxyWorkload(ctx context.Context, tctx *TestCaseParams,
+	key types.NamespacedName) (*cloudsqlapi.AuthProxyWorkload, error) {
+	tctx.T.Helper()
 	createdPodmod := &cloudsqlapi.AuthProxyWorkload{}
 	// We'll need to retry getting this newly created resource, given that creation may not immediately happen.
-	err := RetryUntilSuccess(t, 6, 5*time.Second, func() error {
-		err := k8sClient.Get(ctx, key, createdPodmod)
+	err := RetryUntilSuccess(tctx.T, 6, 5*time.Second, func() error {
+		err := tctx.Client.Get(ctx, key, createdPodmod)
 		if err != nil {
 			return err
 		}
@@ -115,18 +110,16 @@ func GetAuthProxyWorkload(
 // ExpectContainerCount finds a deployment and keeps checking until the number of
 // containers on the deployment's PodSpec.Containers == count. Returns error after 30 seconds
 // if the containers do not match.
-func ExpectContainerCount(
-	ctx context.Context,
-	t *testing.T,
-	k8sClient client.Client,
-	key types.NamespacedName,
-	deployment *appsv1.Deployment,
-	count int,
-) error {
-	t.Helper()
-	var got int
-	err := RetryUntilSuccess(t, 6, 5*time.Second, func() error {
-		err := k8sClient.Get(ctx, key, deployment)
+func ExpectContainerCount(ctx context.Context, tctx *TestCaseParams, key types.NamespacedName, count int) error {
+
+	tctx.T.Helper()
+
+	var (
+		got        int
+		deployment = &appsv1.Deployment{}
+	)
+	err := RetryUntilSuccess(tctx.T, 6, 5*time.Second, func() error {
+		err := tctx.Client.Get(ctx, key, deployment)
 		if err != nil {
 			return err
 		}
@@ -138,24 +131,18 @@ func ExpectContainerCount(
 	})
 
 	if err != nil {
-		t.Errorf("want %v containers, got %v number of containers did not resolve after waiting for reconcile", count, got)
-	} else {
-		t.Logf("Container len is now %v", got)
+		tctx.T.Errorf("want %v containers, got %v number of containers did not resolve after waiting for reconcile", count, got)
+		return err
 	}
-	return err
+
+	tctx.T.Logf("Container len is now %v", got)
+	return nil
 }
 
-// CreateAuthProxyWorkload creates an AuthProxyWorkload in the kubernetes cluster
-func CreateAuthProxyWorkload(
-	ctx context.Context,
-	t *testing.T,
-	k8sClient client.Client,
-	key types.NamespacedName,
-	appLabel string,
-	connectionString string,
-	proxyImageURL string,
-) error {
-	t.Helper()
+// CreateAuthProxyWorkload creates an AuthProxyWorkload in the kubernetes cluster.
+func CreateAuthProxyWorkload(ctx context.Context, tctx *TestCaseParams,
+	key types.NamespacedName, appLabel string, connectionString string) error {
+	tctx.T.Helper()
 	podmod := &cloudsqlapi.AuthProxyWorkload{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: cloudsqlapi.GroupVersion.String(),
@@ -174,16 +161,16 @@ func CreateAuthProxyWorkload(
 				},
 			},
 			AuthProxyContainer: &cloudsqlapi.AuthProxyContainerSpec{
-				Image: proxyImageURL,
+				Image: tctx.ProxyImageURL,
 			},
 			Instances: []cloudsqlapi.InstanceSpec{{
 				ConnectionString: connectionString,
 			}},
 		},
 	}
-	err := k8sClient.Create(ctx, podmod)
+	err := tctx.Client.Create(ctx, podmod)
 	if err != nil {
-		t.Errorf("Unable to create entity %v", err)
+		tctx.T.Errorf("Unable to create entity %v", err)
 		return err
 	}
 	return nil

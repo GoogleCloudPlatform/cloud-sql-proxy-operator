@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type TestcaseContext struct {
+type TestCaseParams struct {
 	T                *testing.T
 	Client           client.Client
 	Namespace        string
@@ -36,42 +36,36 @@ func NewNamespaceName(prefix string) string {
 	return fmt.Sprintf("test%s%d", prefix, rand.IntnRange(1000, 9999))
 }
 
-func TestModifiesNewDeployment(tctx *TestcaseContext) {
-	t := tctx.T
-	c := tctx.Client
-	ns := tctx.Namespace
-	proxyImageURL := tctx.ProxyImageURL
-	connectionString := tctx.ConnectionString
-
+func TestModifiesNewDeployment(tp *TestCaseParams) {
+	t := tp.T
 	testContext := context.Background()
 
-	CreateOrPatchNamespace(testContext, t, c, ns)
+	CreateOrPatchNamespace(testContext, tp)
 
 	const (
 		pwlName            = "newdeploy"
-		deploymentName     = "busybox"
 		deploymentAppLabel = "busybox"
 	)
 	ctx := testContext
-	key := types.NamespacedName{Name: pwlName, Namespace: ns}
+	key := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
 
 	t.Log("Creating cloud sql instance")
-	err := CreateAuthProxyWorkload(ctx, t, c, types.NamespacedName{Namespace: ns, Name: pwlName}, deploymentAppLabel, connectionString, proxyImageURL)
+	err := CreateAuthProxyWorkload(ctx, tp, key,
+		deploymentAppLabel, tp.ConnectionString)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
 	t.Log("Waiting for cloud sql instance to begin the reconcile loop loop")
-	_, err = GetAuthProxyWorkload(ctx, t, c, key)
+	_, err = GetAuthProxyWorkload(ctx, tp, key)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
 	t.Log("Creating deployment")
-	deploymentLookupKey := types.NamespacedName{Name: deploymentName, Namespace: ns}
-	deployment, err := CreateBusyboxDeployment(ctx, t, c, deploymentLookupKey, deploymentAppLabel)
+	deployment, err := CreateBusyboxDeployment(ctx, tp, key.Name, deploymentAppLabel)
 	if err != nil {
 		t.Error(err)
 		return
@@ -82,7 +76,7 @@ func TestModifiesNewDeployment(tctx *TestcaseContext) {
 	}
 
 	t.Log("Waiting for deployment reconcile to complete")
-	err = ExpectContainerCount(ctx, t, c, deploymentLookupKey, deployment, 2)
+	err = ExpectContainerCount(ctx, tp, key, 2)
 
 	if err != nil {
 		t.Errorf("number of containers did not resolve to 2 after waiting for reconcile")
