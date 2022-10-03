@@ -15,7 +15,10 @@
 package v1alpha1
 
 import (
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -50,23 +53,66 @@ var _ webhook.Validator = &AuthProxyWorkload{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *AuthProxyWorkload) ValidateCreate() error {
 	authproxyworkloadlog.Info("validate create", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object creation.
-	return nil
+	return r.validate()
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *AuthProxyWorkload) ValidateUpdate(old runtime.Object) error {
 	authproxyworkloadlog.Info("validate update", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object update.
-	return nil
+	return r.validate()
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (r *AuthProxyWorkload) ValidateDelete() error {
 	authproxyworkloadlog.Info("validate delete", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object deletion.
 	return nil
+}
+
+func (r *AuthProxyWorkload) validate() error {
+	var allErrs field.ErrorList
+
+	allErrs = append(allErrs, validateSpec(field.NewPath("spec"), r.Spec)...)
+
+	if len(allErrs) == 0 {
+		return nil
+	}
+
+	return apierrors.NewInvalid(
+		schema.GroupKind{
+			Group: GroupVersion.Group,
+			Kind:  "AuthProxyWorkload"},
+		r.Name, allErrs)
+}
+
+func validateSpec(f *field.Path, spec *AuthProxyWorkloadSpec) field.ErrorList {
+	var allErrs field.ErrorList
+
+	// The field helpers from the kubernetes API machinery help us return nicely
+	// structured validation errors.
+	allErrs = append(allErrs, validateWorkload(f.Child("workload"), spec.Workload)...)
+
+	// TODO: Validate the other fields in spec
+	return allErrs
+}
+
+func validateWorkload(f *field.Path, spec WorkloadSelectorSpec) field.ErrorList {
+	var errs field.ErrorList
+	if spec.Name != "" && spec.Selector != nil {
+		errs = append(errs, field.Invalid(f, spec,
+			"WorkloadSelectorSpec must specify either name or selector. Both were set."))
+	}
+	if spec.Name == "" && spec.Selector == nil {
+		errs = append(errs, field.Invalid(f, spec,
+			"WorkloadSelectorSpec must specify either name or selector. Neither was set."))
+	}
+
+	_, gv := schema.ParseKindArg(spec.Kind)
+	if gv.Kind != "CronJob" && gv.Kind != "Job" && gv.Kind != "StatefulSet" &&
+		gv.Kind != "Deployment" && gv.Kind != "DaemonSet" && gv.Kind != "Pod" {
+		errs = append(errs, field.Invalid(f.Child("kind"), spec,
+			"Kind must be one of CronJob, Job, StatefulSet, Deployment, DaemonSet or Pod"))
+
+	}
+
+	return errs
 }

@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/api/v1alpha1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 )
 
@@ -52,6 +53,17 @@ func TestAuthProxyWorkload_ValidateCreate(t *testing.T) {
 			wantUpdateValid: true,
 		},
 		{
+			desc: "bad workload, too much set",
+			spec: &cloudsqlapi.AuthProxyWorkloadSpec{
+				Workload: cloudsqlapi.WorkloadSelectorSpec{
+					Kind:     "Deployment",
+					Name:     "webapp",
+					Selector: &v1.LabelSelector{MatchLabels: map[string]string{"app": "web"}}},
+			},
+			wantCreateValid: false,
+			wantUpdateValid: false,
+		},
+		{
 			desc: "happy path update",
 			spec: &cloudsqlapi.AuthProxyWorkloadSpec{
 				Workload: cloudsqlapi.WorkloadSelectorSpec{Kind: "Deployment", Name: "webapp"},
@@ -82,7 +94,7 @@ func TestAuthProxyWorkload_ValidateCreate(t *testing.T) {
 			case !tc.wantCreateValid && err == nil:
 				t.Errorf("wants an error on create, got no error")
 			default:
-				t.Logf("create passed %s", tc.desc)
+				t.Logf("create passed %s. %v", tc.desc, err)
 				// test passes, do nothing.
 			}
 
@@ -99,7 +111,7 @@ func TestAuthProxyWorkload_ValidateCreate(t *testing.T) {
 			case !tc.wantUpdateValid && err == nil:
 				t.Errorf("wants an error on create, got no error")
 			default:
-				t.Logf("update passed %s", tc.desc)
+				t.Logf("update passed %s, %v", tc.desc, err)
 				// test passes, do nothing.
 			}
 		})
