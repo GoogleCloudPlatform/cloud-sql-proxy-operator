@@ -49,7 +49,7 @@ func TestModifiesNewDeployment(tp *TestCaseParams) {
 	ctx := testContext
 	key := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
 
-	t.Log("Creating cloud sql instance")
+	t.Log("Creating AuthProxyWorkload")
 	err := CreateAuthProxyWorkload(ctx, tp, key,
 		deploymentAppLabel, tp.ConnectionString)
 	if err != nil {
@@ -57,7 +57,7 @@ func TestModifiesNewDeployment(tp *TestCaseParams) {
 		return
 	}
 
-	t.Log("Waiting for cloud sql instance to begin the reconcile loop loop")
+	t.Log("Waiting for AuthProxyWorkload operator to begin the reconcile loop")
 	_, err = GetAuthProxyWorkload(ctx, tp, key)
 	if err != nil {
 		t.Error(err)
