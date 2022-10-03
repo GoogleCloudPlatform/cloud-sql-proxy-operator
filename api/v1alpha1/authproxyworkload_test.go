@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/api/v1alpha1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 )
@@ -27,10 +28,29 @@ func TestUnmarshalAuthProxyWorkloadSample(t *testing.T) {
 	data, err := os.ReadFile("../../config/samples/cloudsql_v1alpha1_authproxyworkload_full.yaml")
 	if err != nil {
 		t.Error(err)
+		return
 	}
 	err = yaml.Unmarshal(data, wl)
 	if err != nil {
 		t.Errorf("Can't unmarshal, %v", err)
+		return
+	}
+
+	err = wl.Validate()
+	if err != nil {
+		printFieldErrors(t, err)
+	}
+
+}
+
+func printFieldErrors(t *testing.T, err error) {
+	t.Helper()
+	statusErr, ok := err.(*apierrors.StatusError)
+	if ok {
+		t.Errorf("Field status errors: ")
+		for _, v := range statusErr.Status().Details.Causes {
+			t.Errorf("   %v %v: %v ", v.Field, v.Type, v.Message)
+		}
 	}
 }
 
@@ -44,6 +64,15 @@ func TestAuthProxyWorkload_ValidateCreate(t *testing.T) {
 	}
 
 	data := []*testcase{
+		{
+			desc: "happy path",
+			spec: &cloudsqlapi.AuthProxyWorkloadSpec{
+				Workload:  cloudsqlapi.WorkloadSelectorSpec{Kind: "Deployment", Name: "webapp"},
+				Instances: []cloudsqlapi.InstanceSpec{{ConnectionString: "project:region:db"}},
+			},
+			wantCreateValid: true,
+			wantUpdateValid: true,
+		},
 		{
 			desc: "happy path",
 			spec: &cloudsqlapi.AuthProxyWorkloadSpec{

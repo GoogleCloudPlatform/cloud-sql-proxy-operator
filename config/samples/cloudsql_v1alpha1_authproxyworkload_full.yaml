@@ -19,7 +19,7 @@ metadata:
 spec:
   # This controls the proxy on
   # the v1/Deployment labeled app=webapi
-  workload:
+  workloadSelector:
     kind: Deployment.apps
     selector: # A LabelSelector
       matchLabels:

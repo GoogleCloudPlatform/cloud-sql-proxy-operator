@@ -15,7 +15,10 @@
 package v1alpha1
 
 import (
+	"fmt"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/validation"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -23,6 +26,8 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
+
+var supportedKinds = []string{"CronJob", "Job", "StatefulSet", "Deployment", "DaemonSet", "Pod"}
 
 // log is for logging in this package.
 var authproxyworkloadlog = logf.Log.WithName("authproxyworkload-resource")
@@ -53,13 +58,13 @@ var _ webhook.Validator = &AuthProxyWorkload{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *AuthProxyWorkload) ValidateCreate() error {
 	authproxyworkloadlog.Info("validate create", "name", r.Name)
-	return r.validate()
+	return r.Validate()
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *AuthProxyWorkload) ValidateUpdate(old runtime.Object) error {
 	authproxyworkloadlog.Info("validate update", "name", r.Name)
-	return r.validate()
+	return r.Validate()
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
@@ -68,10 +73,11 @@ func (r *AuthProxyWorkload) ValidateDelete() error {
 	return nil
 }
 
-func (r *AuthProxyWorkload) validate() error {
+func (r *AuthProxyWorkload) Validate() error {
 	var allErrs field.ErrorList
 
-	allErrs = append(allErrs, validateSpec(field.NewPath("spec"), r.Spec)...)
+	allErrs = append(allErrs, validation.ValidateLabelName(r.Name, field.NewPath("metadata", "name"))...)
+	allErrs = append(allErrs, validateSpec(r.Spec, field.NewPath("spec"))...)
 
 	if len(allErrs) == 0 {
 		return nil
@@ -84,33 +90,46 @@ func (r *AuthProxyWorkload) validate() error {
 		r.Name, allErrs)
 }
 
-func validateSpec(f *field.Path, spec *AuthProxyWorkloadSpec) field.ErrorList {
+func validateSpec(spec *AuthProxyWorkloadSpec, f *field.Path) field.ErrorList {
 	var allErrs field.ErrorList
 
-	// The field helpers from the kubernetes API machinery help us return nicely
-	// structured validation errors.
-	allErrs = append(allErrs, validateWorkload(f.Child("workload"), spec.Workload)...)
+	allErrs = append(allErrs, validateWorkload(&spec.Workload, f.Child("workload"))...)
 
 	// TODO: Validate the other fields in spec
+	// allErrs = append(allErrs, validateAuthProxyContainer(spec.AuthProxyContainer, f.Child("authProxyContainer"))...)
+	// allErrs = append(allErrs, validateAuthentication(spec.Authentication, f.Child("authentication"))...)
+	// allErrs = append(allErrs, validateAuthentication(spec.Instances, f.Child("instances"))...)
+
 	return allErrs
 }
 
-func validateWorkload(f *field.Path, spec WorkloadSelectorSpec) field.ErrorList {
+func validateWorkload(spec *WorkloadSelectorSpec, f *field.Path) field.ErrorList {
 	var errs field.ErrorList
+	if spec.Selector != nil {
+		errs = append(errs,
+			validation.ValidateLabelSelector(spec.Selector, f.Child("selector"))...)
+	}
+
 	if spec.Name != "" && spec.Selector != nil {
-		errs = append(errs, field.Invalid(f, spec,
+		errs = append(errs, field.Invalid(f.Child("name"), spec,
 			"WorkloadSelectorSpec must specify either name or selector. Both were set."))
 	}
 	if spec.Name == "" && spec.Selector == nil {
-		errs = append(errs, field.Invalid(f, spec,
+		errs = append(errs, field.Invalid(f.Child("name"), spec,
 			"WorkloadSelectorSpec must specify either name or selector. Neither was set."))
 	}
 
-	_, gv := schema.ParseKindArg(spec.Kind)
-	if gv.Kind != "CronJob" && gv.Kind != "Job" && gv.Kind != "StatefulSet" &&
-		gv.Kind != "Deployment" && gv.Kind != "DaemonSet" && gv.Kind != "Pod" {
-		errs = append(errs, field.Invalid(f.Child("kind"), spec,
-			"Kind must be one of CronJob, Job, StatefulSet, Deployment, DaemonSet or Pod"))
+	_, gk := schema.ParseKindArg(spec.Kind)
+	var found bool
+	for _, kind := range supportedKinds {
+		if kind == gk.Kind {
+			found = true
+			break
+		}
+	}
+	if !found {
+		errs = append(errs, field.Invalid(f.Child("kind"), spec.Kind,
+			fmt.Sprintf("Kind was %q, must be one of CronJob, Job, StatefulSet, Deployment, DaemonSet or Pod", gk.Kind)))
 
 	}
 
