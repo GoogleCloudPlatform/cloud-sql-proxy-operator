@@ -95,7 +95,7 @@ func authProxyWorkload(name, namespace string) *cloudsqlapi.AuthProxyWorkload {
 	return &cloudsqlapi.AuthProxyWorkload{
 		TypeMeta:   metav1.TypeMeta{Kind: "AuthProxyWorkload", APIVersion: cloudsqlapi.GroupVersion.String()},
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
-		Spec: cloudsqlapi.AuthProxyWorkloadSpec{
+		Spec: &cloudsqlapi.AuthProxyWorkloadSpec{
 			Workload: cloudsqlapi.WorkloadSelectorSpec{
 				Selector: &metav1.LabelSelector{
 					MatchLabels:      map[string]string{"app": "hello"},
@@ -104,6 +104,6 @@ func authProxyWorkload(name, namespace string) *cloudsqlapi.AuthProxyWorkload {
 			},
 			Instances: []cloudsqlapi.InstanceSpec{{ConnectionString: "proj:inst:db"}},
 		},
-		Status: cloudsqlapi.AuthProxyWorkloadStatus{},
+		Status: &cloudsqlapi.AuthProxyWorkloadStatus{},
 	}
 }

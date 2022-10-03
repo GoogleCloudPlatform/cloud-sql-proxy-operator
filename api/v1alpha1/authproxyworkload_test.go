@@ -32,3 +32,76 @@ func TestUnmarshalAuthProxyWorkloadSample(t *testing.T) {
 		t.Errorf("Can't unmarshal, %v", err)
 	}
 }
+
+func TestAuthProxyWorkload_ValidateCreate(t *testing.T) {
+	type testcase struct {
+		desc            string
+		spec            *cloudsqlapi.AuthProxyWorkloadSpec
+		oldSpec         *cloudsqlapi.AuthProxyWorkloadSpec
+		wantCreateValid bool
+		wantUpdateValid bool
+	}
+
+	data := []*testcase{
+		{
+			desc: "happy path",
+			spec: &cloudsqlapi.AuthProxyWorkloadSpec{
+				Workload: cloudsqlapi.WorkloadSelectorSpec{Kind: "Deployment", Name: "webapp"},
+			},
+			wantCreateValid: true,
+			wantUpdateValid: true,
+		},
+		{
+			desc: "happy path update",
+			spec: &cloudsqlapi.AuthProxyWorkloadSpec{
+				Workload: cloudsqlapi.WorkloadSelectorSpec{Kind: "Deployment", Name: "webapp"},
+				Instances: []cloudsqlapi.InstanceSpec{{
+					ConnectionString: "proj:region:db2",
+					PortEnvName:      "DB_PORT",
+				}},
+			},
+			oldSpec: &cloudsqlapi.AuthProxyWorkloadSpec{
+				Workload: cloudsqlapi.WorkloadSelectorSpec{Kind: "Deployment", Name: "webapp"},
+				Instances: []cloudsqlapi.InstanceSpec{{
+					ConnectionString: "proj:region:db1",
+					PortEnvName:      "DB_PORT",
+				}},
+			},
+			wantCreateValid: true,
+			wantUpdateValid: true,
+		},
+	}
+
+	for _, tc := range data {
+		t.Run(tc.desc, func(t *testing.T) {
+			p := cloudsqlapi.AuthProxyWorkload{Spec: tc.spec}
+			err := p.ValidateCreate()
+			switch {
+			case tc.wantCreateValid && err != nil:
+				t.Errorf("wants create valid, got error %v", err)
+			case !tc.wantCreateValid && err == nil:
+				t.Errorf("wants an error on create, got no error")
+			default:
+				t.Logf("create passed %s", tc.desc)
+				// test passes, do nothing.
+			}
+
+			if tc.oldSpec == nil {
+				return
+			}
+
+			oldP := cloudsqlapi.AuthProxyWorkload{Spec: tc.oldSpec}
+
+			err = p.ValidateUpdate(&oldP)
+			switch {
+			case tc.wantUpdateValid && err != nil:
+				t.Errorf("wants create valid, got error %v", err)
+			case !tc.wantUpdateValid && err == nil:
+				t.Errorf("wants an error on create, got no error")
+			default:
+				t.Logf("update passed %s", tc.desc)
+				// test passes, do nothing.
+			}
+		})
+	}
+}

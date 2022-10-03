@@ -75,7 +75,7 @@ func TestCreateResource(t *testing.T) {
 			Name:      wantName,
 			Namespace: namespace,
 		},
-		Spec: cloudsqlapi.AuthProxyWorkloadSpec{
+		Spec: &cloudsqlapi.AuthProxyWorkloadSpec{
 			Workload: cloudsqlapi.WorkloadSelectorSpec{
 				Kind: "Deployment",
 				Name: "busybox",

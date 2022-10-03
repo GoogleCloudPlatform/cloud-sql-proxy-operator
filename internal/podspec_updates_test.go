@@ -49,7 +49,7 @@ func simpleAuthProxy(name, connectionString string) *cloudsqlapi.AuthProxyWorklo
 }
 
 func authProxyWorkload(name string, instances []cloudsqlapi.InstanceSpec) *cloudsqlapi.AuthProxyWorkload {
-	return authProxyWorkloadFromSpec(name, cloudsqlapi.AuthProxyWorkloadSpec{
+	return authProxyWorkloadFromSpec(name, &cloudsqlapi.AuthProxyWorkloadSpec{
 		Workload: cloudsqlapi.WorkloadSelectorSpec{
 			Kind: "Deployment",
 			Selector: &metav1.LabelSelector{
@@ -59,7 +59,7 @@ func authProxyWorkload(name string, instances []cloudsqlapi.InstanceSpec) *cloud
 		Instances: instances,
 	})
 }
-func authProxyWorkloadFromSpec(name string, spec cloudsqlapi.AuthProxyWorkloadSpec) *cloudsqlapi.AuthProxyWorkload {
+func authProxyWorkloadFromSpec(name string, spec *cloudsqlapi.AuthProxyWorkloadSpec) *cloudsqlapi.AuthProxyWorkload {
 	proxy := &cloudsqlapi.AuthProxyWorkload{
 		TypeMeta:   metav1.TypeMeta{Kind: "AuthProxyWorkload", APIVersion: cloudsqlapi.GroupVersion.String()},
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default", Generation: 1},
@@ -753,7 +753,7 @@ func TestProxyCLIArgs(t *testing.T) {
 			}}
 
 			// Create a AuthProxyWorkload that matches the deployment
-			csqls := []*cloudsqlapi.AuthProxyWorkload{authProxyWorkloadFromSpec("instance1", tc.proxySpec)}
+			csqls := []*cloudsqlapi.AuthProxyWorkload{authProxyWorkloadFromSpec("instance1", &tc.proxySpec)}
 
 			// Indicate that the workload needs an update
 			internal.MarkWorkloadNeedsUpdate(csqls[0], wl)
@@ -817,7 +817,7 @@ func TestProperCleanupOfEnvAndVolumes(t *testing.T) {
 	csqls := []*cloudsqlapi.AuthProxyWorkload{{
 		TypeMeta:   metav1.TypeMeta{Kind: "AuthProxyWorkload", APIVersion: cloudsqlapi.GroupVersion.String()},
 		ObjectMeta: metav1.ObjectMeta{Name: "instance1", Namespace: "default", Generation: 1},
-		Spec: cloudsqlapi.AuthProxyWorkloadSpec{
+		Spec: &cloudsqlapi.AuthProxyWorkloadSpec{
 			Workload: cloudsqlapi.WorkloadSelectorSpec{
 				Kind: "Deployment",
 				Selector: &metav1.LabelSelector{
@@ -834,7 +834,7 @@ func TestProperCleanupOfEnvAndVolumes(t *testing.T) {
 					PortEnvName:      "DB_PORT",
 				}},
 		},
-		Status: cloudsqlapi.AuthProxyWorkloadStatus{},
+		Status: &cloudsqlapi.AuthProxyWorkloadStatus{},
 	}}
 
 	// Indicate that the workload needs an update

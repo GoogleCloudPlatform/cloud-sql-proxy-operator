@@ -382,8 +382,8 @@ type AuthProxyWorkload struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   AuthProxyWorkloadSpec   `json:"spec,omitempty"`
-	Status AuthProxyWorkloadStatus `json:"status,omitempty"`
+	Spec   *AuthProxyWorkloadSpec   `json:"spec,omitempty"`
+	Status *AuthProxyWorkloadStatus `json:"status,omitempty"`
 }
 
 // AuthProxyWorkloadList contains a list of AuthProxyWorkload and is part of the
