@@ -48,20 +48,20 @@ type WorkloadList interface {
 	Workloads() []Workload
 }
 
-// realWorkloadList is a generic implementatino of WorkloadList that functions
-// for
+// realWorkloadList is a generic implementation of WorkloadList that enables
+// easy extension for new workload list types.
 type realWorkloadList[L client.ObjectList, T client.Object] struct {
-	itemList      L
+	objectList    L
 	itemsAccessor func(L) []T
 	wlCreator     func(T) Workload
 }
 
 func (l *realWorkloadList[L, T]) List() client.ObjectList {
-	return l.itemList
+	return l.objectList
 }
 
 func (l *realWorkloadList[L, T]) Workloads() []Workload {
-	items := l.itemsAccessor(l.itemList)
+	items := l.itemsAccessor(l.objectList)
 	wls := make([]Workload, len(items))
 	for i := range items {
 		wls[i] = l.wlCreator(items[i])
@@ -69,6 +69,7 @@ func (l *realWorkloadList[L, T]) Workloads() []Workload {
 	return wls
 }
 
+// ptrSlice takes a slice and returns slice with the pointer to each element.
 func ptrSlice[T any](l []T) []*T {
 	p := make([]*T, len(l))
 	for i := 0; i < len(l); i++ {
@@ -77,23 +78,25 @@ func ptrSlice[T any](l []T) []*T {
 	return p
 }
 
+// WorkloadListForKind returns a new WorkloadList initialized for a particular
+// kubernetes Kind.
 func WorkloadListForKind(kind string) (WorkloadList, error) {
 	switch kind {
 	case "Deployment":
 		return &realWorkloadList[*appsv1.DeploymentList, *appsv1.Deployment]{
-			itemList:      &appsv1.DeploymentList{},
+			objectList:    &appsv1.DeploymentList{},
 			itemsAccessor: func(list *appsv1.DeploymentList) []*appsv1.Deployment { return ptrSlice[appsv1.Deployment](list.Items) },
 			wlCreator:     func(v *appsv1.Deployment) Workload { return &DeploymentWorkload{Deployment: v} },
 		}, nil
 	case "Pod":
 		return &realWorkloadList[*corev1.PodList, *corev1.Pod]{
-			itemList:      &corev1.PodList{},
+			objectList:    &corev1.PodList{},
 			itemsAccessor: func(list *corev1.PodList) []*corev1.Pod { return ptrSlice[corev1.Pod](list.Items) },
 			wlCreator:     func(v *corev1.Pod) Workload { return &PodWorkload{Pod: v} },
 		}, nil
 	case "StatefulSet":
 		return &realWorkloadList[*appsv1.StatefulSetList, *appsv1.StatefulSet]{
-			itemList: &appsv1.StatefulSetList{},
+			objectList: &appsv1.StatefulSetList{},
 			itemsAccessor: func(list *appsv1.StatefulSetList) []*appsv1.StatefulSet {
 				return ptrSlice[appsv1.StatefulSet](list.Items)
 			},
@@ -101,19 +104,19 @@ func WorkloadListForKind(kind string) (WorkloadList, error) {
 		}, nil
 	case "Job":
 		return &realWorkloadList[*batchv1.JobList, *batchv1.Job]{
-			itemList:      &batchv1.JobList{},
+			objectList:    &batchv1.JobList{},
 			itemsAccessor: func(list *batchv1.JobList) []*batchv1.Job { return ptrSlice[batchv1.Job](list.Items) },
 			wlCreator:     func(v *batchv1.Job) Workload { return &JobWorkload{Job: v} },
 		}, nil
 	case "CronJob":
 		return &realWorkloadList[*batchv1.CronJobList, *batchv1.CronJob]{
-			itemList:      &batchv1.CronJobList{},
+			objectList:    &batchv1.CronJobList{},
 			itemsAccessor: func(list *batchv1.CronJobList) []*batchv1.CronJob { return ptrSlice[batchv1.CronJob](list.Items) },
 			wlCreator:     func(v *batchv1.CronJob) Workload { return &CronJobWorkload{CronJob: v} },
 		}, nil
 	case "DaemonSet":
 		return &realWorkloadList[*appsv1.DaemonSetList, *appsv1.DaemonSet]{
-			itemList:      &appsv1.DaemonSetList{},
+			objectList:    &appsv1.DaemonSetList{},
 			itemsAccessor: func(list *appsv1.DaemonSetList) []*appsv1.DaemonSet { return ptrSlice[appsv1.DaemonSet](list.Items) },
 			wlCreator:     func(v *appsv1.DaemonSet) Workload { return &DaemonSetWorkload{DaemonSet: v} },
 		}, nil
@@ -122,6 +125,7 @@ func WorkloadListForKind(kind string) (WorkloadList, error) {
 	}
 }
 
+// WorkloadForKind returns a workload for a particular Kind
 func WorkloadForKind(kind string) (Workload, error) {
 	_, gk := schema.ParseKindArg(kind)
 	switch gk.Kind {
