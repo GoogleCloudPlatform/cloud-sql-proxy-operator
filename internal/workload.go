@@ -15,16 +15,19 @@
 package internal
 
 import (
+	"fmt"
+
 	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Workload is a standard way to access the pod definition for the
-// 5 major kinds of interfaces: Deployment, Pod, StatefulSet, Job, and Cronjob.
+// 6 major kinds of interfaces: Deployment, Pod, StatefulSet, DaemonSet, Job, and Cronjob.
 // These methods are used by the ModifierStore to update the contents of the
 // workload's pod template (or the pod itself) so that it will contain
 // necessary configuration and other details before it starts, or if the
@@ -33,6 +36,110 @@ type Workload interface {
 	PodSpec() corev1.PodSpec
 	SetPodSpec(spec corev1.PodSpec)
 	Object() client.Object
+}
+
+// WorkloadList is a standard way to access the lists of the
+// 6 major kinds of interfaces: DeploymentList, DaemonSetList, PodList,
+// StatefulSetList, JobList, and CronjobList.
+type WorkloadList interface {
+	// List returns a pointer to the ObjectList ready to be passed to client.List()
+	List() client.ObjectList
+	// Workloads transforms the contents of the List into a slice of Workloads
+	Workloads() []Workload
+}
+
+// realWorkloadList is a generic implementatino of WorkloadList that functions
+// for
+type realWorkloadList[L client.ObjectList, T client.Object] struct {
+	itemList      L
+	itemsAccessor func(L) []T
+	wlCreator     func(T) Workload
+}
+
+func (l *realWorkloadList[L, T]) List() client.ObjectList {
+	return l.itemList
+}
+
+func (l *realWorkloadList[L, T]) Workloads() []Workload {
+	items := l.itemsAccessor(l.itemList)
+	wls := make([]Workload, len(items))
+	for i := range items {
+		wls[i] = l.wlCreator(items[i])
+	}
+	return wls
+}
+
+func ptrSlice[T any](l []T) []*T {
+	p := make([]*T, len(l))
+	for i := 0; i < len(l); i++ {
+		p[i] = &l[i]
+	}
+	return p
+}
+
+func WorkloadListForKind(kind string) (WorkloadList, error) {
+	switch kind {
+	case "Deployment":
+		return &realWorkloadList[*appsv1.DeploymentList, *appsv1.Deployment]{
+			itemList:      &appsv1.DeploymentList{},
+			itemsAccessor: func(list *appsv1.DeploymentList) []*appsv1.Deployment { return ptrSlice[appsv1.Deployment](list.Items) },
+			wlCreator:     func(v *appsv1.Deployment) Workload { return &DeploymentWorkload{Deployment: v} },
+		}, nil
+	case "Pod":
+		return &realWorkloadList[*corev1.PodList, *corev1.Pod]{
+			itemList:      &corev1.PodList{},
+			itemsAccessor: func(list *corev1.PodList) []*corev1.Pod { return ptrSlice[corev1.Pod](list.Items) },
+			wlCreator:     func(v *corev1.Pod) Workload { return &PodWorkload{Pod: v} },
+		}, nil
+	case "StatefulSet":
+		return &realWorkloadList[*appsv1.StatefulSetList, *appsv1.StatefulSet]{
+			itemList: &appsv1.StatefulSetList{},
+			itemsAccessor: func(list *appsv1.StatefulSetList) []*appsv1.StatefulSet {
+				return ptrSlice[appsv1.StatefulSet](list.Items)
+			},
+			wlCreator: func(v *appsv1.StatefulSet) Workload { return &StatefulSetWorkload{StatefulSet: v} },
+		}, nil
+	case "Job":
+		return &realWorkloadList[*batchv1.JobList, *batchv1.Job]{
+			itemList:      &batchv1.JobList{},
+			itemsAccessor: func(list *batchv1.JobList) []*batchv1.Job { return ptrSlice[batchv1.Job](list.Items) },
+			wlCreator:     func(v *batchv1.Job) Workload { return &JobWorkload{Job: v} },
+		}, nil
+	case "CronJob":
+		return &realWorkloadList[*batchv1.CronJobList, *batchv1.CronJob]{
+			itemList:      &batchv1.CronJobList{},
+			itemsAccessor: func(list *batchv1.CronJobList) []*batchv1.CronJob { return ptrSlice[batchv1.CronJob](list.Items) },
+			wlCreator:     func(v *batchv1.CronJob) Workload { return &CronJobWorkload{CronJob: v} },
+		}, nil
+	case "DaemonSet":
+		return &realWorkloadList[*appsv1.DaemonSetList, *appsv1.DaemonSet]{
+			itemList:      &appsv1.DaemonSetList{},
+			itemsAccessor: func(list *appsv1.DaemonSetList) []*appsv1.DaemonSet { return ptrSlice[appsv1.DaemonSet](list.Items) },
+			wlCreator:     func(v *appsv1.DaemonSet) Workload { return &DaemonSetWorkload{DaemonSet: v} },
+		}, nil
+	default:
+		return nil, fmt.Errorf("unknown kind for pod workloadSelector: %s", kind)
+	}
+}
+
+func WorkloadForKind(kind string) (Workload, error) {
+	_, gk := schema.ParseKindArg(kind)
+	switch gk.Kind {
+	case "Deployment":
+		return &DeploymentWorkload{Deployment: &appsv1.Deployment{}}, nil
+	case "Pod":
+		return &PodWorkload{Pod: &corev1.Pod{}}, nil
+	case "StatefulSet":
+		return &StatefulSetWorkload{StatefulSet: &appsv1.StatefulSet{}}, nil
+	case "Job":
+		return &JobWorkload{Job: &batchv1.Job{}}, nil
+	case "CronJob":
+		return &CronJobWorkload{CronJob: &batchv1.CronJob{}}, nil
+	case "DaemonSet":
+		return &DaemonSetWorkload{DaemonSet: &appsv1.DaemonSet{}}, nil
+	default:
+		return nil, fmt.Errorf("unknown kind %s", kind)
+	}
 }
 
 // workloadMatches tests if a workload matches a modifier based on its name, kind, and selectors.

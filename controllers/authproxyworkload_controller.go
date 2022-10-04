@@ -168,17 +168,17 @@ func (r *AuthProxyWorkloadReconciler) doDelete(ctx context.Context, resource *cl
 // the presence of a finalizer and the condition `UpToDate`. to determine
 // what state the resource is in, and therefore what next action to take.
 //
-//
 // reconcile
 // loop --> 0 -x
 // start        \---> 1.1 --> (requeue)
-//               \---> 1.2 --> (requeue)
-//                x---x
-//                     \---> 2.1 --> (end)
-//                      \---> 2.2 --> (requeue)
-//                       x---x
-//                            \---> 3.1 --> (end)
-//                             \---> 3.2 --> (requeue)
+//
+//	\---> 1.2 --> (requeue)
+//	 x---x
+//	      \---> 2.1 --> (end)
+//	       \---> 2.2 --> (requeue)
+//	        x---x
+//	             \---> 3.1 --> (end)
+//	              \---> 3.2 --> (requeue)
 func (r *AuthProxyWorkloadReconciler) doAddUpdate(
 	ctx context.Context, l logr.Logger, resource *cloudsqlapi.AuthProxyWorkload) (ctrl.Result, error) {
 	orig := resource.DeepCopy()

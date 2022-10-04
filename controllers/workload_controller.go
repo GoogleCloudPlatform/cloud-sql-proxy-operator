@@ -21,9 +21,6 @@ import (
 
 	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/api/v1alpha1"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal"
-	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/json"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -126,50 +123,15 @@ func (a *WorkloadAdmissionWebhook) Handle(ctx context.Context, req admission.Req
 // makeWorkload creates a Workload from a request.
 func (a *WorkloadAdmissionWebhook) makeWorkload(
 	req admission.Request) (internal.Workload, error) {
-	switch req.Kind.Kind {
-	case "Deployment":
-		var d appsv1.Deployment
-		err := a.decoder.Decode(req, &d)
-		if err != nil {
-			return nil, err
-		}
-		return &internal.DeploymentWorkload{Deployment: &d}, nil
-	case "CronJob":
-		var d batchv1.CronJob
-		err := a.decoder.Decode(req, &d)
-		if err != nil {
-			return nil, err
-		}
-		return &internal.CronJobWorkload{CronJob: &d}, nil
-	case "Job":
-		var d batchv1.Job
-		err := a.decoder.Decode(req, &d)
-		if err != nil {
-			return nil, err
-		}
-		return &internal.JobWorkload{Job: &d}, nil
-	case "StatefulSet":
-		var d appsv1.StatefulSet
-		err := a.decoder.Decode(req, &d)
-		if err != nil {
-			return nil, err
-		}
-		return &internal.StatefulSetWorkload{StatefulSet: &d}, nil
-	case "DaemonSet":
-		var d appsv1.DaemonSet
-		err := a.decoder.Decode(req, &d)
-		if err != nil {
-			return nil, err
-		}
-		return &internal.DaemonSetWorkload{DaemonSet: &d}, nil
-	case "Pod":
-		var d corev1.Pod
-		err := a.decoder.Decode(req, &d)
-		if err != nil {
-			return nil, err
-		}
-		return &internal.PodWorkload{Pod: &d}, nil
-	default:
-		return nil, fmt.Errorf("unsupported resource kind %s", req.Kind.Kind)
+	wl, err := internal.WorkloadForKind(req.Kind.Kind)
+	if err != nil {
+		return nil, err
 	}
+
+	err = a.decoder.Decode(req, wl.Object())
+	if err != nil {
+		return nil, err
+	}
+
+	return wl, nil
 }
