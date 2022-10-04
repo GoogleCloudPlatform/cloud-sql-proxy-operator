@@ -164,33 +164,64 @@ func (r *AuthProxyWorkloadReconciler) doDelete(ctx context.Context, resource *cl
 }
 
 // doAddUpdate handles the reconcile loop an AuthProxyWorkload was added or updated.
+// this is basically implemented as a state machine using a combiniation of
+// the presence of a finalizer and the condition `UpToDate`. to determine
+// what state the resource is in, and therefore what next action to take.
+//
+//
+// reconcile
+// loop --> 0 -x
+// start        \---> 1.1 --> (requeue)
+//               \---> 1.2 --> (requeue)
+//                x---x
+//                     \---> 2.1 --> (end)
+//                      \---> 2.2 --> (requeue)
+//                       x---x
+//                            \---> 3.1 --> (end)
+//                             \---> 3.2 --> (requeue)
 func (r *AuthProxyWorkloadReconciler) doAddUpdate(
 	ctx context.Context, l logr.Logger, resource *cloudsqlapi.AuthProxyWorkload) (ctrl.Result, error) {
 	orig := resource.DeepCopy()
 	var err error
+	// State 0: The reconcile loop for a single AuthProxyWorkload resource begins
+	// when an AuthProxyWorkload resource is created, modified, or deleted in the k8s api
+	// or when that AuthProxyWorkload resource is requeued for another reconcile loop.
 
 	if !controllerutil.ContainsFinalizer(resource, finalizerName) {
+		// State 1.1: This is a brand new thing that doesn't have a finalizer.
+		// Add the finalizer and requeue for another run through the reconcile loop
 		return r.applyFinalizer(ctx, l, resource)
 	}
 
 	// find all workloads that relate to this AuthProxyWorkload resource
 	allWorkloads, needsUpdateWorkloads, err := r.markWorkloadsForUpdate(ctx, l, resource)
 	if err != nil {
+		// State 1.2 - unable to read workloads, abort and try again after a delay.
 		return longRequeueResult, err
 	}
 
-	// If workload reconcile has not yet started, then start it.
 	if r.readyToStartWorkloadReconcile(resource) {
+		// State 2: If workload reconcile has not yet started, then start it.
 
-		// when there are no workloads, mark the status accordingly
+		// State 2.1: When there are no workloads, then mark this as "UpToDate" true,
+		// do not requeue.
 		if len(needsUpdateWorkloads) == 0 {
 			return r.noUpdatesNeeded(ctx, l, resource, orig)
 		}
 
+		// State 2.2: When there are workloads, then mark this as "UpToDate" false
+		// with the reason "StartedReconcile" and requeue after a delay.
 		return r.startWorkloadReconcile(ctx, l, resource, orig, needsUpdateWorkloads)
 	}
 
-	// If workload reconcile has already started, check if it has finished.
+	// State 3: Workload updates are in progress. Check if the workload updates
+	// are complete.
+	//
+	//   State 3.1: If workloads are all up to date, mark the condition
+	//   "UpToDate" true and do not requeue.
+	//
+	//   State 3.2: If workloads are still up to date, mark the condition
+	//   "UpToDate" false and requeue for another run after a delay.
 	return r.checkReconcileComplete(ctx, l, resource, orig, allWorkloads)
 }
 
