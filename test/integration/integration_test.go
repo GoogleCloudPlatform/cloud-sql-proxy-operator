@@ -152,14 +152,14 @@ func TestDeleteResource(t *testing.T) {
 	if wlstatus := helpers.GetConditionStatus(res.Status.Conditions, cloudsqlapi.ConditionUpToDate); wlstatus != metav1.ConditionTrue {
 		t.Errorf("was %v, wants %v, status.condition[up-to-date]", wlstatus, metav1.ConditionTrue)
 	}
-	time.Sleep(5 * time.Second)
+
+	// time.Sleep(5 * time.Second)
 
 	err = integration.Client.Delete(ctx, res)
 	if err != nil {
 		t.Error(err)
 	}
 
-	time.Sleep(5 * time.Second)
 	err = helpers.RetryUntilSuccess(t, 3, 5*time.Second, func() error {
 		err = integration.Client.Get(ctx, key, res)
 		// The test passes when this returns an error,
@@ -194,5 +194,6 @@ func TestModifiesExistingDeployment(t *testing.T) {
 		ConnectionString: "region:project:inst",
 		ProxyImageURL:    "proxy-image:latest",
 	}
-	helpers.TestModifiesExistingDeployment(tctx, true)
+	testRemove := helpers.TestModifiesExistingDeployment(tctx)
+	testRemove()
 }

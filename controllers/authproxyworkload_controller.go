@@ -17,14 +17,16 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/api/v1alpha1"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal"
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,17 +36,44 @@ import (
 
 const finalizerName = cloudsqlapi.AnnotationPrefix + "/AuthProxyWorkload-finalizer"
 
-var shortRequeueResult = ctrl.Result{Requeue: true}
-var longRequeueResult = ctrl.Result{Requeue: true, RequeueAfter: 30 * time.Second}
+var (
+	requeueNow       = ctrl.Result{Requeue: true}
+	requeueWithDelay = ctrl.Result{Requeue: true, RequeueAfter: 30 * time.Second}
+)
+
+type recentlyDeletedCache struct {
+	lock   sync.RWMutex
+	values map[types.NamespacedName]bool
+}
+
+func (c *recentlyDeletedCache) set(k types.NamespacedName, deleted bool) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if c.values == nil {
+		c.values = map[types.NamespacedName]bool{}
+	}
+	c.values[k] = deleted
+}
+
+func (c *recentlyDeletedCache) get(k types.NamespacedName) bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	if c.values == nil {
+		return false
+	}
+	deleted := c.values[k]
+	return deleted
+}
 
 // AuthProxyWorkloadReconciler reconciles a AuthProxyWorkload object
 type AuthProxyWorkloadReconciler struct {
 	client.Client
 	Scheme          *runtime.Scheme
-	recentlyDeleted map[types.NamespacedName]bool
+	recentlyDeleted recentlyDeletedCache
 }
 
-// SetupWithManager sets up the controller with the Manager.
+// SetupWithManager adds this AuthProxyWorkload controller to the controller-runtime
+// manager.
 func (r *AuthProxyWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&cloudsqlapi.AuthProxyWorkload{}).
@@ -97,58 +126,62 @@ func (r *AuthProxyWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // reconcilliation of a single change to an AuthProxyWorkload.
 //
 // For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.1/pkg/reconcile
+// https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.1/pkg/reconcile
 func (r *AuthProxyWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	l := log.FromContext(ctx)
 	var err error
 
-	var resource cloudsqlapi.AuthProxyWorkload
+	resource := &cloudsqlapi.AuthProxyWorkload{}
 
 	l.Info("Reconcile loop started AuthProxyWorkload", "name", req.NamespacedName)
-	if err = r.Get(ctx, req.NamespacedName, &resource); err != nil {
+	if err = r.Get(ctx, req.NamespacedName, resource); err != nil {
 		// The resource can't be loaded.
 		// If it was recently deleted, then ignore the error and don't requeue.
-		if r.recentlyDeleted[req.NamespacedName] {
+		if r.recentlyDeleted.get(req.NamespacedName) {
 			return ctrl.Result{}, nil
 		}
 
 		// otherwise, report the error and requeue. This is likely caused by a delay
 		// in reaching consistency in the eventually-consistent kubernetes API.
 		l.Error(err, "unable to fetch resource")
-		return longRequeueResult, err
+		return requeueWithDelay, err
 	}
 
 	// If this was deleted, doDelete()
+	// DeletionTimestamp metadata field is set by k8s when a resource
+	// has been deleted but the finalizers are still present. We check that this
+	// value is not zero To determine when a resource is deleted and waiting for
+	// completion of finalizers.
 	if !resource.ObjectMeta.DeletionTimestamp.IsZero() {
 		l.Info("Reconcile delete for AuthProxyWorkload",
 			"name", resource.GetName(),
 			"namespace", resource.GetNamespace(),
 			"gen", resource.GetGeneration())
-		r.recentlyDeleted[req.NamespacedName] = true
+		r.recentlyDeleted.set(req.NamespacedName, true)
 		// the object has been deleted
-		return r.doDelete(ctx, &resource, l)
+		return r.doDelete(ctx, resource, l)
 	}
 
 	l.Info("Reconcile add/update for AuthProxyWorkload",
 		"name", resource.GetName(),
 		"namespace", resource.GetNamespace(),
 		"gen", resource.GetGeneration())
-	r.recentlyDeleted[req.NamespacedName] = false
-	return r.doAddUpdate(ctx, l, &resource)
+	r.recentlyDeleted.set(req.NamespacedName, false)
+	return r.doCreateUpdate(ctx, l, resource)
 }
 
-// doDelete when the reconcile loop receives an AuthProxyWorkload that was deleted,
-// update all the workloads and remove this proxy from them.
+// doDelete removes our finalizer and updates the related workloads
+// when the reconcile loop receives an AuthProxyWorkload that was deleted.
 func (r *AuthProxyWorkloadReconciler) doDelete(ctx context.Context, resource *cloudsqlapi.AuthProxyWorkload, l logr.Logger) (ctrl.Result, error) {
 
 	// Mark all related workloads as needing to be updated
 	wls, _, err := r.markWorkloadsForUpdate(ctx, l, resource)
 	if err != nil {
-		return shortRequeueResult, err
+		return requeueNow, err
 	}
 	err = r.patchAnnotations(ctx, wls, l)
 	if err != nil {
-		return shortRequeueResult, err
+		return requeueNow, err
 	}
 
 	// Remove the finalizer so that the object can be fully deleted
@@ -163,24 +196,37 @@ func (r *AuthProxyWorkloadReconciler) doDelete(ctx context.Context, resource *cl
 	return ctrl.Result{}, nil
 }
 
-// doAddUpdate handles the reconcile loop an AuthProxyWorkload was added or updated.
-// this is basically implemented as a state machine using a combiniation of
-// the presence of a finalizer and the condition `UpToDate`. to determine
-// what state the resource is in, and therefore what next action to take.
+// doCreateUpdate reconciles an AuthProxyWorkload resource that has been created
+// or updated, making sure that related workloads get updated.
 //
-// reconcile
-// loop --> 0 -x
-// start        \---> 1.1 --> (requeue)
+// This is implemented as a state machine. The current state is determined using
+// - the absence or presence of this controller's finalizer
+// - the success or error when retrieving workloads related to this resource
+// - the number of workloads needing updates
+// - the condition `UpToDate` status and reason
 //
-//	\---> 1.2 --> (requeue)
-//	 x---x
-//	      \---> 2.1 --> (end)
-//	       \---> 2.2 --> (requeue)
-//	        x---x
-//	             \---> 3.1 --> (end)
-//	              \---> 3.2 --> (requeue)
-func (r *AuthProxyWorkloadReconciler) doAddUpdate(
-	ctx context.Context, l logr.Logger, resource *cloudsqlapi.AuthProxyWorkload) (ctrl.Result, error) {
+// States:
+// |  state  | finalizer| fetch err | readyToStart | len(needsUpdate) | Name                |
+// |---------|----------|-----------|--------------|------------------|---------------------|
+// | 0       | *        | *         | *            | *                | start               |
+// | 1.1     | absent   | *         | *            | *                | needs finalizer     |
+// | 1.2     | present  | error     | *            | *                | can't list workloads|
+// | 2.1     | present  | nil       | true         | == 0             | no workloads found  |
+// | 2.2     | present  | nil       | true         | >  0             | start update        |
+// | 3.1     | present  | nil       | false        | == 0             | updates complete    |
+// | 3.2     | present  | nil       | false        | >  0             | updates in progress |
+//
+// start -----x
+//
+//	\---> 1.1 --> (requeue, goto start)
+//	 \---> 1.2 --> (requeue, goto start)
+//	  x---x
+//	       \---> 2.1 --> (end)
+//	        \---> 2.2 --> (requeue, goto start)
+//	         x---x
+//	              \---> 3.1 --> (end)
+//	               \---> 3.2 --> (goto 2.2)
+func (r *AuthProxyWorkloadReconciler) doCreateUpdate(ctx context.Context, l logr.Logger, resource *cloudsqlapi.AuthProxyWorkload) (ctrl.Result, error) {
 	orig := resource.DeepCopy()
 	var err error
 	// State 0: The reconcile loop for a single AuthProxyWorkload resource begins
@@ -197,7 +243,7 @@ func (r *AuthProxyWorkloadReconciler) doAddUpdate(
 	allWorkloads, needsUpdateWorkloads, err := r.markWorkloadsForUpdate(ctx, l, resource)
 	if err != nil {
 		// State 1.2 - unable to read workloads, abort and try again after a delay.
-		return longRequeueResult, err
+		return requeueWithDelay, err
 	}
 
 	if r.readyToStartWorkloadReconcile(resource) {
@@ -222,16 +268,15 @@ func (r *AuthProxyWorkloadReconciler) doAddUpdate(
 	//
 	//   State 3.2: If workloads are still up to date, mark the condition
 	//   "UpToDate" false and requeue for another run after a delay.
+	//
 	return r.checkReconcileComplete(ctx, l, resource, orig, allWorkloads)
 }
 
 // noUpdatesNeeded no updated needed, so patch the AuthProxyWorkload
 // status conditions and return.
-func (r *AuthProxyWorkloadReconciler) noUpdatesNeeded(
-	ctx context.Context, l logr.Logger, resource *cloudsqlapi.AuthProxyWorkload,
-	orig *cloudsqlapi.AuthProxyWorkload) (ctrl.Result, error) {
+func (r *AuthProxyWorkloadReconciler) noUpdatesNeeded(ctx context.Context, l logr.Logger, resource *cloudsqlapi.AuthProxyWorkload, orig *cloudsqlapi.AuthProxyWorkload) (ctrl.Result, error) {
 
-	meta.SetStatusCondition(&resource.Status.Conditions, metav1.Condition{
+	replaceCondition(resource.Status.Conditions, &metav1.Condition{
 		Type:               cloudsqlapi.ConditionUpToDate,
 		Status:             metav1.ConditionTrue,
 		ObservedGeneration: resource.GetGeneration(),
@@ -245,9 +290,8 @@ func (r *AuthProxyWorkloadReconciler) noUpdatesNeeded(
 
 // readyToStartWorkloadReconcile true when the reconcile loop began reconciling
 // this AuthProxyWorkload's matching resources.
-func (r *AuthProxyWorkloadReconciler) readyToStartWorkloadReconcile(
-	resource *cloudsqlapi.AuthProxyWorkload) bool {
-	s := meta.FindStatusCondition(resource.Status.Conditions, cloudsqlapi.ConditionUpToDate)
+func (r *AuthProxyWorkloadReconciler) readyToStartWorkloadReconcile(resource *cloudsqlapi.AuthProxyWorkload) bool {
+	s := findCondition(resource.Status.Conditions, cloudsqlapi.ConditionUpToDate)
 	return s == nil || (s.Status == metav1.ConditionFalse && s.Reason != cloudsqlapi.ReasonStartedReconcile)
 }
 
@@ -262,11 +306,11 @@ func (r *AuthProxyWorkloadReconciler) startWorkloadReconcile(
 	if err != nil {
 		l.Error(err, "Unable to update workloads with needs update annotations",
 			"AuthProxyWorkload", resource.GetNamespace()+"/"+resource.GetName())
-		return shortRequeueResult, err
+		return requeueNow, err
 	}
 
 	// Update the status on this AuthProxyWorkload
-	meta.SetStatusCondition(&resource.Status.Conditions, metav1.Condition{
+	replaceCondition(resource.Status.Conditions, &metav1.Condition{
 		Type:               cloudsqlapi.ConditionUpToDate,
 		Status:             metav1.ConditionFalse,
 		ObservedGeneration: resource.GetGeneration(),
@@ -277,12 +321,12 @@ func (r *AuthProxyWorkloadReconciler) startWorkloadReconcile(
 	if err != nil {
 		l.Error(err, "Unable to patch status before beginning workloads",
 			"AuthProxyWorkload", resource.GetNamespace()+"/"+resource.GetName())
-		return shortRequeueResult, err
+		return requeueNow, err
 	}
 
 	l.Info("Reconcile launched workload updates",
 		"AuthProxyWorkload", resource.GetNamespace()+"/"+resource.GetName())
-	return shortRequeueResult, nil
+	return requeueNow, nil
 }
 
 // checkReconcileComplete checks if reconcile has finished and if not, attempts
@@ -302,32 +346,30 @@ func (r *AuthProxyWorkloadReconciler) checkReconcileComplete(
 	}
 
 	if foundUnreconciled {
+		// State 3.2
 		return r.startWorkloadReconcile(ctx, l, resource, orig, workloads)
 	}
 
-	status := metav1.ConditionTrue
-	reason := cloudsqlapi.ReasonFinishedReconcile
+	// state 3.1
 	message := fmt.Sprintf("Reconciled %d matching workloads complete", len(workloads))
-	var result ctrl.Result
 
 	// Workload updates are complete, update the status
-	meta.SetStatusCondition(&resource.Status.Conditions, metav1.Condition{
+	replaceCondition(resource.Status.Conditions, &metav1.Condition{
 		Type:               cloudsqlapi.ConditionUpToDate,
-		Status:             status,
+		Status:             metav1.ConditionTrue,
 		ObservedGeneration: resource.GetGeneration(),
-		Reason:             reason,
+		Reason:             cloudsqlapi.ReasonFinishedReconcile,
 		Message:            message,
 	})
 	err := r.patchAuthProxyWorkloadStatus(ctx, resource, orig)
 	if err != nil {
 		l.Error(err, "Unable to patch status before beginning workloads", "AuthProxyWorkload", resource.GetNamespace()+"/"+resource.GetName())
-		return result, err
+		return ctrl.Result{}, err
 	}
 
 	l.Info("Reconcile checked completion of workload updates",
-		"ns", resource.GetNamespace(), "name", resource.GetName(),
-		"complete", status)
-	return result, nil
+		"ns", resource.GetNamespace(), "name", resource.GetName())
+	return ctrl.Result{}, nil
 }
 
 // applyFinalizer adds the finalizer so that the operator is notified when
@@ -342,11 +384,11 @@ func (r *AuthProxyWorkloadReconciler) applyFinalizer(
 	err := r.Update(ctx, resource)
 	if err != nil {
 		l.Info("Error adding finalizer. Will requeue for reconcile.", "err", err)
-		return shortRequeueResult, err
+		return requeueNow, err
 	}
 
 	l.Info("Added finalizer. Will requeue quickly for reconcile", "err", err)
-	return shortRequeueResult, err
+	return requeueNow, err
 }
 
 // patchAuthProxyWorkloadStatus uses the PATCH method to incrementally update
@@ -368,11 +410,7 @@ func (r *AuthProxyWorkloadReconciler) patchAuthProxyWorkloadStatus(
 // updates the needs update annotations using internal.UpdateWorkloadAnnotation.
 // Once the workload is saved, the workload admission mutate webhook will
 // apply the correct containers to this instance.
-func (r *AuthProxyWorkloadReconciler) markWorkloadsForUpdate(
-	ctx context.Context,
-	l logr.Logger,
-	resource *cloudsqlapi.AuthProxyWorkload,
-) (
+func (r *AuthProxyWorkloadReconciler) markWorkloadsForUpdate(ctx context.Context, l logr.Logger, resource *cloudsqlapi.AuthProxyWorkload) (
 	matching, outOfDate []internal.Workload,
 	retErr error,
 ) {
@@ -392,27 +430,27 @@ func (r *AuthProxyWorkloadReconciler) markWorkloadsForUpdate(
 				"needsUpdate", needsUpdate,
 				"status", status)
 			s := newStatus(wl)
-			meta.SetStatusCondition(&s.Conditions, metav1.Condition{
+			replaceCondition(s.Conditions, &metav1.Condition{
 				Type:               cloudsqlapi.ConditionWorkloadUpToDate,
 				Status:             metav1.ConditionFalse,
 				ObservedGeneration: resource.GetGeneration(),
 				Reason:             cloudsqlapi.ReasonNeedsUpdate,
 				Message:            fmt.Sprintf("Workload needs an update from generation %q to %q", status.LastUpdatedGeneration, status.RequestGeneration),
 			})
-			replaceStatus(&resource.Status.WorkloadStatus, s)
+			replaceStatus(resource.Status.WorkloadStatus, s)
 			outOfDate = append(outOfDate, wl)
 			continue
 		}
 
 		s := newStatus(wl)
-		meta.SetStatusCondition(&s.Conditions, metav1.Condition{
+		replaceCondition(s.Conditions, &metav1.Condition{
 			Type:               cloudsqlapi.ConditionWorkloadUpToDate,
 			Status:             metav1.ConditionTrue,
 			ObservedGeneration: resource.GetGeneration(),
 			Reason:             cloudsqlapi.ReasonUpToDate,
 			Message:            "No update needed for this workload",
 		})
-		replaceStatus(&resource.Status.WorkloadStatus, s)
+		replaceStatus(resource.Status.WorkloadStatus, s)
 
 	}
 
@@ -421,38 +459,77 @@ func (r *AuthProxyWorkloadReconciler) markWorkloadsForUpdate(
 
 // replaceStatus replace a status with the same name, namespace, kind, and version,
 // or appends updatedStatus to statuses
-func replaceStatus(statuses *[]cloudsqlapi.WorkloadStatus, updatedStatus cloudsqlapi.WorkloadStatus) {
+func replaceStatus(statuses []*cloudsqlapi.WorkloadStatus, updatedStatus *cloudsqlapi.WorkloadStatus) {
 
 	updated := false
-	for i := range *statuses {
-		s := (*statuses)[i]
+	for i := range statuses {
+		s := statuses[i]
 		if s.Name == updatedStatus.Name &&
 			s.Namespace == updatedStatus.Namespace &&
 			s.Kind == updatedStatus.Kind &&
 			s.Version == updatedStatus.Version {
-			(*statuses)[i] = updatedStatus
+			statuses[i] = updatedStatus
 			updated = true
 		}
 	}
 	if !updated {
-		*statuses = append(*statuses, updatedStatus)
+		statuses = append(statuses, updatedStatus)
 	}
 }
 
-// withNewAnnotations will Return a MutateFn that sets the annotations on a workload
-// object
-func withNewAnnotations(res client.Object, ann map[string]string) controllerutil.MutateFn {
-	return func() error {
-		res.SetAnnotations(ann)
-		return nil
+func findCondition(conds []*metav1.Condition, name string) *metav1.Condition {
+	for i := range conds {
+		if conds[i].Type == name {
+			return conds[i]
+		}
+	}
+	return nil
+}
+
+// replaceCondition replace a status with the same name, namespace, kind, and version,
+// or appends updatedStatus to statuses
+func replaceCondition(conds []*metav1.Condition, newC *metav1.Condition) {
+
+	var updated bool
+
+	for i := range conds {
+		c := conds[i]
+		if c.Type == newC.Type {
+			conds[i] = newC
+			updated = true
+		}
+	}
+	if !updated {
+		conds = append(conds, newC)
 	}
 }
 
 // patchAnnotations Safely patch the workloads with updated annotations
 func (r *AuthProxyWorkloadReconciler) patchAnnotations(ctx context.Context, wls []internal.Workload, l logr.Logger) error {
 	for _, wl := range wls {
+		// Get a reference to the workload's underlying resource object.
 		obj := wl.Object()
-		_, err := controllerutil.CreateOrPatch(ctx, r.Client, obj, withNewAnnotations(obj, obj.GetAnnotations()))
+
+		// Copy the annotations. This is what should be set during the patch.
+		annCopy := make(map[string]string)
+		for k, v := range obj.GetAnnotations() {
+			annCopy[k] = v
+		}
+
+		// The mutate function will assign the new annotations to obj.
+		mutateFn := controllerutil.MutateFn(func() error {
+			// This gets called after obj has been freshly loaded from k8s
+			obj.SetAnnotations(annCopy)
+			return nil
+		})
+
+		// controllerutil.CreateOrPatch() will do the following:
+		// 1. fetch the object from the k8s api into obj
+		// 2. use the mutate function to assign the new value for annotations to the obj
+		// 3. send a patch back to the k8s api
+		// 4. fetch the object from the k8s api into obj again, resulting in wl
+		//    holding an up-to-date version of the object.
+		_, err := controllerutil.CreateOrPatch(ctx, r.Client, obj, mutateFn)
 		if err != nil {
 			l.Error(err, "Unable to patch workload", "name", wl.Object().GetName())
 			return err
@@ -463,11 +540,70 @@ func (r *AuthProxyWorkloadReconciler) patchAnnotations(ctx context.Context, wls 
 
 // newStatus creates a WorkloadStatus from a workload with identifying
 // fields filled in.
-func newStatus(workload internal.Workload) cloudsqlapi.WorkloadStatus {
-	return cloudsqlapi.WorkloadStatus{
+func newStatus(workload internal.Workload) *cloudsqlapi.WorkloadStatus {
+	return &cloudsqlapi.WorkloadStatus{
 		Kind:      workload.Object().GetObjectKind().GroupVersionKind().Kind,
 		Version:   workload.Object().GetObjectKind().GroupVersionKind().GroupVersion().Identifier(),
 		Namespace: workload.Object().GetNamespace(),
 		Name:      workload.Object().GetName(),
 	}
+}
+
+// listWorkloads produces a list of Workload's that match the WorkloadSelectorSpec
+// in the specified namespace.
+func (r *AuthProxyWorkloadReconciler) listWorkloads(ctx context.Context, workloadSelector cloudsqlapi.WorkloadSelectorSpec, ns string) ([]internal.Workload, error) {
+	if workloadSelector.Namespace != "" {
+		ns = workloadSelector.Namespace
+	}
+
+	if workloadSelector.Name != "" {
+		return r.loadByName(ctx, workloadSelector, ns)
+	}
+
+	return r.loadByLabelSelector(ctx, workloadSelector, ns)
+}
+
+// loadByName loads a single workload by name.
+func (r *AuthProxyWorkloadReconciler) loadByName(ctx context.Context, workloadSelector cloudsqlapi.WorkloadSelectorSpec, ns string) ([]internal.Workload, error) {
+	var wl internal.Workload
+
+	key := client.ObjectKey{Namespace: ns, Name: workloadSelector.Name}
+
+	wl, err := internal.WorkloadForKind(workloadSelector.Kind)
+	if err != nil {
+		return nil, fmt.Errorf("unable to load by name %s/%s:  %v", key.Namespace, key.Name, err)
+	}
+
+	err = r.Get(ctx, key, wl.Object())
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, nil // empty list when no named workload is found. It is not an error.
+		}
+		return nil, fmt.Errorf("unable to load resource by name %s/%s:  %v", key.Namespace, key.Name, err)
+	}
+
+	return []internal.Workload{wl}, nil
+}
+
+// loadByLabelSelector loads workloads matching a label selector
+func (r *AuthProxyWorkloadReconciler) loadByLabelSelector(ctx context.Context, workloadSelector cloudsqlapi.WorkloadSelectorSpec, ns string) ([]internal.Workload, error) {
+	l := log.FromContext(ctx)
+
+	sel, err := workloadSelector.LabelsSelector()
+
+	if err != nil {
+		return nil, err
+	}
+	_, gk := schema.ParseKindArg(workloadSelector.Kind)
+	wl, err := internal.WorkloadListForKind(gk.Kind)
+	if err != nil {
+		return nil, err
+	}
+	err = r.List(ctx, wl.List(), client.InNamespace(ns), client.MatchingLabelsSelector{Selector: sel})
+	if err != nil {
+		l.Error(err, "Unable to list s for workloadSelector", "selector", sel)
+		return nil, err
+	}
+	return wl.Workloads(), nil
+
 }

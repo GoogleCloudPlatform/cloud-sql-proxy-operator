@@ -84,7 +84,7 @@ func TestModifiesNewDeployment(tp *TestCaseParams) {
 	}
 }
 
-func TestModifiesExistingDeployment(tp *TestCaseParams, testRemove bool) {
+func TestModifiesExistingDeployment(tp *TestCaseParams) func() {
 	const (
 		pwlName            = "db-mod"
 		deploymentName     = "deploy-mod"
@@ -102,7 +102,7 @@ func TestModifiesExistingDeployment(tp *TestCaseParams, testRemove bool) {
 	deployment, err := CreateBusyboxDeployment(ctx, tp, dKey, deploymentAppLabel)
 	if err != nil {
 		tp.T.Error(err)
-		return
+		return func() {}
 	}
 	// expect 1 container... no cloudsql instance yet
 	containerLen := len(deployment.Spec.Template.Spec.Containers)
@@ -114,14 +114,16 @@ func TestModifiesExistingDeployment(tp *TestCaseParams, testRemove bool) {
 	err = CreateAuthProxyWorkload(ctx, tp, pKey, deploymentAppLabel, tp.ConnectionString)
 	if err != nil {
 		tp.T.Error(err)
-		return
+		return func() {}
+
 	}
 
 	tp.T.Log("Waiting for cloud sql instance to begin the reconcile loop loop")
 	updatedI, err := GetAuthProxyWorkload(ctx, tp, pKey)
 	if err != nil {
 		tp.T.Error(err)
-		return
+		return func() {}
+
 	}
 	status, _ := yaml.Marshal(updatedI.Status)
 
@@ -131,13 +133,15 @@ func TestModifiesExistingDeployment(tp *TestCaseParams, testRemove bool) {
 	err = ExpectContainerCount(ctx, tp, dKey, 2)
 	if err != nil {
 		tp.T.Error(err)
-		return
+		return func() {}
+
 	}
 
 	updatedI, err = GetAuthProxyWorkload(ctx, tp, pKey)
 	if err != nil {
 		tp.T.Error(err)
-		return
+		return func() {}
+
 	}
 
 	// TODO Add workload status to the CRD
@@ -146,7 +150,7 @@ func TestModifiesExistingDeployment(tp *TestCaseParams, testRemove bool) {
 	//    t.Errorf("wants %v got %v, up-to-date workload status condition", metav1.ConditionTrue, wlStatus)
 	// }
 
-	if testRemove {
+	return func() {
 		tp.T.Logf("Deleting for cloud sql instance")
 		err = tp.Client.Delete(ctx, updatedI)
 		if err != nil {

@@ -346,11 +346,11 @@ type AuthProxyWorkloadStatus struct {
 	//
 	// The "UpToDate" condition indicates that the proxy was successfully
 	// applied to all matching workloads. See ConditionUpToDate.
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	Conditions []*metav1.Condition `json:"conditions,omitempty"`
 
 	// WorkloadStatus presents the observed status of individual workloads that match
 	// this AuthProxyWorkload resource.
-	WorkloadStatus []WorkloadStatus `json:"WorkloadStatus,omitempty"`
+	WorkloadStatus []*WorkloadStatus `json:"WorkloadStatus,omitempty"`
 }
 
 // WorkloadStatus presents the status for how this AuthProxyWorkload resource
@@ -369,7 +369,7 @@ type WorkloadStatus struct {
 	//
 	// The "UpToDate" condition indicates that the proxy was successfully
 	// applied to all matching workloads. See ConditionUpToDate.
-	Conditions []metav1.Condition `json:"conditions"`
+	Conditions []*metav1.Condition `json:"conditions"`
 }
 
 // AuthProxyWorkload declares how a Cloud SQL Proxy container should be applied
