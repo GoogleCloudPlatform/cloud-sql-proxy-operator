@@ -18,6 +18,7 @@
 package integration_test
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"testing"
@@ -153,7 +154,14 @@ func TestDeleteResource(t *testing.T) {
 		t.Errorf("was %v, wants %v, status.condition[up-to-date]", wlstatus, metav1.ConditionTrue)
 	}
 
-	// time.Sleep(5 * time.Second)
+	// Make sure the finalizer was added before deleting the resource.
+	err = helpers.RetryUntilSuccess(t, 3, 5*time.Second, func() error {
+		err = integration.Client.Get(ctx, key, res)
+		if len(res.Finalizers) == 0 {
+			return errors.New("waiting for finalizer to be set")
+		}
+		return nil
+	})
 
 	err = integration.Client.Delete(ctx, res)
 	if err != nil {

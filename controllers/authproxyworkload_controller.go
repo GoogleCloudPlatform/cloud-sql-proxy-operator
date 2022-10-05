@@ -276,7 +276,7 @@ func (r *AuthProxyWorkloadReconciler) doCreateUpdate(ctx context.Context, l logr
 // status conditions and return.
 func (r *AuthProxyWorkloadReconciler) noUpdatesNeeded(ctx context.Context, l logr.Logger, resource *cloudsqlapi.AuthProxyWorkload, orig *cloudsqlapi.AuthProxyWorkload) (ctrl.Result, error) {
 
-	replaceCondition(resource.Status.Conditions, &metav1.Condition{
+	resource.Status.Conditions = replaceCondition(resource.Status.Conditions, &metav1.Condition{
 		Type:               cloudsqlapi.ConditionUpToDate,
 		Status:             metav1.ConditionTrue,
 		ObservedGeneration: resource.GetGeneration(),
@@ -310,7 +310,7 @@ func (r *AuthProxyWorkloadReconciler) startWorkloadReconcile(
 	}
 
 	// Update the status on this AuthProxyWorkload
-	replaceCondition(resource.Status.Conditions, &metav1.Condition{
+	resource.Status.Conditions = replaceCondition(resource.Status.Conditions, &metav1.Condition{
 		Type:               cloudsqlapi.ConditionUpToDate,
 		Status:             metav1.ConditionFalse,
 		ObservedGeneration: resource.GetGeneration(),
@@ -354,7 +354,7 @@ func (r *AuthProxyWorkloadReconciler) checkReconcileComplete(
 	message := fmt.Sprintf("Reconciled %d matching workloads complete", len(workloads))
 
 	// Workload updates are complete, update the status
-	replaceCondition(resource.Status.Conditions, &metav1.Condition{
+	resource.Status.Conditions = replaceCondition(resource.Status.Conditions, &metav1.Condition{
 		Type:               cloudsqlapi.ConditionUpToDate,
 		Status:             metav1.ConditionTrue,
 		ObservedGeneration: resource.GetGeneration(),
@@ -430,27 +430,27 @@ func (r *AuthProxyWorkloadReconciler) markWorkloadsForUpdate(ctx context.Context
 				"needsUpdate", needsUpdate,
 				"status", status)
 			s := newStatus(wl)
-			replaceCondition(s.Conditions, &metav1.Condition{
+			s.Conditions = replaceCondition(s.Conditions, &metav1.Condition{
 				Type:               cloudsqlapi.ConditionWorkloadUpToDate,
 				Status:             metav1.ConditionFalse,
 				ObservedGeneration: resource.GetGeneration(),
 				Reason:             cloudsqlapi.ReasonNeedsUpdate,
 				Message:            fmt.Sprintf("Workload needs an update from generation %q to %q", status.LastUpdatedGeneration, status.RequestGeneration),
 			})
-			replaceStatus(resource.Status.WorkloadStatus, s)
+			resource.Status.WorkloadStatus = replaceStatus(resource.Status.WorkloadStatus, s)
 			outOfDate = append(outOfDate, wl)
 			continue
 		}
 
 		s := newStatus(wl)
-		replaceCondition(s.Conditions, &metav1.Condition{
+		s.Conditions = replaceCondition(s.Conditions, &metav1.Condition{
 			Type:               cloudsqlapi.ConditionWorkloadUpToDate,
 			Status:             metav1.ConditionTrue,
 			ObservedGeneration: resource.GetGeneration(),
 			Reason:             cloudsqlapi.ReasonUpToDate,
 			Message:            "No update needed for this workload",
 		})
-		replaceStatus(resource.Status.WorkloadStatus, s)
+		resource.Status.WorkloadStatus = replaceStatus(resource.Status.WorkloadStatus, s)
 
 	}
 
@@ -459,7 +459,7 @@ func (r *AuthProxyWorkloadReconciler) markWorkloadsForUpdate(ctx context.Context
 
 // replaceStatus replace a status with the same name, namespace, kind, and version,
 // or appends updatedStatus to statuses
-func replaceStatus(statuses []*cloudsqlapi.WorkloadStatus, updatedStatus *cloudsqlapi.WorkloadStatus) {
+func replaceStatus(statuses []*cloudsqlapi.WorkloadStatus, updatedStatus *cloudsqlapi.WorkloadStatus) []*cloudsqlapi.WorkloadStatus {
 
 	updated := false
 	for i := range statuses {
@@ -475,6 +475,7 @@ func replaceStatus(statuses []*cloudsqlapi.WorkloadStatus, updatedStatus *clouds
 	if !updated {
 		statuses = append(statuses, updatedStatus)
 	}
+	return statuses
 }
 
 func findCondition(conds []*metav1.Condition, name string) *metav1.Condition {
@@ -488,20 +489,26 @@ func findCondition(conds []*metav1.Condition, name string) *metav1.Condition {
 
 // replaceCondition replace a status with the same name, namespace, kind, and version,
 // or appends updatedStatus to statuses
-func replaceCondition(conds []*metav1.Condition, newC *metav1.Condition) {
-
-	var updated bool
-
+func replaceCondition(conds []*metav1.Condition, newC *metav1.Condition) []*metav1.Condition {
 	for i := range conds {
 		c := conds[i]
 		if c.Type == newC.Type {
+			if conds[i].Status == newC.Status {
+				newC.LastTransitionTime = conds[i].LastTransitionTime
+			} else {
+				newC.LastTransitionTime = metav1.NewTime(time.Now())
+			}
 			conds[i] = newC
-			updated = true
+			return conds
 		}
 	}
-	if !updated {
-		conds = append(conds, newC)
+
+	if newC.LastTransitionTime.IsZero() {
+		newC.LastTransitionTime = metav1.NewTime(time.Now())
 	}
+	conds = append(conds, newC)
+
+	return conds
 }
 
 // patchAnnotations Safely patch the workloads with updated annotations

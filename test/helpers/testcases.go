@@ -118,7 +118,7 @@ func TestModifiesExistingDeployment(tp *TestCaseParams) func() {
 
 	}
 
-	tp.T.Log("Waiting for cloud sql instance to begin the reconcile loop loop")
+	tp.T.Log("Waiting for cloud sql instance to begin the reconcile loop ")
 	updatedI, err := GetAuthProxyWorkload(ctx, tp, pKey)
 	if err != nil {
 		tp.T.Error(err)
