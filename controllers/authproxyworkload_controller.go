@@ -381,6 +381,7 @@ func (r *AuthProxyWorkloadReconciler) applyFinalizer(
 	// The AuthProxyWorkload resource needs a finalizer, so add
 	// the finalizer, exit the reconcile loop and requeue.
 	controllerutil.AddFinalizer(resource, finalizerName)
+
 	err := r.Update(ctx, resource)
 	if err != nil {
 		l.Info("Error adding finalizer. Will requeue for reconcile.", "err", err)
@@ -461,7 +462,7 @@ func (r *AuthProxyWorkloadReconciler) markWorkloadsForUpdate(ctx context.Context
 // or appends updatedStatus to statuses
 func replaceStatus(statuses []*cloudsqlapi.WorkloadStatus, updatedStatus *cloudsqlapi.WorkloadStatus) []*cloudsqlapi.WorkloadStatus {
 
-	updated := false
+	var updated bool
 	for i := range statuses {
 		s := statuses[i]
 		if s.Name == updatedStatus.Name &&
