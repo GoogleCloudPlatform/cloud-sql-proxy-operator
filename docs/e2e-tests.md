@@ -54,7 +54,8 @@ Don't write end-to-end tests when a unit test will do.
 ...TODO...
 
 ## Helpers
-The utility functions in `helpers/testcases.go` are intended to be reused between e2e and
+The utility functions in `test/helpers` are intended to be reused between e2e and
+integration tests.
 
 The test cases in `helpers/testcases.go` are intended to be reused between e2e and
 integration tests. They require a TestCaseParams as input, and then update the *
