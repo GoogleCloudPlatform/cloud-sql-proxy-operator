@@ -40,11 +40,7 @@ func SetupManagers(mgr manager.Manager) error {
 	setupLog.Info("Configuring reconcilers...")
 	var err error
 
-	r := &AuthProxyWorkloadReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}
-	err = r.SetupWithManager(mgr)
+	_, err = NewAuthProxyWorkloadReconciler(mgr)
 	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AuthProxyWorkload")
 		// Kubebuilder won't properly write the contents of this file. It will want

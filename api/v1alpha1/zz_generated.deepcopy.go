@@ -162,16 +162,24 @@ func (in *AuthProxyWorkloadStatus) DeepCopyInto(out *AuthProxyWorkloadStatus) {
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make([]v1.Condition, len(*in))
+		*out = make([]*v1.Condition, len(*in))
 		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
+			if (*in)[i] != nil {
+				in, out := &(*in)[i], &(*out)[i]
+				*out = new(v1.Condition)
+				(*in).DeepCopyInto(*out)
+			}
 		}
 	}
 	if in.WorkloadStatus != nil {
 		in, out := &in.WorkloadStatus, &out.WorkloadStatus
-		*out = make([]WorkloadStatus, len(*in))
+		*out = make([]*WorkloadStatus, len(*in))
 		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
+			if (*in)[i] != nil {
+				in, out := &(*in)[i], &(*out)[i]
+				*out = new(WorkloadStatus)
+				(*in).DeepCopyInto(*out)
+			}
 		}
 	}
 }
@@ -316,9 +324,13 @@ func (in *WorkloadStatus) DeepCopyInto(out *WorkloadStatus) {
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make([]v1.Condition, len(*in))
+		*out = make([]*v1.Condition, len(*in))
 		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
+			if (*in)[i] != nil {
+				in, out := &(*in)[i], &(*out)[i]
+				*out = new(v1.Condition)
+				(*in).DeepCopyInto(*out)
+			}
 		}
 	}
 }

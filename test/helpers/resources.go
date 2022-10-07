@@ -16,6 +16,7 @@ package helpers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -55,7 +56,7 @@ spec:
 // CreateBusyboxDeployment creates a simple busybox deployment, using the
 // key as its namespace and name. It also sets the label "app"= appLabel.
 func CreateBusyboxDeployment(ctx context.Context, tctx *TestCaseParams,
-	name, appLabel string) (*appsv1.Deployment, error) {
+	name types.NamespacedName, appLabel string) (*appsv1.Deployment, error) {
 	tctx.T.Helper()
 
 	d := &appsv1.Deployment{}
@@ -64,8 +65,8 @@ func CreateBusyboxDeployment(ctx context.Context, tctx *TestCaseParams,
 	if err != nil {
 		return nil, err
 	}
-	d.Name = name
-	d.Namespace = tctx.Namespace
+	d.Name = name.Name
+	d.Namespace = name.Namespace
 	d.Labels = map[string]string{"app": appLabel}
 
 	err = tctx.Client.Create(ctx, d)
@@ -76,8 +77,8 @@ func CreateBusyboxDeployment(ctx context.Context, tctx *TestCaseParams,
 	cd := &appsv1.Deployment{}
 	err = RetryUntilSuccess(tctx.T, 5, 1*time.Second, func() error {
 		return tctx.Client.Get(ctx, types.NamespacedName{
-			Namespace: tctx.Namespace,
-			Name:      name,
+			Namespace: name.Namespace,
+			Name:      name.Name,
 		}, cd)
 	})
 	if err != nil {
@@ -98,6 +99,9 @@ func GetAuthProxyWorkload(ctx context.Context, tctx *TestCaseParams,
 		err := tctx.Client.Get(ctx, key, createdPodmod)
 		if err != nil {
 			return err
+		}
+		if GetConditionStatus(createdPodmod.Status.Conditions, cloudsqlapi.ConditionUpToDate) != metav1.ConditionTrue {
+			return errors.New("AuthProxyWorkload found, but reconcile not complete yet")
 		}
 		return nil
 	})
@@ -139,11 +143,8 @@ func ExpectContainerCount(ctx context.Context, tctx *TestCaseParams, key types.N
 	return nil
 }
 
-// CreateAuthProxyWorkload creates an AuthProxyWorkload in the kubernetes cluster.
-func CreateAuthProxyWorkload(ctx context.Context, tctx *TestCaseParams,
-	key types.NamespacedName, appLabel string, connectionString string) error {
-	tctx.T.Helper()
-	podmod := &cloudsqlapi.AuthProxyWorkload{
+func BuildAuthProxyWorkload(key types.NamespacedName, connectionString string) *cloudsqlapi.AuthProxyWorkload {
+	return &cloudsqlapi.AuthProxyWorkload{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: cloudsqlapi.GroupVersion.String(),
 			Kind:       "AuthProxyWorkload",
@@ -153,25 +154,40 @@ func CreateAuthProxyWorkload(ctx context.Context, tctx *TestCaseParams,
 			Namespace: key.Namespace,
 		},
 		Spec: cloudsqlapi.AuthProxyWorkloadSpec{
-			Workload: cloudsqlapi.WorkloadSelectorSpec{
-				Kind: "Deployment",
-				Selector: &metav1.LabelSelector{
-					MatchLabels:      map[string]string{"app": appLabel},
-					MatchExpressions: nil,
-				},
-			},
-			AuthProxyContainer: &cloudsqlapi.AuthProxyContainerSpec{
-				Image: tctx.ProxyImageURL,
-			},
 			Instances: []cloudsqlapi.InstanceSpec{{
 				ConnectionString: connectionString,
 			}},
 		},
 	}
-	err := tctx.Client.Create(ctx, podmod)
+}
+
+// CreateAuthProxyWorkload creates an AuthProxyWorkload in the kubernetes cluster.
+func CreateAuthProxyWorkload(ctx context.Context, tctx *TestCaseParams,
+	key types.NamespacedName, appLabel string, connectionString string) error {
+	tctx.T.Helper()
+	p := BuildAuthProxyWorkload(key, connectionString)
+	p.Spec.Workload = cloudsqlapi.WorkloadSelectorSpec{
+		Kind: "Deployment",
+		Selector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{"app": appLabel},
+		},
+	}
+	p.Spec.AuthProxyContainer = &cloudsqlapi.AuthProxyContainerSpec{Image: tctx.ProxyImageURL}
+	err := tctx.Client.Create(ctx, p)
 	if err != nil {
 		tctx.T.Errorf("Unable to create entity %v", err)
 		return err
 	}
 	return nil
+}
+
+// GetConditionStatus finds a condition where Condition.Type == condType and returns
+// the status, or "" if no condition was found.
+func GetConditionStatus(conditions []*metav1.Condition, condType string) metav1.ConditionStatus {
+	for i := range conditions {
+		if conditions[i].Type == condType {
+			return conditions[i].Status
+		}
+	}
+	return ""
 }
