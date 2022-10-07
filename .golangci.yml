@@ -29,14 +29,10 @@ linters-settings:
       - name: error-return
       - name: error-strings
       - name: error-naming
-      - name: exported
-        disabled: true # Temporary disabled until all prototype code has landed
+      # - name: exported
       - name: if-return
       - name: increment-decrement
       - name: var-naming
-        arguments:
-          - ["ID"] # allow. May be camel case like "Id".
-          - ["VM", "NS", "SQL", "URL", "IP", "GKE"] # block. Must be all caps.
       - name: var-declaration
       - name: package-comments
       - name: range
@@ -46,10 +42,8 @@ linters-settings:
       - name: indent-error-flow
       - name: errorf
       - name: empty-block
-        disabled: true # Temporary disabled until all prototype code has landed
       - name: superfluous-else
       - name: unused-parameter
-        disabled: true # Temporary disabled until all prototype code has landed
       - name: unreachable-code
       - name: redefines-builtin-id
       - name: range-val-in-closure

@@ -56,7 +56,7 @@ func (r *AuthProxyWorkload) ValidateCreate() error {
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *AuthProxyWorkload) ValidateUpdate(old runtime.Object) error {
+func (r *AuthProxyWorkload) ValidateUpdate(_ runtime.Object) error {
 	authproxyworkloadlog.Info("validate update", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object update.

@@ -127,7 +127,7 @@ func SetupTests() (func(), error) {
 	// Build the kubernetes client
 	config, err := clientcmd.BuildConfigFromFlags("", ti.Kubeconfig)
 	if err != nil {
-		return teardownFunc, fmt.Errorf("Unable to build kubernetes client for config %s, %v", ti.Kubeconfig, err)
+		return teardownFunc, fmt.Errorf("unable to build kubernetes client for config %s, %v", ti.Kubeconfig, err)
 	}
 	config.RateLimiter = nil
 	k8sClientSet, err = kubernetes.NewForConfig(config)
@@ -146,6 +146,27 @@ func SetupTests() (func(), error) {
 
 	// Check that the e2e k8s cluster is the operator that was last built from
 	// this working directory.
+	managerDeploymentKey, err := waitForCorrectOperatorPods(ctx, err)
+
+	if err != nil {
+		return teardownFunc, fmt.Errorf("unable to find manager deployment %v", err)
+	}
+
+	// Start the goroutines to tail the logs from the operator deployment. This
+	// prints the operator output in line with the test output so it's easier
+	// for the developer to follow.
+	podList, err := ListDeploymentPods(ctx, managerDeploymentKey)
+	if err != nil {
+		return teardownFunc, fmt.Errorf("unable to find manager deployment %v", err)
+	}
+	tailPods(ctx, podList)
+
+	logger.Info("Setup complete. K8s cluster is running.")
+
+	return teardownFunc, nil
+}
+
+func waitForCorrectOperatorPods(ctx context.Context, err error) (client.ObjectKey, error) {
 	managerDeploymentKey := client.ObjectKey{Namespace: "cloud-sql-proxy-operator-system", Name: "cloud-sql-proxy-operator-controller-manager"}
 	err = helpers.RetryUntilSuccess(&testSetupLogger{Logger: logger}, 5, 5*time.Second, func() error {
 		deployment := appsv1.Deployment{}
@@ -189,23 +210,7 @@ func SetupTests() (func(), error) {
 
 		return nil // OK to continue.
 	})
-
-	if err != nil {
-		return teardownFunc, fmt.Errorf("unable to find manager deployment %v", err)
-	}
-
-	// Start the goroutines to tail the logs from the operator deployment. This
-	// prints the operator output in line with the test output so it's easier
-	// for the developer to follow.
-	podList, err := ListDeploymentPods(ctx, managerDeploymentKey)
-	if err != nil {
-		return teardownFunc, fmt.Errorf("unable to find manager deployment %v", err)
-	}
-	tailPods(ctx, podList)
-
-	logger.Info("Setup complete. K8s cluster is running.")
-
-	return teardownFunc, nil
+	return managerDeploymentKey, err
 }
 
 // ListDeploymentPods lists all the pods in a particular deployment.

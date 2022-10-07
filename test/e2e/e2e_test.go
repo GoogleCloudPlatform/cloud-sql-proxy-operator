@@ -28,9 +28,7 @@ import (
 
 func TestMain(m *testing.M) {
 	teardown, err := e2e.SetupTests()
-	if teardown != nil {
-		defer teardown()
-	}
+	defer teardown()
 
 	if err != nil {
 		fmt.Println("errors while initializing e2e test", err)
