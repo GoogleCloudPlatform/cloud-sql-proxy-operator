@@ -33,10 +33,13 @@ KUBECTL="$PROJECT_DIR/bin/kubectl"
 # Begin terraform setup
 
 cd "$SCRIPT_DIR"
+DATA_DIR="$SCRIPT_DIR/../../../bin/tf"
+mkdir -p "$DATA_DIR"
+cp -r $SCRIPT_DIR/* "$DATA_DIR"
 
-"$TERRAFORM" init
+"$TERRAFORM" -chdir="$DATA_DIR" init
 
-"$TERRAFORM" apply -parallelism=5 -auto-approve \
+"$TERRAFORM"  -chdir="$DATA_DIR" apply -parallelism=5 -auto-approve \
   -var "gcloud_bin=$(which gcloud)" \
   -var "gcloud_docker_url_file=$GCLOUD_DOCKER_URL_FILE" \
   -var "gcloud_project_id=$GCLOUD_PROJECT_ID" \
