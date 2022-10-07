@@ -7,13 +7,51 @@ everything works
 
 After setting up your local development environment, please do the following:
 
-- Create a new project in your
+### Configure gcloud cli
+Install the gcloud command line application and make sure it is in your system PATH.
 
-Run `gcloud components install gke-gcloud-auth-plugin`
-and `gke-gcloud-auth-plugin --version`
-to make sure you have the component installed.
+Install the GKE auth components by running
+`gcloud components install gke-gcloud-auth-plugin` 
+and then `gke-gcloud-auth-plugin --version` to ensure it was installed correctly
+
+Log into gcloud.
+
+Set your application default credentials.
+
+### Create an empty project
+Create an empty Google Cloud project in your Google Cloud account.
+
+### Check out the Cloud Sql Proxy repo
+
+Check out the [cloud-sql-proxy](https://github.com/GoogleCloudPlatform/cloud-sql-proxy) github
+repo into a different directory. Make sure you are on branch 'main'. 
+
+
+### Update your build.env
+Copy `build.sample.env` to `build.env` and edit it to properly set:
+- the absolute path to your cloud-sql-proxy working directory
+- the empty Google Cloud project name. 
+
+### Run the tests
+Run `make gcloud_test` in the base directory of this project. This will run the
+following make targets in sequence: 
+
+- `make gcloud_test_infra` will use Terraform to create an artifact registry, 
+   GKE cluster and postgres database. 
+- `make gcloud_test_run` will  build docker images for the operator and the Cloud SQL Proxy, and
+  push those images to the artifact registry.
+
+The first time you run `make gcloud_test` it may take 20-30 minutes to provision
+Google Cloud resources for the tests. Subsequent runs will reuse the Google Cloud
+resources, and therefore will run much faster. 
 
 # Test Organization
+
+Don't write end-to-end tests when a unit test will do.
+
+## Test Cases
+
+...TODO...
 
 ## Helpers
 The utility functions in `helpers/testcases.go` are intended to be reused between e2e and
