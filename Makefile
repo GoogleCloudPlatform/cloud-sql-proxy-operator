@@ -54,7 +54,8 @@ pre_commit: git_workdir_clean  ## Run all the formatting and checks before commi
 	@echo "Pre commit checks OK"
 
 .PHONY: lint
-lint: ## runs code format and validation tools
+lint: $(KUSTOMIZE) ## runs code format and validation tools
+	cd config/manager && $(KUSTOMIZE) edit set image controller=cloudsql-proxy-operator:latest
 	make build manifests
 	make add_copyright_header
 	make go_fmt yaml_fmt
