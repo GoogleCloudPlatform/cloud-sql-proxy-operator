@@ -41,54 +41,36 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestCreateResource(t *testing.T) {
-	tctx := &helpers.TestCaseParams{
+func testCaseParams(t *testing.T, name string) *helpers.TestCaseParams {
+	return &helpers.TestCaseParams{
 		T:                t,
 		Client:           integration.Client,
-		Namespace:        helpers.NewNamespaceName("create"),
+		Namespace:        helpers.NewNamespaceName(name),
 		ConnectionString: "region:project:inst",
 		ProxyImageURL:    "proxy-image:latest",
 		Ctx:              integration.TestContext(),
 	}
+}
+
+func TestCreateResource(t *testing.T) {
+	tctx := testCaseParams(t, "create")
 	helpers.TestCreateResource(tctx)
 
 }
 
 func TestDeleteResource(t *testing.T) {
-	tctx := &helpers.TestCaseParams{
-		T:                t,
-		Client:           integration.Client,
-		Namespace:        helpers.NewNamespaceName("delete"),
-		ConnectionString: "region:project:inst",
-		ProxyImageURL:    "proxy-image:latest",
-		Ctx:              integration.TestContext(),
-	}
-
+	tctx := testCaseParams(t, "delete")
 	helpers.TestDeleteResource(tctx)
 
 }
 
 func TestModifiesNewDeployment(t *testing.T) {
-	tctx := &helpers.TestCaseParams{
-		T:                t,
-		Client:           integration.Client,
-		Namespace:        helpers.NewNamespaceName("modifiesnewdeployment"),
-		ConnectionString: "region:project:inst",
-		ProxyImageURL:    "proxy-image:latest",
-		Ctx:              integration.TestContext(),
-	}
+	tctx := testCaseParams(t, "modifynew")
 	helpers.TestModifiesNewDeployment(tctx)
 }
 
 func TestModifiesExistingDeployment(t *testing.T) {
-	tctx := &helpers.TestCaseParams{
-		T:                t,
-		Client:           integration.Client,
-		Namespace:        helpers.NewNamespaceName("modifiesexistingdeployment"),
-		ConnectionString: "region:project:inst",
-		ProxyImageURL:    "proxy-image:latest",
-		Ctx:              integration.TestContext(),
-	}
+	tctx := testCaseParams(t, "modifyexisting")
 	testRemove := helpers.TestModifiesExistingDeployment(tctx)
 	testRemove()
 }
