@@ -58,10 +58,10 @@ func (c *recentlyDeletedCache) set(k types.NamespacedName, deleted bool) {
 func (c *recentlyDeletedCache) get(k types.NamespacedName) bool {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
-	if c.values == nil {
+	deleted, ok := c.values[k]
+	if !ok {
 		return false
 	}
-	deleted := c.values[k]
 	return deleted
 }
 
@@ -69,7 +69,18 @@ func (c *recentlyDeletedCache) get(k types.NamespacedName) bool {
 type AuthProxyWorkloadReconciler struct {
 	client.Client
 	Scheme          *runtime.Scheme
-	recentlyDeleted recentlyDeletedCache
+	recentlyDeleted *recentlyDeletedCache
+}
+
+// NewAuthProxyWorkloadManager constructs an AuthProxyWorkloadReconciler
+func NewAuthProxyWorkloadReconciler(mgr ctrl.Manager) (*AuthProxyWorkloadReconciler, error) {
+	r := &AuthProxyWorkloadReconciler{
+		Client:          mgr.GetClient(),
+		Scheme:          mgr.GetScheme(),
+		recentlyDeleted: &recentlyDeletedCache{},
+	}
+	err := r.SetupWithManager(mgr)
+	return r, err
 }
 
 // SetupWithManager adds this AuthProxyWorkload controller to the controller-runtime
@@ -493,22 +504,21 @@ func findCondition(conds []*metav1.Condition, name string) *metav1.Condition {
 func replaceCondition(conds []*metav1.Condition, newC *metav1.Condition) []*metav1.Condition {
 	for i := range conds {
 		c := conds[i]
-		if c.Type == newC.Type {
-			if conds[i].Status == newC.Status {
-				newC.LastTransitionTime = conds[i].LastTransitionTime
-			} else {
-				newC.LastTransitionTime = metav1.NewTime(time.Now())
-			}
-			conds[i] = newC
-			return conds
+		if c.Type != newC.Type {
+			continue
 		}
+
+		if conds[i].Status == newC.Status && !conds[i].LastTransitionTime.IsZero() {
+			newC.LastTransitionTime = conds[i].LastTransitionTime
+		} else {
+			newC.LastTransitionTime = metav1.NewTime(time.Now())
+		}
+		conds[i] = newC
+		return conds
 	}
 
-	if newC.LastTransitionTime.IsZero() {
-		newC.LastTransitionTime = metav1.NewTime(time.Now())
-	}
+	newC.LastTransitionTime = metav1.NewTime(time.Now())
 	conds = append(conds, newC)
-
 	return conds
 }
 

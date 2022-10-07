@@ -49,43 +49,16 @@ func TestMain(m *testing.M) {
 }
 
 func TestReconcileState11(t *testing.T) {
-	wantRequeue := true
 
 	p := helpers.BuildAuthProxyWorkload(types.NamespacedName{
 		Namespace: "default",
 		Name:      "test",
 	}, "project:region:db")
 
-	cb, err := clientBuilder()
-	if err != nil {
-		t.Error(err) // shouldn't ever happen
-	}
-	c := cb.WithObjects(p).Build()
-	r, req, ctx := reconciler(p, c)
-
-	res, err := r.Reconcile(ctx, req)
-	if err != nil {
-		t.Error(err)
-	}
-	err = c.Get(ctx, types.NamespacedName{
-		Namespace: p.GetNamespace(),
-		Name:      p.GetName(),
-	}, p)
-
-	if err != nil {
-		t.Error(err)
-	}
-
-	if res.Requeue != wantRequeue {
-		t.Errorf("got %v, want %v for requeue", res.Requeue, wantRequeue)
-	}
-	if len(p.GetFinalizers()) == 0 {
-		t.Error("got no finalizers, wants finalizer.")
-	}
+	assertReconcileResult(t, p, []client.Object{p}, true, "", "")
 }
 
 func TestReconcileDeleted(t *testing.T) {
-	wantRequeue := false
 
 	p := helpers.BuildAuthProxyWorkload(types.NamespacedName{
 		Namespace: "default",
@@ -106,9 +79,16 @@ func TestReconcileDeleted(t *testing.T) {
 	r, req, ctx := reconciler(p, c)
 
 	c.Delete(ctx, p)
+	if err != nil {
+		t.Error(err)
+	}
+
 	res, err := r.Reconcile(ctx, req)
 	if err != nil {
 		t.Error(err)
+	}
+	if res.Requeue {
+		t.Errorf("got %v, want %v for requeue", res.Requeue, false)
 	}
 
 	err = c.Get(ctx, types.NamespacedName{
@@ -123,16 +103,9 @@ func TestReconcileDeleted(t *testing.T) {
 		t.Error("wants not found error, got no error")
 	}
 
-	if res.Requeue != wantRequeue {
-		t.Errorf("got %v, want %v for requeue", res.Requeue, wantRequeue)
-	}
 }
 
 func TestReconcileState21ByName(t *testing.T) {
-	wantRequeue := false
-	wantStatus := metav1.ConditionTrue
-	wantReason := cloudsqlapi.ReasonNoWorkloadsFound
-
 	p := helpers.BuildAuthProxyWorkload(types.NamespacedName{
 		Namespace: "default",
 		Name:      "test",
@@ -144,13 +117,10 @@ func TestReconcileState21ByName(t *testing.T) {
 		Namespace: "default",
 	}
 
-	assertReconcileResult(t, p, []client.Object{p}, wantRequeue, wantStatus, wantReason)
+	assertReconcileResult(t, p, []client.Object{p},
+		false, metav1.ConditionTrue, cloudsqlapi.ReasonNoWorkloadsFound)
 }
 func TestReconcileState21BySelector(t *testing.T) {
-	wantRequeue := false
-	wantStatus := metav1.ConditionTrue
-	wantReason := cloudsqlapi.ReasonNoWorkloadsFound
-
 	p := helpers.BuildAuthProxyWorkload(types.NamespacedName{
 		Namespace: "default",
 		Name:      "test",
@@ -164,14 +134,11 @@ func TestReconcileState21BySelector(t *testing.T) {
 		},
 	}
 
-	assertReconcileResult(t, p, []client.Object{p}, wantRequeue, wantStatus, wantReason)
+	assertReconcileResult(t, p, []client.Object{p}, false,
+		metav1.ConditionTrue, cloudsqlapi.ReasonNoWorkloadsFound)
 }
 
 func TestReconcileState22ByName(t *testing.T) {
-	wantRequeue := true
-	wantStatus := metav1.ConditionFalse
-	wantReason := cloudsqlapi.ReasonStartedReconcile
-
 	p := helpers.BuildAuthProxyWorkload(types.NamespacedName{
 		Namespace: "default",
 		Name:      "test",
@@ -196,14 +163,11 @@ func TestReconcileState22ByName(t *testing.T) {
 		},
 	}
 
-	assertReconcileResult(t, p, []client.Object{p, pod}, wantRequeue, wantStatus, wantReason)
+	assertReconcileResult(t, p, []client.Object{p, pod},
+		true, metav1.ConditionFalse, cloudsqlapi.ReasonStartedReconcile)
 }
 
 func TestReconcileState22BySelector(t *testing.T) {
-	wantRequeue := true
-	wantStatus := metav1.ConditionFalse
-	wantReason := cloudsqlapi.ReasonStartedReconcile
-
 	p := helpers.BuildAuthProxyWorkload(types.NamespacedName{
 		Namespace: "default",
 		Name:      "test",
@@ -225,11 +189,12 @@ func TestReconcileState22BySelector(t *testing.T) {
 		},
 	}
 
-	assertReconcileResult(t, p, []client.Object{p, pod}, wantRequeue, wantStatus, wantReason)
+	assertReconcileResult(t, p, []client.Object{p, pod},
+		true, metav1.ConditionFalse, cloudsqlapi.ReasonStartedReconcile)
 }
 
 func TestReconcileState31(t *testing.T) {
-	wantRequeue := false
+	var wantRequeue bool
 	wantStatus := metav1.ConditionTrue
 	wantReason := cloudsqlapi.ReasonFinishedReconcile
 
@@ -279,10 +244,6 @@ func TestReconcileState31(t *testing.T) {
 }
 
 func TestReconcileState32(t *testing.T) {
-	wantRequeue := true
-	wantStatus := metav1.ConditionFalse
-	wantReason := cloudsqlapi.ReasonStartedReconcile
-
 	p := helpers.BuildAuthProxyWorkload(types.NamespacedName{
 		Namespace: "default",
 		Name:      "test",
@@ -310,7 +271,8 @@ func TestReconcileState32(t *testing.T) {
 		},
 	}
 
-	assertReconcileResult(t, p, []client.Object{p, pod}, wantRequeue, wantStatus, wantReason)
+	assertReconcileResult(t, p, []client.Object{p, pod},
+		true, metav1.ConditionFalse, cloudsqlapi.ReasonStartedReconcile)
 
 	wls := internal.WorkloadStatus(p, &internal.PodWorkload{Pod: pod})
 	if wls.LastRequstGeneration != "1" {
@@ -321,7 +283,7 @@ func TestReconcileState32(t *testing.T) {
 	}
 }
 
-func assertReconcileResult(t *testing.T, p *cloudsqlapi.AuthProxyWorkload, clientObjects []client.Object, wantRequeue bool, wantStatus metav1.ConditionStatus, wantReason string) {
+func assertReconcileResult(t *testing.T, p *cloudsqlapi.AuthProxyWorkload, clientObjects []client.Object, wantRequeue bool, wantStatus metav1.ConditionStatus, wantReason string) (context.Context, client.WithWatch) {
 	t.Helper()
 	cb, err := clientBuilder()
 	if err != nil {
@@ -346,17 +308,21 @@ func assertReconcileResult(t *testing.T, p *cloudsqlapi.AuthProxyWorkload, clien
 		}, o)
 	}
 
-	cond := findCondition(p.Status.Conditions, cloudsqlapi.ConditionUpToDate)
-	if cond == nil {
-		t.Error("UpToDate condition was nil, wants condition to exist.")
-		return
+	if wantStatus != "" || wantReason != "" {
+		cond := findCondition(p.Status.Conditions, cloudsqlapi.ConditionUpToDate)
+		if cond == nil {
+			t.Error("UpToDate condition was nil, wants condition to exist.")
+			return ctx, c
+		}
+		if wantStatus != "" && cond.Status != wantStatus {
+			t.Errorf("got %v, want %v for UpToDate condition status", cond.Status, wantStatus)
+		}
+		if wantReason != "" && cond.Reason != wantReason {
+			t.Errorf("got %v, want %v for UpToDate condition reason", cond.Reason, wantReason)
+		}
 	}
-	if cond.Status != wantStatus {
-		t.Errorf("got %v, want %v for UpToDate condition status", cond.Status, wantStatus)
-	}
-	if cond.Reason != wantReason {
-		t.Errorf("got %v, want %v for UpToDate condition reason", cond.Reason, wantReason)
-	}
+
+	return ctx, c
 }
 
 func clientBuilder() (*fake.ClientBuilder, error) {
@@ -374,8 +340,9 @@ func clientBuilder() (*fake.ClientBuilder, error) {
 
 func reconciler(p *cloudsqlapi.AuthProxyWorkload, cb client.Client) (*AuthProxyWorkloadReconciler, ctrl.Request, context.Context) {
 	ctx := log.IntoContext(context.Background(), logger)
-	r := &AuthProxyWorkloadReconciler{}
-	r.Client = cb
+	r := &AuthProxyWorkloadReconciler{
+		Client: cb,
+	}
 	req := ctrl.Request{
 		NamespacedName: types.NamespacedName{
 			Namespace: p.Namespace,
