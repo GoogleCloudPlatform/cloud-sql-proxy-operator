@@ -60,6 +60,7 @@ lint: $(KUSTOMIZE) ## runs code format and validation tools
 	make add_copyright_header
 	make go_fmt yaml_fmt
 	make go_lint
+	make tf_lint
 
 .PHONY: git_workdir_clean
 git_workdir_clean: # Checks if the git working directory is clean. Fails if there are unstaged changes.
@@ -107,6 +108,11 @@ go_lint: golangci-lint ## Run go lint tools, fail if unchecked errors
 	# Implements golang CI based on settings described here:
 	# See https://betterprogramming.pub/how-to-improve-code-quality-with-an-automatic-check-in-go-d18a5eb85f09
 	$(GOLANGCI_LINT) run --fix --fast ./...
+.PHONY: tf_lint
+tf_lint: $(TERRAFORM) ## Run go lint tools, fail if unchecked errors
+	# Implements golang CI based on settings described here:
+	# See https://betterprogramming.pub/how-to-improve-code-quality-with-an-automatic-check-in-go-d18a5eb85f09
+	$(TERRAFORM) -chdir=test/e2e/tf fmt
 
 ##@ General
 

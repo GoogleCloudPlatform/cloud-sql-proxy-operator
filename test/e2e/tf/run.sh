@@ -42,7 +42,7 @@ cp -r $SCRIPT_DIR/* "$DATA_DIR"
 "$TERRAFORM"  -chdir="$DATA_DIR" apply -parallelism=5 -auto-approve \
   -var "gcloud_bin=$(which gcloud)" \
   -var "gcloud_docker_url_file=$GCLOUD_DOCKER_URL_FILE" \
-  -var "gcloud_project_id=$GCLOUD_PROJECT_ID" \
+  -var "project_id=$GCLOUD_PROJECT_ID" \
   -var "kubeconfig_path=$KUBECONFIG_GCLOUD" \
   -var "testinfra_json_path=$PROJECT_DIR/bin/testinfra.json"
 

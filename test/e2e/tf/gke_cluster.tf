@@ -1,28 +1,12 @@
 # From https://github.com/hashicorp/terraform-provider-kubernetes/blob/main/kubernetes/test-infra/gke/main.tf
 
-variable "kubernetes_version" {
-  default = ""
-}
-
-variable "workers_count" {
-  default = "2"
-}
-
-variable "node_machine_type" {
-  default = "e2-standard-2"
-}
-
-variable "enable_alpha" {
-  default = false
-}
-
 data "google_client_config" "default" {
 }
 
 data "google_container_engine_versions" "supported" {
-  location       = local.gcloud_zone
+  location       = var.gcloud_zone
   version_prefix = var.kubernetes_version
-  project = var.gcloud_project_id
+  project        = var.project_id
 }
 
 resource "random_id" "cluster_name" {
@@ -32,26 +16,26 @@ resource "random_id" "cluster_name" {
 resource "google_service_account" "node_pool" {
   account_id   = "k8s-nodes-${random_id.cluster_name.hex}"
   display_name = "Kubernetes provider SA"
-  project = var.gcloud_project_id
+  project      = var.project_id
 }
 
-resource "google_project_iam_binding" "cloudsql_client" {
-  project = var.gcloud_project_id
-  role               = "roles/cloudsql.client"
+resource "google_project_iam_binding" "cloud_sql_client" {
+  project = var.project_id
+  role    = "roles/cloudsql.client"
   members = [
     "serviceAccount:${google_service_account.node_pool.email}"
   ]
 }
 resource "google_project_iam_member" "allow_image_pull" {
-  project = var.gcloud_project_id
-  role   = "roles/artifactregistry.reader"
-  member = "serviceAccount:${google_service_account.node_pool.email}"
+  project = var.project_id
+  role    = "roles/artifactregistry.reader"
+  member  = "serviceAccount:${google_service_account.node_pool.email}"
 }
 
 resource "google_container_cluster" "primary" {
-  project = var.gcloud_project_id
+  project            = var.project_id
   name               = "operator-test-${random_id.cluster_name.hex}"
-  location           = local.gcloud_zone
+  location           = var.gcloud_zone
   min_master_version = data.google_container_engine_versions.supported.latest_master_version
   initial_node_count = 2
 
@@ -68,11 +52,11 @@ resource "google_container_cluster" "primary" {
 }
 
 resource "google_container_node_pool" "primary_preemptible_nodes" {
-  name       = "operator-test-nodes-${random_id.cluster_name.hex}"
-  cluster    = google_container_cluster.primary.id
+  name               = "operator-test-nodes-${random_id.cluster_name.hex}"
+  cluster            = google_container_cluster.primary.id
   initial_node_count = var.workers_count
-  version =  data.google_container_engine_versions.supported.latest_node_version
-  location = local.gcloud_zone
+  version            = data.google_container_engine_versions.supported.latest_node_version
+  location           = var.gcloud_zone
 
   autoscaling {
     max_node_count = 10
@@ -134,21 +118,21 @@ locals {
         name = google_service_account.node_pool.email
         user = {
           exec = {
-            apiVersion= "client.authentication.k8s.io/v1beta1"
-            command = "gke-gcloud-auth-plugin"
-            installHint =  "Install gke-gcloud-auth-plugin for use with kubectl by following https://cloud.google.com/blog/products/containers-kubernetes/kubectl-auth-changes-in-gke"
+            apiVersion         = "client.authentication.k8s.io/v1beta1"
+            command            = "gke-gcloud-auth-plugin"
+            installHint        = "Install gke-gcloud-auth-plugin for use with kubectl by following https://cloud.google.com/blog/products/containers-kubernetes/kubectl-auth-changes-in-gke"
             provideClusterInfo = true
           }
-# Disable auth section, this
-#          auth-provider = {
-#            name = "gcp"
-#            config = {
-#              cmd-args = "config config-helper --format=json"
-#              cmd-path = var.gcloud_bin
-#              expiry-key = "{.credential.token_expiry}"
-#              token-key = "{.credential.access_token}"
-#            }
-#          }
+          # Disable auth section, this
+          #          auth-provider = {
+          #            name = "gcp"
+          #            config = {
+          #              cmd-args = "config config-helper --format=json"
+          #              cmd-path = var.gcloud_bin
+          #              expiry-key = "{.credential.token_expiry}"
+          #              token-key = "{.credential.access_token}"
+          #            }
+          #          }
         }
       }
     ]
@@ -159,25 +143,4 @@ locals {
 resource "local_file" "kubeconfig" {
   content  = yamlencode(local.kubeconfig)
   filename = var.kubeconfig_path
-}
-
-#resource "local_file" "gcptoken" {
-#  content  = data.google_client_config.default.access_token
-#  filename = "${path.module}/gcptoken"
-#}
-
-#output "google_zone" {
-#  value = local.gcloud_zone
-#}
-
-output "node_version" {
-  value = google_container_node_pool.primary_preemptible_nodes.version
-}
-
-output "kubeconfig_path" {
-  value = local_file.kubeconfig.filename
-}
-
-output "cluster_name" {
-  value = google_container_cluster.primary.name
 }

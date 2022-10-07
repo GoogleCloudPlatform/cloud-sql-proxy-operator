@@ -1,27 +1,19 @@
 terraform {
   required_providers {
     google = {
-      source = "hashicorp/google"
+      source  = "hashicorp/google"
       version = "4.31.0"
     }
   }
 }
 
-locals {
-  gcloud_zone = "us-central1-c"
-  gcloud_region = "us-central1"
-}
 
 provider "google" {
-#  credentials = file("<NAME>.json")
-  region  = local.gcloud_region
-  zone    = local.gcloud_zone
-  project = var.gcloud_project_id
 }
 
 # Enable gcloud project APIs
 locals {
-  project_services=toset([
+  project_services = toset([
     "compute.googleapis.com",
     "container.googleapis.com", # GKE
     "artifactregistry.googleapis.com",
@@ -37,13 +29,13 @@ locals {
     "servicemanagement.googleapis.com",
     "sql-component.googleapis.com",
     "sqladmin.googleapis.com",
-    "storage-api.googleapis.com"])
+  "storage-api.googleapis.com"])
 }
 
 resource "google_project_service" "project" {
   for_each = local.project_services
-  project = var.gcloud_project_id
-  service =  each.value
+  project  = var.project_id
+  service  = each.value
 }
 
 
@@ -54,10 +46,10 @@ resource "google_project_service" "project" {
 # First, create the output data structure as a local variable
 locals {
   testinfra = {
-    instance = google_sql_database_instance.instance.connection_name
-    db = google_sql_database.db.name
+    instance     = google_sql_database_instance.instance.connection_name
+    db           = google_sql_database.db.name
     rootPassword = random_id.db_password.hex
-    kubeconfig = var.kubeconfig_path
+    kubeconfig   = var.kubeconfig_path
   }
 }
 

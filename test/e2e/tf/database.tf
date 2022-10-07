@@ -9,20 +9,20 @@ resource "random_id" "db_password" {
 # See versions at https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/sql_database_instance#database_version
 resource "google_sql_database_instance" "instance" {
   name             = "inst${random_id.db_name.hex}"
-  project          = var.gcloud_project_id
-  region           = local.gcloud_region
+  project          = var.project_id
+  region           = var.gcloud_region
   database_version = "POSTGRES_13"
   settings {
     tier = "db-f1-micro"
   }
   deletion_protection = "true"
-  root_password = random_id.db_password.hex
+  root_password       = random_id.db_password.hex
 }
 
 resource "google_sql_database" "db" {
   name     = "db"
   instance = google_sql_database_instance.instance.name
-  project  = var.gcloud_project_id
+  project  = var.project_id
 }
 
 output "db_root_password" {
