@@ -33,7 +33,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -49,7 +48,7 @@ var (
 		TimeEncoder: zapcore.RFC3339TimeEncoder,
 	}))
 
-	// These vars hold state initialized by E2eTestSetup.
+	// These vars hold state initialized by SetupTests.
 	c             client.Client
 	infra         TestInfra
 	proxyImageURL string
@@ -96,7 +95,7 @@ func loadValue(envVar, fromFile, defaultValue string) string {
 	return strings.Trim(string(bytes), "\r\n \t")
 }
 
-func E2eTestSetup() (func(), error) {
+func SetupTests() (func(), error) {
 	ctx, cancelFunc := context.WithCancel(TestContext())
 
 	// Cancel the context when teardown is called.
@@ -116,11 +115,11 @@ func E2eTestSetup() (func(), error) {
 			kubeconfig = envKubeConfig
 		}
 		ti.Kubeconfig = kubeconfig
-		ti.Db = "db"
+		ti.DB = "db"
 		ti.InstanceConnectionString = "proj:region:inst"
 		logger.Info("Test infrastructure not set. Using defaults",
 			"instance", ti.InstanceConnectionString,
-			"db", ti.Db,
+			"db", ti.DB,
 			"kubeconfig", ti.Kubeconfig)
 	}
 	infra = ti
@@ -215,7 +214,7 @@ func ListDeploymentPods(ctx context.Context, deploymentKey client.ObjectKey) (*c
 	if err != nil {
 		return nil, fmt.Errorf("unable to find manager deployment %v", err)
 	}
-	podList, err := k8sClientSet.CoreV1().Pods(deploymentKey.Namespace).List(ctx, v1.ListOptions{
+	podList, err := k8sClientSet.CoreV1().Pods(deploymentKey.Namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: metav1.FormatLabelSelector(dep.Spec.Selector),
 	})
 	if err != nil {
@@ -274,13 +273,11 @@ type testSetupLogger struct {
 func (l *testSetupLogger) Logf(format string, args ...interface{}) {
 	l.Info(fmt.Sprintf(format, args...))
 }
-func (l *testSetupLogger) Helper() {
-
-}
+func (l *testSetupLogger) Helper() {}
 
 type TestInfra struct {
 	InstanceConnectionString string `json:"instance,omitempty"`
-	Db                       string `json:"db,omitempty"`
+	DB                       string `json:"db,omitempty"`
 	RootPassword             string `json:"rootPassword,omitempty"`
 	Kubeconfig               string `json:"kubeconfig,omitempty"`
 }

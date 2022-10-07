@@ -27,7 +27,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	teardown, err := e2e.E2eTestSetup()
+	teardown, err := e2e.SetupTests()
 	if teardown != nil {
 		defer teardown()
 	}
@@ -45,13 +45,11 @@ func TestMain(m *testing.M) {
 func TestCreateResource(t *testing.T) {
 	tctx := e2e.Params(t, "create")
 	helpers.TestCreateResource(tctx)
-
 }
 
 func TestDeleteResource(t *testing.T) {
 	tctx := e2e.Params(t, "delete")
 	helpers.TestDeleteResource(tctx)
-
 }
 
 func TestModifiesNewDeployment(t *testing.T) {
@@ -74,10 +72,9 @@ func TestModifiesNewDeployment(t *testing.T) {
 	if containerCount := len(podList.Items[0].Spec.Containers); containerCount != 2 {
 		t.Errorf("got %v containers, wants 2", containerCount)
 	}
-
 }
 
 func TestModifiesExistingDeployment(t *testing.T) {
 	tctx := e2e.Params(t, "modifydeploy")
-	_ = helpers.TestModifiesExistingDeployment(tctx)
+	helpers.TestModifiesExistingDeployment(tctx)
 }
