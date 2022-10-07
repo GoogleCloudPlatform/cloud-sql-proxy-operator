@@ -55,7 +55,7 @@ func TestReconcileState11(t *testing.T) {
 		Name:      "test",
 	}, "project:region:db")
 
-	assertReconcileResult(t, p, []client.Object{p}, true, "", "", nil)
+	assertReconcileResult(t, p, []client.Object{p}, true, "", "")
 }
 
 func TestReconcileDeleted(t *testing.T) {
@@ -117,7 +117,7 @@ func TestReconcileState21ByName(t *testing.T) {
 		Namespace: "default",
 	}
 
-	assertReconcileResult(t, p, []client.Object{p}, false, metav1.ConditionTrue, cloudsqlapi.ReasonNoWorkloadsFound, nil)
+	assertReconcileResult(t, p, []client.Object{p}, false, metav1.ConditionTrue, cloudsqlapi.ReasonNoWorkloadsFound)
 }
 func TestReconcileState21BySelector(t *testing.T) {
 	p := helpers.BuildAuthProxyWorkload(types.NamespacedName{
@@ -133,7 +133,7 @@ func TestReconcileState21BySelector(t *testing.T) {
 		},
 	}
 
-	assertReconcileResult(t, p, []client.Object{p}, false, metav1.ConditionTrue, cloudsqlapi.ReasonNoWorkloadsFound, nil)
+	assertReconcileResult(t, p, []client.Object{p}, false, metav1.ConditionTrue, cloudsqlapi.ReasonNoWorkloadsFound)
 }
 
 func TestReconcileState22ByName(t *testing.T) {
@@ -161,7 +161,7 @@ func TestReconcileState22ByName(t *testing.T) {
 		},
 	}
 
-	assertReconcileResult(t, p, []client.Object{p, pod}, true, metav1.ConditionFalse, cloudsqlapi.ReasonStartedReconcile, nil)
+	assertReconcileResult(t, p, []client.Object{p, pod}, true, metav1.ConditionFalse, cloudsqlapi.ReasonStartedReconcile)
 }
 
 func TestReconcileState22BySelector(t *testing.T) {
@@ -186,7 +186,7 @@ func TestReconcileState22BySelector(t *testing.T) {
 		},
 	}
 
-	assertReconcileResult(t, p, []client.Object{p, pod}, true, metav1.ConditionFalse, cloudsqlapi.ReasonStartedReconcile, nil)
+	assertReconcileResult(t, p, []client.Object{p, pod}, true, metav1.ConditionFalse, cloudsqlapi.ReasonStartedReconcile)
 }
 
 func TestReconcileState31(t *testing.T) {
@@ -227,7 +227,7 @@ func TestReconcileState31(t *testing.T) {
 		},
 	}
 	wantWls := internal.WorkloadUpdateStatus{LastUpdatedGeneration: "1", LastRequstGeneration: "1"}
-	assertReconcileResult(t, p, []client.Object{p, pod}, wantRequeue, wantStatus, wantReason, nil)
+	assertReconcileResult(t, p, []client.Object{p, pod}, wantRequeue, wantStatus, wantReason)
 	assertWorkloadUpdateStatus(t, p, pod, wantWls)
 }
 
@@ -260,7 +260,7 @@ func TestReconcileState32(t *testing.T) {
 	}
 	wantWls := internal.WorkloadUpdateStatus{LastUpdatedGeneration: "", LastRequstGeneration: "1"}
 
-	assertReconcileResult(t, p, []client.Object{p, pod}, true, metav1.ConditionFalse, cloudsqlapi.ReasonStartedReconcile, nil)
+	assertReconcileResult(t, p, []client.Object{p, pod}, true, metav1.ConditionFalse, cloudsqlapi.ReasonStartedReconcile)
 	assertWorkloadUpdateStatus(t, p, pod, wantWls)
 }
 
@@ -274,7 +274,7 @@ func assertWorkloadUpdateStatus(t *testing.T, p *cloudsqlapi.AuthProxyWorkload, 
 	}
 }
 
-func assertReconcileResult(t *testing.T, p *cloudsqlapi.AuthProxyWorkload, clientObjects []client.Object, wantRequeue bool, wantStatus metav1.ConditionStatus, wantReason string, wantWls *internal.WorkloadUpdateStatus) (context.Context, client.WithWatch) {
+func assertReconcileResult(t *testing.T, p *cloudsqlapi.AuthProxyWorkload, clientObjects []client.Object, wantRequeue bool, wantStatus metav1.ConditionStatus, wantReason string) (context.Context, client.WithWatch) {
 	t.Helper()
 	cb, err := clientBuilder()
 	if err != nil {
