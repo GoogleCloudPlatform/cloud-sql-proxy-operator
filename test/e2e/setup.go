@@ -227,41 +227,39 @@ func ListDeploymentPods(ctx context.Context, deploymentKey client.ObjectKey) (*c
 
 func tailPods(ctx context.Context, podlist *corev1.PodList) {
 	for _, item := range podlist.Items {
-		tailPod(ctx, item)
+		go tailPod(ctx, item)
 	}
 }
 
 func tailPod(ctx context.Context, pod corev1.Pod) {
 
-	go func() {
-		var since int64 = 10
-		var rs, err = k8sClientSet.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{
-			Container:    "manager",
-			Follow:       true,
-			SinceSeconds: &since,
-			Timestamps:   true,
-		}).Stream(ctx)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			return
-		}
-		defer rs.Close()
+	var since int64 = 10
+	var rs, err = k8sClientSet.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{
+		Container:    "manager",
+		Follow:       true,
+		SinceSeconds: &since,
+		Timestamps:   true,
+	}).Stream(ctx)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return
+	}
+	defer rs.Close()
 
-		sc := bufio.NewScanner(rs)
+	sc := bufio.NewScanner(rs)
 
-		for sc.Scan() {
-			txt := sc.Text()
-			if i := strings.Index(txt, "ERROR"); i > -1 {
-				logger.Error(fmt.Errorf("OPER: %s", txt[i+6:]), "", "pod", pod.Name)
-			} else if i := strings.Index(txt, "INFO"); i > -1 {
-				logger.Info(fmt.Sprintf("OPER: %s", txt[i+4:]), "pod", pod.Name)
-			} else if i := strings.Index(txt, "DEBUG"); i > -1 {
-				logger.Info(fmt.Sprintf("OPER-dbg: %s", txt[i+5:]), "pod", pod.Name)
-			} else {
-				logger.Info(fmt.Sprintf("OPER: %s", txt), "pod", pod.Name)
-			}
+	for sc.Scan() {
+		txt := sc.Text()
+		if i := strings.Index(txt, "ERROR"); i > -1 {
+			logger.Error(fmt.Errorf("OPER: %s", txt[i+6:]), "", "pod", pod.Name)
+		} else if i := strings.Index(txt, "INFO"); i > -1 {
+			logger.Info(fmt.Sprintf("OPER: %s", txt[i+4:]), "pod", pod.Name)
+		} else if i := strings.Index(txt, "DEBUG"); i > -1 {
+			logger.Info(fmt.Sprintf("OPER-dbg: %s", txt[i+5:]), "pod", pod.Name)
+		} else {
+			logger.Info(fmt.Sprintf("OPER: %s", txt), "pod", pod.Name)
 		}
-	}()
+	}
 
 }
 
