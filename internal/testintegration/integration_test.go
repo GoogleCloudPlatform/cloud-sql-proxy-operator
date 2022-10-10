@@ -12,24 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package integration_test has integration tests that run a local kubernetes
+// Package integration_test has testintegration tests that run a local kubernetes
 // api server and ensure that the interaction between kubernetes and the
 // operator works correctly.
-package integration_test
+package testintegration_test
 
 import (
 	"os"
 	"testing"
 
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/test/helpers"
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/test/integration"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testintegration"
 )
 
 func TestMain(m *testing.M) {
-	teardown, err := integration.EnvTestSetup()
+	teardown, err := testintegration.EnvTestSetup()
 
 	if err != nil {
-		integration.Log.Error(err, "errors while initializing kubernetes cluster")
+		testintegration.Log.Error(err, "errors while initializing kubernetes cluster")
 		if teardown != nil {
 			teardown()
 		}
@@ -41,36 +41,36 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func testCaseParams(t *testing.T, name string) *helpers.TestCaseParams {
-	return &helpers.TestCaseParams{
+func testCaseParams(t *testing.T, name string) *testhelpers.TestCaseParams {
+	return &testhelpers.TestCaseParams{
 		T:                t,
-		Client:           integration.Client,
-		Namespace:        helpers.NewNamespaceName(name),
+		Client:           testintegration.Client,
+		Namespace:        testhelpers.NewNamespaceName(name),
 		ConnectionString: "region:project:inst",
 		ProxyImageURL:    "proxy-image:latest",
-		Ctx:              integration.TestContext(),
+		Ctx:              testintegration.TestContext(),
 	}
 }
 
 func TestCreateResource(t *testing.T) {
 	tctx := testCaseParams(t, "create")
-	helpers.TestCreateResource(tctx)
+	testhelpers.TestCreateResource(tctx)
 
 }
 
 func TestDeleteResource(t *testing.T) {
 	tctx := testCaseParams(t, "delete")
-	helpers.TestDeleteResource(tctx)
+	testhelpers.TestDeleteResource(tctx)
 
 }
 
 func TestModifiesNewDeployment(t *testing.T) {
 	tctx := testCaseParams(t, "modifynew")
-	helpers.TestModifiesNewDeployment(tctx)
+	testhelpers.TestModifiesNewDeployment(tctx)
 }
 
 func TestModifiesExistingDeployment(t *testing.T) {
 	tctx := testCaseParams(t, "modifyexisting")
-	testRemove := helpers.TestModifiesExistingDeployment(tctx)
+	testRemove := testhelpers.TestModifiesExistingDeployment(tctx)
 	testRemove()
 }

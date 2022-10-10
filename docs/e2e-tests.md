@@ -87,22 +87,22 @@ case to set up the prerequisite state for another test case.
 
 ## End-to-end Tests
 
-End-to-end tests go in the `test/e2e_test` package. These tests run test case
+End-to-end tests go in the `internal/e2e_test` package. These tests run test case
 scenarios using real Google Cloud infrastructure.
 
 The Google Cloud infrastructure is always exclusively provisioned using the
-Terraform project in `test/e2e/tf`. Configuring the Google Cloud infrastructure
+Terraform project in `testinfra`. Configuring the Google Cloud infrastructure
 by hand after terraform runs is not allowed.
 
-The utility functions in `test/e2e` are intended to be used exclusively for
+The utility functions in `internal/e2e` are intended to be used exclusively for
 end-to-end tests.
 
 ## Integration Tests
 
-Integration tests go in the `test/integration_test` package. Integration tests ensure
+Integration tests go in the `internal/testintegration_test` package. Integration tests ensure
 that our operator interacts correctly with the kubernetes API.
 
-The utility functions in `test/integration` are intended to be used exclusively for
+The utility functions in `internal/testintegration` are intended to be used exclusively for
 integration tests.
 
 Integration tests are run using the Kubebuilder's `envtest` tool. This tool sets
@@ -114,10 +114,10 @@ test any pods created by kubernetes.
 
 ## Helpers
 
-The utility functions in `test/helpers` are intended to be reused between e2e
+The utility functions in `internal/testhelpers` are intended to be reused between e2e
 and integration tests.
 
-The test cases in `helpers/testcases.go` are intended to be reused between e2e
+The test cases in `internal/testhelpers/testcases.go` are intended to be reused between e2e
 and integration tests. They require a TestCaseParams as input, and use a
 reference to `*testing.T` to report the results.
 
@@ -141,7 +141,7 @@ quirky K8S API edge cases correctly.
 TODO: Build an e2e test harness application
 
 E2E tests run a test harness application as their primary workload. This
-application in `test/harness` is a docker container that expects to connect to a
+application in `internal/testharness` is a docker container that expects to connect to a
 database through the Cloud SQL Proxy. It can be configured to connect via TCP or
 Unix sockets. It reports its liveness and readiness through kubernetes.
 

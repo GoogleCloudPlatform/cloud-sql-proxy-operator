@@ -12,6 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package helpers holds reusable functions that make it easier to write integration
+// Package testhelpers holds reusable functions that make it easier to write testintegration
 // and end-to-end tests.
-package helpers
+package testhelpers

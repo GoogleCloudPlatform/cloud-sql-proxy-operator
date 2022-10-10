@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package integration test setup for running integration tests using the envtest
+// Package testintegration test setup for running testintegration tests using the envtest
 // kubebuilder package.
-package integration
+package testintegration
 
 import (
 	"context"
@@ -26,8 +26,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/controllers"
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/test/helpers"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/controllers"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
 	"github.com/go-logr/logr"
 	"go.uber.org/zap/zapcore"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -43,7 +43,7 @@ const kubeVersion = "1.24.1"
 var (
 	testEnv *envtest.Environment
 
-	// Log is the test logger used by the integration tests and server.
+	// Log is the test logger used by the testintegration tests and server.
 	Log = zap.New(zap.UseFlagOptions(&zap.Options{
 		Development: true,
 		TimeEncoder: zapcore.ISO8601TimeEncoder,
@@ -162,7 +162,7 @@ func EnvTestSetup() (func(), error) {
 	dialer := &net.Dialer{Timeout: time.Second}
 	addrPort := fmt.Sprintf("%s:%d", o.LocalServingHost, o.LocalServingPort)
 
-	err = helpers.RetryUntilSuccess(&helpers.TestSetupLogger{Logger: Log}, 5, 2*time.Second, func() error {
+	err = testhelpers.RetryUntilSuccess(&testhelpers.TestSetupLogger{Logger: Log}, 5, 2*time.Second, func() error {
 
 		// whyNoLint:Ignore InsecureSkipVerify warning, this is only for local testing.
 		conn, err := tls.DialWithDialer(dialer, "tcp", addrPort, &tls.Config{InsecureSkipVerify: true}) //nolint:gosec

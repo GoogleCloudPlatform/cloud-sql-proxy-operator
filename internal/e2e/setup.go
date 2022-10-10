@@ -26,8 +26,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/controllers"
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/test/helpers"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/controllers"
+	helpers2 "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
 	"github.com/go-logr/logr"
 	"go.uber.org/zap/zapcore"
 	appsv1 "k8s.io/api/apps/v1"
@@ -42,7 +42,7 @@ import (
 )
 
 var (
-	// logger is the test Logger used by the integration tests and server.
+	// logger is the test Logger used by the testintegration tests and server.
 	logger = zap.New(zap.UseFlagOptions(&zap.Options{
 		Development: true,
 		TimeEncoder: zapcore.RFC3339TimeEncoder,
@@ -55,11 +55,11 @@ var (
 	operatorURL   string
 )
 
-func Params(t *testing.T, ns string) *helpers.TestCaseParams {
-	return &helpers.TestCaseParams{
+func Params(t *testing.T, ns string) *helpers2.TestCaseParams {
+	return &helpers2.TestCaseParams{
 		T:                t,
 		Client:           c,
-		Namespace:        helpers.NewNamespaceName(ns),
+		Namespace:        helpers2.NewNamespaceName(ns),
 		ConnectionString: infra.InstanceConnectionString,
 		ProxyImageURL:    proxyImageURL,
 		Ctx:              TestContext(),
@@ -168,7 +168,7 @@ func SetupTests() (func(), error) {
 
 func waitForCorrectOperatorPods(ctx context.Context, err error) (client.ObjectKey, error) {
 	managerDeploymentKey := client.ObjectKey{Namespace: "cloud-sql-proxy-operator-system", Name: "cloud-sql-proxy-operator-controller-manager"}
-	err = helpers.RetryUntilSuccess(&testSetupLogger{Logger: logger}, 5, 5*time.Second, func() error {
+	err = helpers2.RetryUntilSuccess(&testSetupLogger{Logger: logger}, 5, 5*time.Second, func() error {
 		deployment := appsv1.Deployment{}
 		// Fetch the deployment
 		err := c.Get(ctx, managerDeploymentKey, &deployment)

@@ -20,8 +20,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/test/e2e"
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/test/helpers"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/e2e"
+	helpers2 "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -42,20 +42,20 @@ func TestMain(m *testing.M) {
 
 func TestCreateResource(t *testing.T) {
 	tctx := e2e.Params(t, "create")
-	helpers.TestCreateResource(tctx)
+	helpers2.TestCreateResource(tctx)
 }
 
 func TestDeleteResource(t *testing.T) {
 	tctx := e2e.Params(t, "delete")
-	helpers.TestDeleteResource(tctx)
+	helpers2.TestDeleteResource(tctx)
 }
 
 func TestModifiesNewDeployment(t *testing.T) {
 	tctx := e2e.Params(t, "newdeploy")
-	helpers.TestModifiesNewDeployment(tctx)
+	helpers2.TestModifiesNewDeployment(tctx)
 
 	var podList *v1.PodList
-	err := helpers.RetryUntilSuccess(t, 5, 10*time.Second, func() error {
+	err := helpers2.RetryUntilSuccess(t, 5, 10*time.Second, func() error {
 		var err error
 		podList, err = e2e.ListDeploymentPods(tctx.Ctx, client.ObjectKey{Namespace: tctx.Namespace, Name: "newdeploy"})
 		return err
@@ -74,5 +74,5 @@ func TestModifiesNewDeployment(t *testing.T) {
 
 func TestModifiesExistingDeployment(t *testing.T) {
 	tctx := e2e.Params(t, "modifydeploy")
-	helpers.TestModifiesExistingDeployment(tctx)
+	helpers2.TestModifiesExistingDeployment(tctx)
 }
