@@ -1,16 +1,15 @@
-# End-to-End Tests
+# Tests
 
 This project uses end-to-end tests to make sure that the operator, proxy and
-everything works
+everything works.
 
-## Get Started
+## Get Started With End-to-End Tests
 
 After setting up your local development environment, please do the following:
 
-### Configure gcloud cli
+### Configure gcloud CLI
 
-Install the gcloud command line application and make sure it is in your system
-PATH.
+[Install the gcloud CLI](https://cloud.google.com/sdk/docs/install) and make sure it is in your system PATH.
 
 Install the GKE auth components by running
 `gcloud components install gke-gcloud-auth-plugin`
@@ -78,10 +77,10 @@ Clean up after the end-to-end tests with these targets:
 
 Guidelines for writing test:
 
-Don't write end-to-end tests when a unit test will do.
+Don't write end-to-end tests when a unit test or integration test will do.
 
 Each test case should be performed in its own namespace so that they do not
-create conficts or dependencies between tests.
+create conflicts or dependencies between tests.
 
 Each test case should represent a complete scenario. You may not use one test
 case to set up the prerequisite state for another test case.
@@ -95,10 +94,16 @@ The Google Cloud infrastructure is always exclusively provisioned using the
 Terraform project in `test/e2e/tf`. Configuring the Google Cloud infrastructure
 by hand after terraform runs is not allowed.
 
+The utility functions in `test/e2e` are intended to be used exclusively for
+end-to-end tests.
+
 ## Integration Tests
 
-Integration tests go in the `test/integration` package. Integration tests ensure
+Integration tests go in the `test/integration_test` package. Integration tests ensure
 that our operator interacts correctly with the kubernetes API.
+
+The utility functions in `test/integration` are intended to be used exclusively for
+integration tests.
 
 Integration tests are run using the Kubebuilder's `envtest` tool. This tool sets
 up a local kubernetes API server so that we can test if our operator interacts
@@ -111,9 +116,6 @@ test any pods created by kubernetes.
 
 The utility functions in `test/helpers` are intended to be reused between e2e
 and integration tests.
-
-The utility functions in `test/e2e` are intended to be used exclusively for
-end-to-end tests.
 
 The test cases in `helpers/testcases.go` are intended to be reused between e2e
 and integration tests. They require a TestCaseParams as input, and use a

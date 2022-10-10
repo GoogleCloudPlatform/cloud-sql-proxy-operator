@@ -1009,10 +1009,10 @@ func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1
 				fmt.Sprintf("telemetry httpPort %d is already in use", port), p)
 		}
 	} else {
-		for port = DefaultHealthCheckPort; s.isPortInUse(port); {
+		port = DefaultHealthCheckPort
+		for s.isPortInUse(port) {
 			port++
 		}
-
 	}
 
 	c.StartupProbe = &corev1.Probe{

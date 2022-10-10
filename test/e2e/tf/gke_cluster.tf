@@ -87,6 +87,8 @@ resource "google_container_node_pool" "primary_preemptible_nodes" {
 
 
 locals {
+  # This is the recommended way to produce a kubeconfig file from
+  # the Google Cloud GKE terraform resource.
   kubeconfig = {
     apiVersion = "v1"
     kind       = "Config"
@@ -123,16 +125,6 @@ locals {
             installHint        = "Install gke-gcloud-auth-plugin for use with kubectl by following https://cloud.google.com/blog/products/containers-kubernetes/kubectl-auth-changes-in-gke"
             provideClusterInfo = true
           }
-          # Disable auth section, this
-          #          auth-provider = {
-          #            name = "gcp"
-          #            config = {
-          #              cmd-args = "config config-helper --format=json"
-          #              cmd-path = var.gcloud_bin
-          #              expiry-key = "{.credential.token_expiry}"
-          #              token-key = "{.credential.access_token}"
-          #            }
-          #          }
         }
       }
     ]
