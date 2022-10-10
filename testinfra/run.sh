@@ -33,7 +33,7 @@ KUBECTL="$PROJECT_DIR/bin/kubectl"
 # Begin terraform setup
 
 cd "$SCRIPT_DIR"
-DATA_DIR="$SCRIPT_DIR/../../../bin/tf"
+DATA_DIR="$SCRIPT_DIR/../bin/tf"
 mkdir -p "$DATA_DIR"
 cp -r $SCRIPT_DIR/* "$DATA_DIR"
 

@@ -12,9 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package internal holds logic for manipulating kubernetes workload
-// data structs. Code in this package assumes that it is single-threaded
-// and
-//
-// This follows the kubebuilder pattern for defining custom resources.
-package internal
+// Package workloads holds logic for manipulating kubernetes workload
+// data structs. Code in this package assumes that it is single-threaded, running
+// on data structures only accessible to the current thread.
+package workloads

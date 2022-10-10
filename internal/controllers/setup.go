@@ -15,7 +15,7 @@
 package controllers
 
 import (
-	cloudsqlv1alpha1 "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/api/v1alpha1"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -26,16 +26,16 @@ import (
 var setupLog = ctrl.Log.WithName("setup")
 
 // InitScheme was moved out of ../main.go to here so that it can be invoked
-// from the integration tests AND from the actual operator.
+// from the testintegration tests AND from the actual operator.
 func InitScheme(scheme *runtime.Scheme) {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(cloudsqlv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
 // SetupManagers was moved out of ../main.go to here so that it can be invoked
-// from the integration tests AND from the actual operator.
+// from the testintegration tests AND from the actual operator.
 func SetupManagers(mgr manager.Manager) error {
 	setupLog.Info("Configuring reconcilers...")
 	var err error
@@ -45,12 +45,12 @@ func SetupManagers(mgr manager.Manager) error {
 		setupLog.Error(err, "unable to create controller", "controller", "AuthProxyWorkload")
 		// Kubebuilder won't properly write the contents of this file. It will want
 		// to do os.Exit(1) on error here.. But it's a bad idea because it will
-		// disrupt the integration tests to exit 1. Instead, this should
+		// disrupt the testintegration tests to exit 1. Instead, this should
 		// return the error and let the caller deal with it.
 		return err
 	}
 
-	wh := &cloudsqlv1alpha1.AuthProxyWorkload{}
+	wh := &v1alpha1.AuthProxyWorkload{}
 	err = wh.SetupWebhookWithManager(mgr)
 	if err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "AuthProxyWorkload")

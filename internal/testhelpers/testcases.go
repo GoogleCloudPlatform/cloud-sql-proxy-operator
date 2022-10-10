@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package helpers
+package testhelpers
 
 import (
 	"context"
@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/api/v1alpha1"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -56,21 +56,21 @@ func TestCreateResource(tctx *TestCaseParams) {
 	CreateOrPatchNamespace(ctx, tctx)
 
 	// Fill in the resource with appropriate details.
-	resource := &cloudsqlapi.AuthProxyWorkload{
+	resource := &v1alpha1.AuthProxyWorkload{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: cloudsqlapi.GroupVersion.String(),
+			APIVersion: v1alpha1.GroupVersion.String(),
 			Kind:       "AuthProxyWorkload",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      wantName,
 			Namespace: namespace,
 		},
-		Spec: cloudsqlapi.AuthProxyWorkloadSpec{
-			Workload: cloudsqlapi.WorkloadSelectorSpec{
+		Spec: v1alpha1.AuthProxyWorkloadSpec{
+			Workload: v1alpha1.WorkloadSelectorSpec{
 				Kind: "Deployment",
 				Name: "busybox",
 			},
-			Instances: []cloudsqlapi.InstanceSpec{{
+			Instances: []v1alpha1.InstanceSpec{{
 				ConnectionString: tctx.ConnectionString,
 			}},
 		},
@@ -85,7 +85,7 @@ func TestCreateResource(tctx *TestCaseParams) {
 
 	// Wait for kubernetes to finish creating the resource, kubernetes
 	// is eventually-consistent.
-	retrievedResource := &cloudsqlapi.AuthProxyWorkload{}
+	retrievedResource := &v1alpha1.AuthProxyWorkload{}
 	err = RetryUntilSuccess(t, 5, time.Second*5, func() error {
 		return tctx.Client.Get(ctx, resourceKey, retrievedResource)
 	})
@@ -131,7 +131,7 @@ func TestDeleteResource(tctx *TestCaseParams) {
 		t.Errorf("was %v, wants %v, spec.cloudSqlInstance", connStr, expectedConnStr)
 	}
 
-	if wlstatus := GetConditionStatus(res.Status.Conditions, cloudsqlapi.ConditionUpToDate); wlstatus != metav1.ConditionTrue {
+	if wlstatus := GetConditionStatus(res.Status.Conditions, v1alpha1.ConditionUpToDate); wlstatus != metav1.ConditionTrue {
 		t.Errorf("was %v, wants %v, status.condition[up-to-date]", wlstatus, metav1.ConditionTrue)
 	}
 

@@ -11,7 +11,7 @@ resources:
   domain: cloud.google.com
   group: cloudsql
   kind: AuthProxyWorkload
-  path: github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/api/v1alpha1
+  path: github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1
   version: v1alpha1
   webhooks:
     defaulting: true

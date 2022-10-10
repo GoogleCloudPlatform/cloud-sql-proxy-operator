@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package helpers
+package testhelpers
 
 import (
 	"context"
@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"time"
 
-	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/api/v1alpha1"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -91,16 +91,16 @@ func CreateBusyboxDeployment(ctx context.Context, tctx *TestCaseParams,
 // "UpToDate" condition to be "True", and the returns it. Fails after 30 seconds
 // if the containers does not match.
 func GetAuthProxyWorkload(ctx context.Context, tctx *TestCaseParams,
-	key types.NamespacedName) (*cloudsqlapi.AuthProxyWorkload, error) {
+	key types.NamespacedName) (*v1alpha1.AuthProxyWorkload, error) {
 	tctx.T.Helper()
-	createdPodmod := &cloudsqlapi.AuthProxyWorkload{}
+	createdPodmod := &v1alpha1.AuthProxyWorkload{}
 	// We'll need to retry getting this newly created resource, given that creation may not immediately happen.
 	err := RetryUntilSuccess(tctx.T, 6, 5*time.Second, func() error {
 		err := tctx.Client.Get(ctx, key, createdPodmod)
 		if err != nil {
 			return err
 		}
-		if GetConditionStatus(createdPodmod.Status.Conditions, cloudsqlapi.ConditionUpToDate) != metav1.ConditionTrue {
+		if GetConditionStatus(createdPodmod.Status.Conditions, v1alpha1.ConditionUpToDate) != metav1.ConditionTrue {
 			return errors.New("AuthProxyWorkload found, but reconcile not complete yet")
 		}
 		return nil
@@ -143,18 +143,18 @@ func ExpectContainerCount(ctx context.Context, tctx *TestCaseParams, key types.N
 	return nil
 }
 
-func BuildAuthProxyWorkload(key types.NamespacedName, connectionString string) *cloudsqlapi.AuthProxyWorkload {
-	return &cloudsqlapi.AuthProxyWorkload{
+func BuildAuthProxyWorkload(key types.NamespacedName, connectionString string) *v1alpha1.AuthProxyWorkload {
+	return &v1alpha1.AuthProxyWorkload{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: cloudsqlapi.GroupVersion.String(),
+			APIVersion: v1alpha1.GroupVersion.String(),
 			Kind:       "AuthProxyWorkload",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      key.Name,
 			Namespace: key.Namespace,
 		},
-		Spec: cloudsqlapi.AuthProxyWorkloadSpec{
-			Instances: []cloudsqlapi.InstanceSpec{{
+		Spec: v1alpha1.AuthProxyWorkloadSpec{
+			Instances: []v1alpha1.InstanceSpec{{
 				ConnectionString: connectionString,
 			}},
 		},
@@ -166,13 +166,13 @@ func CreateAuthProxyWorkload(ctx context.Context, tctx *TestCaseParams,
 	key types.NamespacedName, appLabel string, connectionString string) error {
 	tctx.T.Helper()
 	p := BuildAuthProxyWorkload(key, connectionString)
-	p.Spec.Workload = cloudsqlapi.WorkloadSelectorSpec{
+	p.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
 		Kind: "Deployment",
 		Selector: &metav1.LabelSelector{
 			MatchLabels: map[string]string{"app": appLabel},
 		},
 	}
-	p.Spec.AuthProxyContainer = &cloudsqlapi.AuthProxyContainerSpec{Image: tctx.ProxyImageURL}
+	p.Spec.AuthProxyContainer = &v1alpha1.AuthProxyContainerSpec{Image: tctx.ProxyImageURL}
 	err := tctx.Client.Create(ctx, p)
 	if err != nil {
 		tctx.T.Errorf("Unable to create entity %v", err)

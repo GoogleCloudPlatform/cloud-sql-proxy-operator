@@ -114,7 +114,7 @@ go_lint: golangci-lint ## Run go lint tools, fail if unchecked errors
 	$(GOLANGCI_LINT) run --fix --fast ./...
 .PHONY: tf_lint
 tf_lint: terraform ## Run go lint tools, fail if unchecked errors
-	$(TERRAFORM) -chdir=test/e2e/tf fmt
+	$(TERRAFORM) -chdir=testinfra fmt
 
 ##@ General
 
@@ -151,9 +151,9 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet ./...
 
-test: manifests generate fmt vet envtest ## Run tests (but not test/e2e)
+test: manifests generate fmt vet envtest ## Run tests (but not internal/teste2e)
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" \
-		go test $(shell go list ./... | grep -v 'test/e2e') -coverprofile cover.out
+		go test $(shell go list ./... | grep -v 'internal/e2e') -coverprofile cover.out
 
 ##@ Build
 # Load active version from version.txt
@@ -304,7 +304,7 @@ gcloud_test_infra_cleanup: gcloud_project ## Remove all operator and testcase co
   		GCLOUD_PROJECT_ID=$(GCLOUD_PROJECT_ID) \
   		KUBECONFIG_GCLOUD=$(KUBECONFIG_GCLOUD) \
   		GCLOUD_DOCKER_URL_FILE=$(GCLOUD_DOCKER_URL_FILE) \
-  		test/e2e/tf/run.sh destroy
+  		testinfra/run.sh destroy
 
 
 # The URL to the container image repo provisioned for e2e tests
@@ -328,14 +328,14 @@ gcloud_cluster: gcloud_project terraform ## Build infrastructure for e2e tests
   		GCLOUD_PROJECT_ID=$(GCLOUD_PROJECT_ID) \
   		KUBECONFIG_GCLOUD=$(KUBECONFIG_GCLOUD) \
   		GCLOUD_DOCKER_URL_FILE=$(GCLOUD_DOCKER_URL_FILE) \
-  		test/e2e/tf/run.sh apply
+  		testinfra/run.sh apply
 
 gcloud_cluster_cleanup: gcloud_project terraform ## Build infrastructure for e2e tests
 	PROJECT_DIR=$(PWD) \
   		GCLOUD_PROJECT_ID=$(GCLOUD_PROJECT_ID) \
   		KUBECONFIG_GCLOUD=$(KUBECONFIG_GCLOUD) \
   		GCLOUD_DOCKER_URL_FILE=$(GCLOUD_DOCKER_URL_FILE) \
-  		test/e2e/tf/run.sh destroy
+  		testinfra/run.sh destroy
 
 .PHONY: gcloud_cert_manager_deploy
 gcloud_cert_manager_deploy: kubectl ## Deploy the certificate manager
@@ -410,7 +410,7 @@ gcloud_test_run_gotest: ## Run the golang tests
 		TEST_INFRA_JSON=$(LOCALBIN)/testinfra.json \
 		PROXY_IMAGE_URL=$(GCLOUD_PROXY_URL) \
 		OPERATOR_IMAGE_URL=$(GCLOUD_OPERATOR_URL) \
-		go test --count=1 -v github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/test/e2e
+		go test --count=1 -v github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/teste2e
 
 .PHONY: gcloud_k9s
 gcloud_k9s: ## Connect to the gcloud test cluster using the k9s tool

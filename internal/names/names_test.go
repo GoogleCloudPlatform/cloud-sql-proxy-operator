@@ -17,7 +17,7 @@ package names_test
 import (
 	"testing"
 
-	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/api/v1alpha1"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/names"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -90,20 +90,20 @@ func TestVolumeName(t *testing.T) {
 	}
 }
 
-func authProxyWorkload(name, namespace string) *cloudsqlapi.AuthProxyWorkload {
+func authProxyWorkload(name, namespace string) *v1alpha1.AuthProxyWorkload {
 	// Create a CloudSqlInstance that matches the deployment
-	return &cloudsqlapi.AuthProxyWorkload{
-		TypeMeta:   metav1.TypeMeta{Kind: "AuthProxyWorkload", APIVersion: cloudsqlapi.GroupVersion.String()},
+	return &v1alpha1.AuthProxyWorkload{
+		TypeMeta:   metav1.TypeMeta{Kind: "AuthProxyWorkload", APIVersion: v1alpha1.GroupVersion.String()},
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
-		Spec: cloudsqlapi.AuthProxyWorkloadSpec{
-			Workload: cloudsqlapi.WorkloadSelectorSpec{
+		Spec: v1alpha1.AuthProxyWorkloadSpec{
+			Workload: v1alpha1.WorkloadSelectorSpec{
 				Selector: &metav1.LabelSelector{
 					MatchLabels:      map[string]string{"app": "hello"},
 					MatchExpressions: nil,
 				},
 			},
-			Instances: []cloudsqlapi.InstanceSpec{{ConnectionString: "proj:inst:db"}},
+			Instances: []v1alpha1.InstanceSpec{{ConnectionString: "proj:inst:db"}},
 		},
-		Status: cloudsqlapi.AuthProxyWorkloadStatus{},
+		Status: v1alpha1.AuthProxyWorkloadStatus{},
 	}
 }

@@ -240,12 +240,12 @@ type TelemetrySpec struct {
 	//+kubebuilder:validation:Optional
 	HTTPPort *int32 `json:"httpPort,omitempty"`
 
-	// DisableTraces disables Cloud Trace integration (used with telemetryProject)
+	// DisableTraces disables Cloud Trace testintegration (used with telemetryProject)
 	// This sets the proxy container's CLI argument `--disable-traces`
 	//+kubebuilder:validation:Optional
 	DisableTraces *bool `json:"disableTraces,omitempty"`
 
-	// DisableMetrics disables Cloud Monitoring integration (used with telemetryProject)
+	// DisableMetrics disables Cloud Monitoring testintegration (used with telemetryProject)
 	// This sets the proxy container's CLI argument `--disable-metrics`
 	//+kubebuilder:validation:Optional
 	DisableMetrics *bool `json:"disableMetrics,omitempty"`

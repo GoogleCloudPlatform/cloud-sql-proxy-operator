@@ -20,8 +20,8 @@ import (
 	"sync"
 	"time"
 
-	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/api/v1alpha1"
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal"
+	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workloads"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -310,12 +310,12 @@ func (r *AuthProxyWorkloadReconciler) readyToStartWorkloadReconcile(resource *cl
 // in this AuthProxyWorkload resource.
 func (r *AuthProxyWorkloadReconciler) startWorkloadReconcile(
 	ctx context.Context, l logr.Logger, resource *cloudsqlapi.AuthProxyWorkload,
-	orig *cloudsqlapi.AuthProxyWorkload, workloads []internal.Workload) (ctrl.Result, error) {
+	orig *cloudsqlapi.AuthProxyWorkload, wls []workloads.Workload) (ctrl.Result, error) {
 
-	// Submit the workloads that need to be reconciled to the workload webhook
-	err := r.patchAnnotations(ctx, workloads, l)
+	// Submit the wls that need to be reconciled to the workload webhook
+	err := r.patchAnnotations(ctx, wls, l)
 	if err != nil {
-		l.Error(err, "Unable to update workloads with needs update annotations",
+		l.Error(err, "Unable to update wls with needs update annotations",
 			"AuthProxyWorkload", resource.GetNamespace()+"/"+resource.GetName())
 		return requeueNow, err
 	}
@@ -326,11 +326,11 @@ func (r *AuthProxyWorkloadReconciler) startWorkloadReconcile(
 		Status:             metav1.ConditionFalse,
 		ObservedGeneration: resource.GetGeneration(),
 		Reason:             cloudsqlapi.ReasonStartedReconcile,
-		Message:            "New generation found, needs to reconcile workloads",
+		Message:            "New generation found, needs to reconcile wls",
 	})
 	err = r.patchAuthProxyWorkloadStatus(ctx, resource, orig)
 	if err != nil {
-		l.Error(err, "Unable to patch status before beginning workloads",
+		l.Error(err, "Unable to patch status before beginning wls",
 			"AuthProxyWorkload", resource.GetNamespace()+"/"+resource.GetName())
 		return requeueNow, err
 	}
@@ -344,12 +344,12 @@ func (r *AuthProxyWorkloadReconciler) startWorkloadReconcile(
 // to start the workload reconcile again.
 func (r *AuthProxyWorkloadReconciler) checkReconcileComplete(
 	ctx context.Context, l logr.Logger, resource *cloudsqlapi.AuthProxyWorkload,
-	orig *cloudsqlapi.AuthProxyWorkload, workloads []internal.Workload) (ctrl.Result, error) {
+	orig *cloudsqlapi.AuthProxyWorkload, wls []workloads.Workload) (ctrl.Result, error) {
 
 	var foundUnreconciled bool
-	for i := 0; i < len(workloads); i++ {
-		wl := workloads[i]
-		s := internal.WorkloadStatus(resource, wl)
+	for i := 0; i < len(wls); i++ {
+		wl := wls[i]
+		s := workloads.WorkloadStatus(resource, wl)
 		if s.LastUpdatedGeneration != s.LastRequstGeneration ||
 			s.LastUpdatedGeneration != s.InstanceGeneration {
 			foundUnreconciled = true
@@ -358,11 +358,11 @@ func (r *AuthProxyWorkloadReconciler) checkReconcileComplete(
 
 	if foundUnreconciled {
 		// State 3.2
-		return r.startWorkloadReconcile(ctx, l, resource, orig, workloads)
+		return r.startWorkloadReconcile(ctx, l, resource, orig, wls)
 	}
 
 	// state 3.1
-	message := fmt.Sprintf("Reconciled %d matching workloads complete", len(workloads))
+	message := fmt.Sprintf("Reconciled %d matching workloads complete", len(wls))
 
 	// Workload updates are complete, update the status
 	resource.Status.Conditions = replaceCondition(resource.Status.Conditions, &metav1.Condition{
@@ -423,7 +423,7 @@ func (r *AuthProxyWorkloadReconciler) patchAuthProxyWorkloadStatus(
 // Once the workload is saved, the workload admission mutate webhook will
 // apply the correct containers to this instance.
 func (r *AuthProxyWorkloadReconciler) markWorkloadsForUpdate(ctx context.Context, l logr.Logger, resource *cloudsqlapi.AuthProxyWorkload) (
-	matching, outOfDate []internal.Workload,
+	matching, outOfDate []workloads.Workload,
 	retErr error,
 ) {
 
@@ -435,7 +435,7 @@ func (r *AuthProxyWorkloadReconciler) markWorkloadsForUpdate(ctx context.Context
 	// all matching workloads get a new annotation that will be removed
 	// when the reconcile loop for outOfDate is completed.
 	for _, wl := range matching {
-		needsUpdate, status := internal.MarkWorkloadNeedsUpdate(resource, wl)
+		needsUpdate, status := workloads.MarkWorkloadNeedsUpdate(resource, wl)
 
 		if needsUpdate {
 			l.Info("Needs update workload ", "name", wl.Object().GetName(),
@@ -523,7 +523,7 @@ func replaceCondition(conds []*metav1.Condition, newC *metav1.Condition) []*meta
 }
 
 // patchAnnotations Safely patch the workloads with updated annotations
-func (r *AuthProxyWorkloadReconciler) patchAnnotations(ctx context.Context, wls []internal.Workload, l logr.Logger) error {
+func (r *AuthProxyWorkloadReconciler) patchAnnotations(ctx context.Context, wls []workloads.Workload, l logr.Logger) error {
 	for _, wl := range wls {
 		// Get a reference to the workload's underlying resource object.
 		obj := wl.Object()
@@ -558,7 +558,7 @@ func (r *AuthProxyWorkloadReconciler) patchAnnotations(ctx context.Context, wls 
 
 // newStatus creates a WorkloadStatus from a workload with identifying
 // fields filled in.
-func newStatus(workload internal.Workload) *cloudsqlapi.WorkloadStatus {
+func newStatus(workload workloads.Workload) *cloudsqlapi.WorkloadStatus {
 	return &cloudsqlapi.WorkloadStatus{
 		Kind:      workload.Object().GetObjectKind().GroupVersionKind().Kind,
 		Version:   workload.Object().GetObjectKind().GroupVersionKind().GroupVersion().Identifier(),
@@ -569,7 +569,7 @@ func newStatus(workload internal.Workload) *cloudsqlapi.WorkloadStatus {
 
 // listWorkloads produces a list of Workload's that match the WorkloadSelectorSpec
 // in the specified namespace.
-func (r *AuthProxyWorkloadReconciler) listWorkloads(ctx context.Context, workloadSelector cloudsqlapi.WorkloadSelectorSpec, ns string) ([]internal.Workload, error) {
+func (r *AuthProxyWorkloadReconciler) listWorkloads(ctx context.Context, workloadSelector cloudsqlapi.WorkloadSelectorSpec, ns string) ([]workloads.Workload, error) {
 	if workloadSelector.Namespace != "" {
 		ns = workloadSelector.Namespace
 	}
@@ -582,12 +582,12 @@ func (r *AuthProxyWorkloadReconciler) listWorkloads(ctx context.Context, workloa
 }
 
 // loadByName loads a single workload by name.
-func (r *AuthProxyWorkloadReconciler) loadByName(ctx context.Context, workloadSelector cloudsqlapi.WorkloadSelectorSpec, ns string) ([]internal.Workload, error) {
-	var wl internal.Workload
+func (r *AuthProxyWorkloadReconciler) loadByName(ctx context.Context, workloadSelector cloudsqlapi.WorkloadSelectorSpec, ns string) ([]workloads.Workload, error) {
+	var wl workloads.Workload
 
 	key := client.ObjectKey{Namespace: ns, Name: workloadSelector.Name}
 
-	wl, err := internal.WorkloadForKind(workloadSelector.Kind)
+	wl, err := workloads.WorkloadForKind(workloadSelector.Kind)
 	if err != nil {
 		return nil, fmt.Errorf("unable to load by name %s/%s:  %v", key.Namespace, key.Name, err)
 	}
@@ -600,11 +600,11 @@ func (r *AuthProxyWorkloadReconciler) loadByName(ctx context.Context, workloadSe
 		return nil, fmt.Errorf("unable to load resource by name %s/%s:  %v", key.Namespace, key.Name, err)
 	}
 
-	return []internal.Workload{wl}, nil
+	return []workloads.Workload{wl}, nil
 }
 
 // loadByLabelSelector loads workloads matching a label selector
-func (r *AuthProxyWorkloadReconciler) loadByLabelSelector(ctx context.Context, workloadSelector cloudsqlapi.WorkloadSelectorSpec, ns string) ([]internal.Workload, error) {
+func (r *AuthProxyWorkloadReconciler) loadByLabelSelector(ctx context.Context, workloadSelector cloudsqlapi.WorkloadSelectorSpec, ns string) ([]workloads.Workload, error) {
 	l := log.FromContext(ctx)
 
 	sel, err := workloadSelector.LabelsSelector()
@@ -613,7 +613,7 @@ func (r *AuthProxyWorkloadReconciler) loadByLabelSelector(ctx context.Context, w
 		return nil, err
 	}
 	_, gk := schema.ParseKindArg(workloadSelector.Kind)
-	wl, err := internal.WorkloadListForKind(gk.Kind)
+	wl, err := workloads.WorkloadListForKind(gk.Kind)
 	if err != nil {
 		return nil, err
 	}
