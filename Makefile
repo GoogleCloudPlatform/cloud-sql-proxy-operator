@@ -62,7 +62,7 @@ lint:  ## runs code format and validation tools
 	make tf_lint
 
 .PHONY: reset_image
-reset_image: $(KUSTOMIZE)
+reset_image: kustomize
 	cd config/manager && $(KUSTOMIZE) edit set image controller=cloudsql-proxy-operator:latest
 
 
@@ -113,7 +113,7 @@ go_lint: golangci-lint ## Run go lint tools, fail if unchecked errors
 	# See https://betterprogramming.pub/how-to-improve-code-quality-with-an-automatic-check-in-go-d18a5eb85f09
 	$(GOLANGCI_LINT) run --fix --fast ./...
 .PHONY: tf_lint
-tf_lint: $(TERRAFORM) ## Run go lint tools, fail if unchecked errors
+tf_lint: terraform ## Run go lint tools, fail if unchecked errors
 	$(TERRAFORM) -chdir=test/e2e/tf fmt
 
 ##@ General
@@ -323,14 +323,14 @@ gcloud_project: ## Check that the Google Cloud project exists
 	gcloud projects describe $(GCLOUD_PROJECT_ID) 2>/dev/null || \
 		( echo "No Google Cloud Project $(GCLOUD_PROJECT_ID) found"; exit 1 )
 
-gcloud_cluster: gcloud_project  $(TERRAFORM) ## Build infrastructure for e2e tests
+gcloud_cluster: gcloud_project terraform ## Build infrastructure for e2e tests
 	PROJECT_DIR=$(PWD) \
   		GCLOUD_PROJECT_ID=$(GCLOUD_PROJECT_ID) \
   		KUBECONFIG_GCLOUD=$(KUBECONFIG_GCLOUD) \
   		GCLOUD_DOCKER_URL_FILE=$(GCLOUD_DOCKER_URL_FILE) \
   		test/e2e/tf/run.sh apply
 
-gcloud_cluster_cleanup: gcloud_project  $(TERRAFORM) ## Build infrastructure for e2e tests
+gcloud_cluster_cleanup: gcloud_project terraform ## Build infrastructure for e2e tests
 	PROJECT_DIR=$(PWD) \
   		GCLOUD_PROJECT_ID=$(GCLOUD_PROJECT_ID) \
   		KUBECONFIG_GCLOUD=$(KUBECONFIG_GCLOUD) \
@@ -338,24 +338,24 @@ gcloud_cluster_cleanup: gcloud_project  $(TERRAFORM) ## Build infrastructure for
   		test/e2e/tf/run.sh destroy
 
 .PHONY: gcloud_cert_manager_deploy
-gcloud_cert_manager_deploy: $(KUBECTL) ## Deploy the certificate manager
+gcloud_cert_manager_deploy: kubectl ## Deploy the certificate manager
 	$(GCLOUD_KUBECTL) apply -f config/certmanager-deployment/certmanager-deployment.yaml
 	# wait for cert manager to become available before continuing
 	$(GCLOUD_KUBECTL) rollout status deployment cert-manager -n cert-manager --timeout=90s
 
 
 .PHONY: gcloud_install
-gcloud_install: manifests $(KUSTOMIZE) $(KUBECTL) ## Install CRDs into the GKE cluster
+gcloud_install: manifests kustomize kubectl ## Install CRDs into the GKE cluster
 	$(KUSTOMIZE) build config/crd | $(GCLOUD_KUBECTL) apply -f -
 
 .PHONY: gcloud_deploy
-gcloud_deploy: manifests $(KUSTOMIZE) $(KUBECTL) ## Deploy controller to the GKE cluster
+gcloud_deploy: manifests  kustomize kubectl ## Deploy controller to the GKE cluster
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(GCLOUD_OPERATOR_URL)
 	$(KUSTOMIZE) build config/default | USE_GKE_GCLOUD_AUTH_PLUGIN=True  KUBECONFIG=$(KUBECONFIG_GCLOUD) $(KUBECTL) apply -f -
 	$(GCLOUD_KUBECTL) rollout status deployment -n cloud-sql-proxy-operator-system cloud-sql-proxy-operator-controller-manager --timeout=90s
 
 .PHONY: gcloud_undeploy
-gcloud_undeploy: manifests $(KUSTOMIZE) $(KUBECTL) ## Deploy controller to the GKE cluster
+gcloud_undeploy: manifests  kustomize kubectl ## Deploy controller to the GKE cluster
 	$(KUSTOMIZE) build config/default | $(GCLOUD_KUBECTL) delete -f -
 
 ###
