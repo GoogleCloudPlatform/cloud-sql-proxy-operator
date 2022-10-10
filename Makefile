@@ -49,21 +49,25 @@ github_lint: pre_commit ## run the the github workflow lint check locally
 
 .PHONY: pre_commit ## run checks to make sure boilerplate workflows will pass
 pre_commit: git_workdir_clean lint ## Run all the formatting and checks before committing
+	@echo "Pre commit checks beginning..."
 	@git diff --exit-code --stat HEAD || (echo ; echo ; echo "ERROR: Lint tools caused changes to the working dir. "; echo "       Please review the changes before you commit."; echo ; exit 1)
 	@echo "Pre commit checks OK"
 
 .PHONY: lint
-lint: $(KUSTOMIZE) ## runs code format and validation tools
-	cd config/manager && $(KUSTOMIZE) edit set image controller=cloudsql-proxy-operator:latest
-	make build manifests
+lint:  ## runs code format and validation tools
+	make build manifests reset_image
 	make add_copyright_header
 	make go_fmt yaml_fmt
 	make go_lint
 	make tf_lint
 
+reset_image: $(KUSTOMIZE)
+	cd config/manager && $(KUSTOMIZE) edit set image controller=cloudsql-proxy-operator:latest
+
+
 .PHONY: git_workdir_clean
 git_workdir_clean: # Checks if the git working directory is clean. Fails if there are unstaged changes.
-	@git diff --exit-code --stat HEAD|| (echo ; echo; echo "ERROR: git working directory has unstaged changes. "; echo "       Add or stash all changes before you commit."; echo ; exit 1)
+	@git diff --exit-code --stat HEAD || (echo ; echo; echo "ERROR: git working directory has unstaged changes. "; echo "       Add or stash all changes before you commit."; echo ; exit 1)
 
 
 .PHONY: add_pre_commit_hook ## run checks to make sure boilerplate workflows will pass
