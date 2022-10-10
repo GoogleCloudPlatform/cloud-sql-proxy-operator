@@ -61,6 +61,7 @@ lint:  ## runs code format and validation tools
 	make go_lint
 	make tf_lint
 
+.PHONY: reset_image
 reset_image: $(KUSTOMIZE)
 	cd config/manager && $(KUSTOMIZE) edit set image controller=cloudsql-proxy-operator:latest
 
