@@ -18,18 +18,11 @@
 package integration_test
 
 import (
-	"errors"
-	"fmt"
 	"os"
 	"testing"
-	"time"
 
-	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/api/v1alpha1"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/test/helpers"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/test/integration"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/yaml"
 )
 
 func TestMain(m *testing.M) {
@@ -48,160 +41,36 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestCreateResource(t *testing.T) {
-
-	var (
-		namespace   = helpers.NewNamespaceName("create")
-		wantName    = "instance1"
-		resourceKey = types.NamespacedName{Name: wantName, Namespace: namespace}
-		ctx         = integration.TestContext()
-
-		tctx = &helpers.TestCaseParams{
-			T:                t,
-			Client:           integration.Client,
-			Namespace:        namespace,
-			ConnectionString: "region:project:inst",
-			ProxyImageURL:    "proxy-image:latest",
-		}
-	)
-
-	// First, set up the k8s namespace for this test.
-	helpers.CreateOrPatchNamespace(ctx, tctx)
-
-	// Fill in the resource with appropriate details.
-	resource := &cloudsqlapi.AuthProxyWorkload{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: cloudsqlapi.GroupVersion.String(),
-			Kind:       "AuthProxyWorkload",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      wantName,
-			Namespace: namespace,
-		},
-		Spec: cloudsqlapi.AuthProxyWorkloadSpec{
-			Workload: cloudsqlapi.WorkloadSelectorSpec{
-				Kind: "Deployment",
-				Name: "busybox",
-			},
-			Instances: []cloudsqlapi.InstanceSpec{{
-				ConnectionString: tctx.ConnectionString,
-			}},
-		},
-	}
-
-	// Call kubernetes to create the resource.
-	err := integration.Client.Create(ctx, resource)
-	if err != nil {
-		t.Errorf("Error %v", err)
-		return
-	}
-
-	// Wait for kubernetes to finish creating the resource, kubernetes
-	// is eventually-consistent.
-	retrievedResource := &cloudsqlapi.AuthProxyWorkload{}
-	err = helpers.RetryUntilSuccess(t, 5, time.Second*5, func() error {
-		return integration.Client.Get(ctx, resourceKey, retrievedResource)
-	})
-	if err != nil {
-		t.Errorf("unable to find entity after create %v", err)
-		return
-	}
-
-	// Test the contents of the resource that was retrieved from kubernetes.
-	if got := retrievedResource.GetName(); got != wantName {
-		t.Errorf("got %v, want %v resource wantName", got, wantName)
+func testCaseParams(t *testing.T, name string) *helpers.TestCaseParams {
+	return &helpers.TestCaseParams{
+		T:                t,
+		Client:           integration.Client,
+		Namespace:        helpers.NewNamespaceName(name),
+		ConnectionString: "region:project:inst",
+		ProxyImageURL:    "proxy-image:latest",
+		Ctx:              integration.TestContext(),
 	}
 }
 
+func TestCreateResource(t *testing.T) {
+	tctx := testCaseParams(t, "create")
+	helpers.TestCreateResource(tctx)
+
+}
+
 func TestDeleteResource(t *testing.T) {
-	const (
-		name            = "instance1"
-		ns              = "default"
-		expectedConnStr = "proj:inst:db"
-	)
-
-	namespace := helpers.NewNamespaceName("create")
-	ctx := integration.TestContext()
-	tctx := &helpers.TestCaseParams{
-		T:                t,
-		Client:           integration.Client,
-		Namespace:        namespace,
-		ConnectionString: "region:project:inst",
-		ProxyImageURL:    "proxy-image:latest",
-	}
-
-	key := types.NamespacedName{Name: name, Namespace: ns}
-	err := helpers.CreateAuthProxyWorkload(ctx, tctx, key, "app", expectedConnStr)
-	if err != nil {
-		t.Errorf("Unable to create auth proxy workload %v", err)
-		return
-	}
-
-	res, err := helpers.GetAuthProxyWorkload(ctx, tctx, key)
-	if err != nil {
-		t.Errorf("Unable to find entity after create %v", err)
-		return
-	}
-
-	resourceYaml, _ := yaml.Marshal(res)
-	t.Logf("Resource Yaml: %s", string(resourceYaml))
-
-	if connStr := res.Spec.Instances[0].ConnectionString; connStr != expectedConnStr {
-		t.Errorf("was %v, wants %v, spec.cloudSqlInstance", connStr, expectedConnStr)
-	}
-
-	if wlstatus := helpers.GetConditionStatus(res.Status.Conditions, cloudsqlapi.ConditionUpToDate); wlstatus != metav1.ConditionTrue {
-		t.Errorf("was %v, wants %v, status.condition[up-to-date]", wlstatus, metav1.ConditionTrue)
-	}
-
-	// Make sure the finalizer was added before deleting the resource.
-	err = helpers.RetryUntilSuccess(t, 3, 5*time.Second, func() error {
-		err = integration.Client.Get(ctx, key, res)
-		if len(res.Finalizers) == 0 {
-			return errors.New("waiting for finalizer to be set")
-		}
-		return nil
-	})
-
-	err = integration.Client.Delete(ctx, res)
-	if err != nil {
-		t.Error(err)
-	}
-
-	err = helpers.RetryUntilSuccess(t, 3, 5*time.Second, func() error {
-		err = integration.Client.Get(ctx, key, res)
-		// The test passes when this returns an error,
-		// because that means the resource was deleted.
-		if err != nil {
-			return nil
-		}
-		return fmt.Errorf("was nil, wants error when looking up deleted AuthProxyWorkload resource")
-	})
-	if err != nil {
-		t.Error(err)
-	}
+	tctx := testCaseParams(t, "delete")
+	helpers.TestDeleteResource(tctx)
 
 }
 
 func TestModifiesNewDeployment(t *testing.T) {
-	tctx := &helpers.TestCaseParams{
-		T:                t,
-		Client:           integration.Client,
-		Namespace:        helpers.NewNamespaceName("modifiesnewdeployment"),
-		ConnectionString: "region:project:inst",
-		ProxyImageURL:    "proxy-image:latest",
-	}
+	tctx := testCaseParams(t, "modifynew")
 	helpers.TestModifiesNewDeployment(tctx)
 }
 
 func TestModifiesExistingDeployment(t *testing.T) {
-	tctx := &helpers.TestCaseParams{
-		T:                t,
-		Client:           integration.Client,
-		Namespace:        helpers.NewNamespaceName("modifiesexistingdeployment"),
-		ConnectionString: "region:project:inst",
-		ProxyImageURL:    "proxy-image:latest",
-	}
+	tctx := testCaseParams(t, "modifyexisting")
 	testRemove := helpers.TestModifiesExistingDeployment(tctx)
 	testRemove()
 }

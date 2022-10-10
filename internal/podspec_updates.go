@@ -1009,8 +1009,9 @@ func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1
 				fmt.Sprintf("telemetry httpPort %d is already in use", port), p)
 		}
 	} else {
-		for port = DefaultHealthCheckPort; s.isPortInUse(port); port++ {
-			// start with DefaultHealthCheck and increment port until it is set to an unused port
+		port = DefaultHealthCheckPort
+		for s.isPortInUse(port) {
+			port++
 		}
 	}
 
@@ -1051,7 +1052,7 @@ func (s *updateState) oldManagedEnv(name string) *managedEnvVar {
 	return nil
 }
 
-func (s *updateState) applyAuthenticationSpec(proxy *cloudsqlapi.AuthProxyWorkload, container *corev1.Container, args []string) []string {
+func (s *updateState) applyAuthenticationSpec(proxy *cloudsqlapi.AuthProxyWorkload, _ *corev1.Container, args []string) []string {
 	if proxy.Spec.Authentication == nil {
 		return args
 	}
