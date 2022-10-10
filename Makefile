@@ -48,9 +48,8 @@ github_lint: pre_commit ## run the the github workflow lint check locally
 ##@ Local Development Targets
 
 .PHONY: pre_commit ## run checks to make sure boilerplate workflows will pass
-pre_commit: git_workdir_clean  ## Run all the formatting and checks before committing
-	make lint
-	@git diff --exit-code --stat || (echo ; echo ; echo "ERROR: Lint tools caused changes to the working dir. "; echo "       Please review the changes before you commit."; echo ; exit 1)
+pre_commit: git_workdir_clean lint ## Run all the formatting and checks before committing
+	@git diff --exit-code --stat HEAD || (echo ; echo ; echo "ERROR: Lint tools caused changes to the working dir. "; echo "       Please review the changes before you commit."; echo ; exit 1)
 	@echo "Pre commit checks OK"
 
 .PHONY: lint
@@ -64,7 +63,7 @@ lint: $(KUSTOMIZE) ## runs code format and validation tools
 
 .PHONY: git_workdir_clean
 git_workdir_clean: # Checks if the git working directory is clean. Fails if there are unstaged changes.
-	@git diff --exit-code --stat || (echo ; echo; echo "ERROR: git working directory has unstaged changes. "; echo "       Add or stash all changes before you commit."; echo ; exit 1)
+	@git diff --exit-code --stat HEAD|| (echo ; echo; echo "ERROR: git working directory has unstaged changes. "; echo "       Add or stash all changes before you commit."; echo ; exit 1)
 
 
 .PHONY: add_pre_commit_hook ## run checks to make sure boilerplate workflows will pass
