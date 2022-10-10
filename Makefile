@@ -285,19 +285,24 @@ k9s: ## Check that k9s is installed
 
 ##@ Google Cloud End to End Test
 .PHONY: gcloud_test
-gcloud_test: gcloud_test_infra gcloud_test_run gcloud_test_cleanup ## Run end-to-end tests on Google Cloud
+gcloud_test: gcloud_test_infra gcloud_proxy_image_push gcloud_test_run gcloud_test_cleanup ## Run end-to-end tests on Google Cloud
 
 .PHONY: gcloud_test_infra
-gcloud_test_infra: gcloud_project gcloud_cluster gcloud_cert_manager_deploy ## Build test infrastructure for e2e tests
+gcloud_test_infra: gcloud_project gcloud_cluster gcloud_cert_manager_deploy  ## Build test infrastructure for e2e tests
 
 .PHONY: gcloud_test_run
-gcloud_test_run: gcloud_install gcloud_proxy_image_push gcloud_operator_image_push gcloud_deploy gcloud_test_run_gotest ## Build and run the e2e test code
+gcloud_test_run: gcloud_install gcloud_operator_image_push gcloud_deploy gcloud_test_run_gotest ## Build and run the e2e test code
 
 .PHONY: gcloud_test_cleanup
 gcloud_test_cleanup: manifests gcloud_cleanup_test_namespaces gcloud_undeploy ## Remove all operator and testcase configs from the e2e k8s cluster
 
-.PHONY: gcloud_test_cleanup
+.PHONY: gcloud_test_infra_cleanup
 gcloud_test_infra_cleanup: gcloud_project ## Remove all operator and testcase configs from the e2e k8s cluster
+	PROJECT_DIR=$(PWD) \
+  		GCLOUD_PROJECT_ID=$(GCLOUD_PROJECT_ID) \
+  		KUBECONFIG_GCLOUD=$(KUBECONFIG_GCLOUD) \
+  		GCLOUD_DOCKER_URL_FILE=$(GCLOUD_DOCKER_URL_FILE) \
+  		test/e2e/tf/run.sh destroy
 
 
 # The URL to the container image repo provisioned for e2e tests

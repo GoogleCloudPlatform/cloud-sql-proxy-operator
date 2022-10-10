@@ -39,7 +39,13 @@ cp -r $SCRIPT_DIR/* "$DATA_DIR"
 
 "$TERRAFORM" -chdir="$DATA_DIR" init
 
-"$TERRAFORM"  -chdir="$DATA_DIR" apply -parallelism=5 -auto-approve \
+if [[ "${1:-}" == "destroy" ]] ; then
+  DESTROY="-destroy"
+else
+  DESTROY=""
+fi
+
+"$TERRAFORM"  -chdir="$DATA_DIR" apply "$DESTROY" parallelism=5 -auto-approve \
   -var "gcloud_bin=$(which gcloud)" \
   -var "gcloud_docker_url_file=$GCLOUD_DOCKER_URL_FILE" \
   -var "project_id=$GCLOUD_PROJECT_ID" \
