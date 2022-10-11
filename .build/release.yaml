@@ -1,0 +1,57 @@
+# Copyright 2022 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+#
+# Run this from your dev environment:
+#  gcloud builds submit --project=cloud-sql-connectors --config=.build/release.yaml --substitutions=_TEST_BUILD_ID=0000000000000000000000000000000000000000-dirty-$(date "+%s")
+steps:
+- name: gcr.io/cloud-builders/docker
+  args:
+  - run
+  - '--privileged'
+  - 'linuxkit/binfmt:v0.7'
+  id: 'initialize-qemu'
+- name: gcr.io/cloud-builders/docker
+  args:
+  - buildx
+  - create
+  - '--name'
+  - multiarch-builder
+  id: 'create-builder'
+- name: gcr.io/cloud-builders/docker
+  args:
+  - buildx
+  - use
+  - multiarch-builder
+  id: 'select-builder'
+- name: gcr.io/cloud-builders/docker
+  args:
+  - buildx
+  - inspect
+  - '--bootstrap'
+  id: 'show-target-build-platforms'
+- name: 'gcr.io/cloud-builders/docker'
+  entrypoint: bash
+  args:
+  - tools/release.sh
+  - all
+  id: 'build-multi-architecture-container-image'
+options:
+  env:
+  - "TEST_BUILD_ID=$_TEST_BUILD_ID"
+  - "COMMIT_SHA=$COMMIT_SHA"
+  - "TAG_NAME=$TAG_NAME"
+
+substitutions:
+  _TEST_BUILD_ID: ""

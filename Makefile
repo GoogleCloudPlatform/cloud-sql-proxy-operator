@@ -158,8 +158,9 @@ test: manifests generate fmt vet envtest ## Run tests (but not internal/teste2e)
 ##@ Build
 # Load active version from version.txt
 VERSION=$(shell cat $(PWD)/version.txt | tr -d '\n')
-BUILD_ID:=$(shell $(PWD)/tools/build-identifier.sh | tr -d '\n')
-GO_BUILD_FLAGS = -ldflags "-X main.version=$(VERSION) -X main.buildID=$(BUILD_ID)"
+COMPUTED_BUILD_ID := $(shell $(PWD)/tools/build-identifier.sh | tr -d '\n')
+OPERATOR_BUILD_ID ?= $(COMPUTED_BUILD_ID)
+GO_BUILD_FLAGS = -ldflags "-X main.version=$(VERSION) -X main.buildID=$(OPERATOR_BUILD_ID)"
 
 .PHONY: build
 build: generate fmt vet manifests ## Build manager binary.
@@ -204,7 +205,9 @@ undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/confi
 	$(KUSTOMIZE) build config/default | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
 
 
-config/certmanager-deployment/certmanager-deployment.yaml: ## Download the cert-manager deployment
+CERT_MANAGER_YAML=config/certmanager-deployment/certmanager-deployment.yaml
+.PHONY: $(CERT_MANAGER_YAML)
+$(CERT_MANAGER_YAML): ## Download the cert-manager deployment
 	test -s $@ || curl -L -o $@ \
   		https://github.com/cert-manager/cert-manager/releases/download/v1.9.1/cert-manager.yaml
 
@@ -339,7 +342,7 @@ gcloud_cluster_cleanup: gcloud_project terraform ## Build infrastructure for e2e
 
 .PHONY: gcloud_cert_manager_deploy
 gcloud_cert_manager_deploy: kubectl ## Deploy the certificate manager
-	$(GCLOUD_KUBECTL) apply -f config/certmanager-deployment/certmanager-deployment.yaml
+	$(GCLOUD_KUBECTL) apply -f $(CERT_MANAGER_YAML)
 	# wait for cert manager to become available before continuing
 	$(GCLOUD_KUBECTL) rollout status deployment cert-manager -n cert-manager --timeout=90s
 
@@ -415,3 +418,59 @@ gcloud_test_run_gotest: ## Run the golang tests
 .PHONY: gcloud_k9s
 gcloud_k9s: ## Connect to the gcloud test cluster using the k9s tool
 	USE_GKE_GCLOUD_AUTH_PLUGIN=True KUBECONFIG=$(KUBECONFIG_GCLOUD) k9s
+
+
+
+####
+##@ Release Process
+# Release image to registry
+
+RELEASE_REPO_URL=gcr.io/cloud-sql-connectors/cloud-sql-operator-dev
+RELEASE_IMAGE_URL_PATH=$(PWD)/bin/release-image-url.txt
+RELEASE_IMAGE_NAME=cloud-sql-proxy-operator
+
+RELEASE_IMAGE_BUILD_ID_URL=$(RELEASE_REPO_URL)/$(RELEASE_IMAGE_NAME):$(OPERATOR_BUILD_ID)
+RELEASE_IMAGE_VERSION_URL=$(RELEASE_REPO_URL)/$(RELEASE_IMAGE_NAME):$(VERSION)
+RELEASE_IMAGE_VERSION_URL_US=us.gcr.io/cloud-sql-connectors/cloud-sql-operator-dev/$(RELEASE_IMAGE_NAME):$(VERSION)
+RELEASE_IMAGE_VERSION_URL_EU=eu.gcr.io/cloud-sql-connectors/cloud-sql-operator-dev/$(RELEASE_IMAGE_NAME):$(VERSION)
+RELEASE_IMAGE_VERSION_URL_ASIA=asia.gcr.io/cloud-sql-connectors/cloud-sql-operator-dev/$(RELEASE_IMAGE_NAME):$(VERSION)
+
+.PHONY: release_image_push
+release_image_push: ## Build and push a operator image to the release registry
+	PROJECT_DIR=$(PWD) \
+	IMAGE_NAME=$(RELEASE_IMAGE_NAME) \
+	IMAGE_VERSION=$(OPERATOR_BUILD_ID) \
+	REPO_URL=${RELEASE_REPO_URL} \
+	IMAGE_URL_OUT=${RELEASE_IMAGE_URL_PATH} \
+	PLATFORMS=linux/arm64/v8,linux/amd64 \
+	DOCKER_FILE_NAME=Dockerfile $(PWD)/tools/docker-build.sh
+
+	gcloud container images add-tag --quiet "$(RELEASE_IMAGE_BUILD_ID_URL)" "$(RELEASE_IMAGE_VERSION_URL)"
+	gcloud container images add-tag --quiet "$(RELEASE_IMAGE_BUILD_ID_URL)" "$(RELEASE_IMAGE_VERSION_URL_US)"
+	gcloud container images add-tag --quiet "$(RELEASE_IMAGE_BUILD_ID_URL)" "$(RELEASE_IMAGE_VERSION_URL_EU)"
+	gcloud container images add-tag --quiet "$(RELEASE_IMAGE_BUILD_ID_URL)" "$(RELEASE_IMAGE_VERSION_URL_ASIA)"
+
+.PHONY: release_k8s_publish
+release_k8s_publish: bin/cloud-sql-proxy-operator.yaml bin/install.sh ## Publish install scripts to the release storage bucket
+	gcloud storage cp bin/install.sh \
+		gs://cloud-sql-connectors/cloud-sql-proxy-operator/$(VERSION)/install.sh
+	gcloud storage cp bin/cloud-sql-proxy-operator.yaml \
+		gs://cloud-sql-connectors/cloud-sql-proxy-operator/$(VERSION)/cloud-sql-proxy-operator.yaml
+
+.PHONY: bin/cloud-sql-proxy-operator.yaml
+bin/cloud-sql-proxy-operator.yaml: kustomize
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(RELEASE_IMAGE_VERSION_URL)
+	mkdir -p bin/k8s/
+	$(KUSTOMIZE) build config/crd > $@
+	echo "" >> $@
+	echo "---" >> $@
+	echo "" >> $@
+	$(KUSTOMIZE) build config/default >> $@
+
+.PHONY: bin/install.sh
+bin/install.sh:
+	sed 's/__VERSION__/$(VERSION)/g' < tools/install.sh > bin/install.sh.tmp
+	sed 's|__IMAGE_URL__|$(RELEASE_IMAGE_VERSION_URL)|g' < bin/install.sh.tmp > bin/install.sh
+
+.PHONY: release
+release: build release_image_push release_k8s_publish ## Release the artifacts
