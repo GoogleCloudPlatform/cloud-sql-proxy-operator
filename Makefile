@@ -100,11 +100,9 @@ add_copyright_header: $(GO_FILES_MISSING_HEADER) $(YAML_FILES_MISSING_HEADER) ##
 
 .PHONY: $(YAML_FILES_MISSING_HEADER)
 $(YAML_FILES_MISSING_HEADER):
-	cat hack/boilerplate.yaml.txt $@ > $@.tmp && mv $@.tmp $@
 
 .PHONY: $(GO_FILES_MISSING_HEADER)
 $(GO_FILES_MISSING_HEADER):
-	cat hack/boilerplate.go.txt $@ > $@.tmp && mv $@.tmp $@
 	go fmt $@
 
 .PHONY: go_lint
