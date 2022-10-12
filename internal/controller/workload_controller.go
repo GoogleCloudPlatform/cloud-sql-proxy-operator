@@ -20,7 +20,7 @@ import (
 	"net/http"
 
 	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workloads"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
 	"k8s.io/apimachinery/pkg/util/json"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -79,7 +79,7 @@ func (a *WorkloadAdmissionWebhook) Handle(ctx context.Context, req admission.Req
 	}
 
 	l.Info("Workload before modification", "len(containers)", len(wl.PodSpec().Containers))
-	updated, matchingInstances, wlConfigErr := workloads.ReconcileWorkload(instList, wl)
+	updated, matchingInstances, wlConfigErr := workload.ReconcileWorkload(instList, wl)
 	if wlConfigErr != nil {
 		l.Error(wlConfigErr, "Unable to reconcile workload result in webhook: "+wlConfigErr.Error(),
 			"kind", req.Kind.Kind, "ns", req.Namespace, "name", req.Name)
@@ -121,9 +121,8 @@ func (a *WorkloadAdmissionWebhook) Handle(ctx context.Context, req admission.Req
 }
 
 // makeWorkload creates a Workload from a request.
-func (a *WorkloadAdmissionWebhook) makeWorkload(
-	req admission.Request) (workloads.Workload, error) {
-	wl, err := workloads.WorkloadForKind(req.Kind.Kind)
+func (a *WorkloadAdmissionWebhook) makeWorkload(req admission.Request) (workload.Workload, error) {
+	wl, err := workload.WorkloadForKind(req.Kind.Kind)
 	if err != nil {
 		return nil, err
 	}

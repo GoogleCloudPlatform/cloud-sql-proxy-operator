@@ -21,7 +21,7 @@ import (
 
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workloads"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -214,9 +214,9 @@ func TestReconcileState31(t *testing.T) {
 
 	// mimic a pod that was updated by the webhook
 	resultName := v1alpha1.AnnotationPrefix + "/" +
-		workloads.SafePrefixedName("app-", p.Namespace+"-"+p.Name)
+		workload.SafePrefixedName("app-", p.Namespace+"-"+p.Name)
 	reqName := v1alpha1.AnnotationPrefix + "/" +
-		workloads.SafePrefixedName("req-", p.Namespace+"-"+p.Name)
+		workload.SafePrefixedName("req-", p.Namespace+"-"+p.Name)
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "thing",
@@ -225,7 +225,7 @@ func TestReconcileState31(t *testing.T) {
 			Annotations: map[string]string{resultName: "1", reqName: "1"},
 		},
 	}
-	wantWls := workloads.WorkloadUpdateStatus{LastUpdatedGeneration: "1", LastRequstGeneration: "1"}
+	wantWls := workload.WorkloadUpdateStatus{LastUpdatedGeneration: "1", LastRequstGeneration: "1"}
 	assertReconcileResult(t, p, []client.Object{p, pod}, wantRequeue, wantStatus, wantReason)
 	assertWorkloadUpdateStatus(t, p, pod, wantWls)
 }
@@ -257,14 +257,14 @@ func TestReconcileState32(t *testing.T) {
 			Labels:    map[string]string{"app": "things"},
 		},
 	}
-	wantWls := workloads.WorkloadUpdateStatus{LastUpdatedGeneration: "", LastRequstGeneration: "1"}
+	wantWls := workload.WorkloadUpdateStatus{LastUpdatedGeneration: "", LastRequstGeneration: "1"}
 
 	assertReconcileResult(t, p, []client.Object{p, pod}, true, metav1.ConditionFalse, v1alpha1.ReasonStartedReconcile)
 	assertWorkloadUpdateStatus(t, p, pod, wantWls)
 }
 
-func assertWorkloadUpdateStatus(t *testing.T, p *v1alpha1.AuthProxyWorkload, pod *corev1.Pod, wantWls workloads.WorkloadUpdateStatus) {
-	wls := workloads.WorkloadStatus(p, &workloads.PodWorkload{Pod: pod})
+func assertWorkloadUpdateStatus(t *testing.T, p *v1alpha1.AuthProxyWorkload, pod *corev1.Pod, wantWls workload.WorkloadUpdateStatus) {
+	wls := workload.WorkloadStatus(p, &workload.PodWorkload{Pod: pod})
 	if wls.LastRequstGeneration != wantWls.LastRequstGeneration {
 		t.Errorf("got %v, want %v, workload status LastRequstGeneration", wls.LastRequstGeneration, wantWls.LastRequstGeneration)
 	}

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package workloads_test
+package workload_test
 
 import (
 	"fmt"
@@ -21,15 +21,15 @@ import (
 	"testing"
 
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workloads"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 )
 
-func deploymentWorkload() *workloads.DeploymentWorkload {
-	return &workloads.DeploymentWorkload{Deployment: &appsv1.Deployment{
+func deploymentWorkload() *workload.DeploymentWorkload {
+	return &workload.DeploymentWorkload{Deployment: &appsv1.Deployment{
 		TypeMeta:   metav1.TypeMeta{Kind: "Deployment", APIVersion: "apps/v1"},
 		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "busybox", Labels: map[string]string{"app": "hello"}},
 		Spec: appsv1.DeploymentSpec{
@@ -80,16 +80,16 @@ func authProxyWorkloadFromSpec(name string, spec v1alpha1.AuthProxyWorkloadSpec)
 // marked with an annotation indicating that it needs to be updated. This function adds
 // the appropriate "needs update" annotation to the workload wl for each of the
 // AuthProxyWorkload in proxies.
-func markWorkloadNeedsUpdate(wl *workloads.DeploymentWorkload, proxies ...*v1alpha1.AuthProxyWorkload) []*v1alpha1.AuthProxyWorkload {
+func markWorkloadNeedsUpdate(wl *workload.DeploymentWorkload, proxies ...*v1alpha1.AuthProxyWorkload) []*v1alpha1.AuthProxyWorkload {
 	for i := 0; i < len(proxies); i++ {
-		workloads.MarkWorkloadNeedsUpdate(proxies[i], wl)
+		workload.MarkWorkloadNeedsUpdate(proxies[i], wl)
 	}
 	return proxies
 }
 
-func findContainer(workload *workloads.DeploymentWorkload, name string) (corev1.Container, error) {
-	for i := range workload.Deployment.Spec.Template.Spec.Containers {
-		c := &workload.Deployment.Spec.Template.Spec.Containers[i]
+func findContainer(wl *workload.DeploymentWorkload, name string) (corev1.Container, error) {
+	for i := range wl.Deployment.Spec.Template.Spec.Containers {
+		c := &wl.Deployment.Spec.Template.Spec.Containers[i]
 		if c.Name == name {
 			return *c, nil
 		}
@@ -97,8 +97,8 @@ func findContainer(workload *workloads.DeploymentWorkload, name string) (corev1.
 	return corev1.Container{}, fmt.Errorf("no container found with name %s", name)
 }
 
-func findEnvVar(workload *workloads.DeploymentWorkload, containerName, envName string) (corev1.EnvVar, error) {
-	container, err := findContainer(workload, containerName)
+func findEnvVar(wl *workload.DeploymentWorkload, containerName, envName string) (corev1.EnvVar, error) {
+	container, err := findContainer(wl, containerName)
 	if err != nil {
 		return corev1.EnvVar{}, err
 	}
@@ -110,8 +110,8 @@ func findEnvVar(workload *workloads.DeploymentWorkload, containerName, envName s
 	return corev1.EnvVar{}, fmt.Errorf("no envvar named %v on container %v", envName, containerName)
 }
 
-func hasArg(workload *workloads.DeploymentWorkload, containerName, argValue string) (bool, error) {
-	container, err := findContainer(workload, containerName)
+func hasArg(wl *workload.DeploymentWorkload, containerName, argValue string) (bool, error) {
+	container, err := findContainer(wl, containerName)
 	if err != nil {
 		return false, err
 	}
@@ -128,7 +128,7 @@ func hasArg(workload *workloads.DeploymentWorkload, containerName, argValue stri
 	return false, nil
 }
 
-func logPodSpec(t *testing.T, wl *workloads.DeploymentWorkload) {
+func logPodSpec(t *testing.T, wl *workload.DeploymentWorkload) {
 	podSpecYaml, err := yaml.Marshal(wl.Deployment.Spec.Template.Spec)
 	if err != nil {
 		t.Errorf("unexpected error while marshaling PodSpec to yaml, %v", err)
@@ -163,7 +163,7 @@ func TestUpdateWorkload(t *testing.T) {
 	proxies := markWorkloadNeedsUpdate(wl, proxy)
 
 	// Update the container with new markWorkloadNeedsUpdate
-	_, err = workloads.UpdateWorkloadContainers(wl, proxies)
+	_, err = workload.UpdateWorkloadContainers(wl, proxies)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,10 +193,10 @@ func TestUpdateWorkload(t *testing.T) {
 	// update the containers again with the new instance name
 
 	// Indicate that the workload needs an update
-	workloads.MarkWorkloadNeedsUpdate(proxies[0], wl)
+	workload.MarkWorkloadNeedsUpdate(proxies[0], wl)
 
 	// Perform the update
-	_, err = workloads.UpdateWorkloadContainers(wl, proxies)
+	_, err = workload.UpdateWorkloadContainers(wl, proxies)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,7 +219,7 @@ func TestUpdateWorkload(t *testing.T) {
 	}
 
 	// now try with an empty workload list, which should remove the container
-	_, err = workloads.UpdateWorkloadContainers(wl, []*v1alpha1.AuthProxyWorkload{})
+	_, err = workload.UpdateWorkloadContainers(wl, []*v1alpha1.AuthProxyWorkload{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -265,10 +265,10 @@ func TestUpdateWorkloadFixedPort(t *testing.T) {
 	}
 
 	// Indicate that the workload needs an update
-	workloads.MarkWorkloadNeedsUpdate(csqls[0], wl)
+	workload.MarkWorkloadNeedsUpdate(csqls[0], wl)
 
 	// update the containers
-	_, err := workloads.UpdateWorkloadContainers(wl, csqls)
+	_, err := workload.UpdateWorkloadContainers(wl, csqls)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -331,10 +331,10 @@ func TestWorkloadNoPortSet(t *testing.T) {
 	}
 
 	// Indicate that the workload needs an update
-	workloads.MarkWorkloadNeedsUpdate(csqls[0], wl)
+	workload.MarkWorkloadNeedsUpdate(csqls[0], wl)
 
 	// update the containers
-	_, err := workloads.UpdateWorkloadContainers(wl, csqls)
+	_, err := workload.UpdateWorkloadContainers(wl, csqls)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -391,10 +391,10 @@ func TestWorkloadUnixVolume(t *testing.T) {
 	}
 
 	// Indicate that the workload needs an update
-	workloads.MarkWorkloadNeedsUpdate(csqls[0], wl)
+	workload.MarkWorkloadNeedsUpdate(csqls[0], wl)
 
 	// update the containers
-	_, err := workloads.UpdateWorkloadContainers(wl, csqls)
+	_, err := workload.UpdateWorkloadContainers(wl, csqls)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -463,10 +463,10 @@ func TestContainerImageChanged(t *testing.T) {
 	csqls[0].Spec.AuthProxyContainer = &v1alpha1.AuthProxyContainerSpec{Image: wantImage}
 
 	// Indicate that the workload needs an update
-	workloads.MarkWorkloadNeedsUpdate(csqls[0], wl)
+	workload.MarkWorkloadNeedsUpdate(csqls[0], wl)
 
 	// update the containers
-	_, err := workloads.UpdateWorkloadContainers(wl, csqls)
+	_, err := workload.UpdateWorkloadContainers(wl, csqls)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -505,10 +505,10 @@ func TestContainerReplaced(t *testing.T) {
 	csqls[0].Spec.AuthProxyContainer = &v1alpha1.AuthProxyContainerSpec{Container: wantContainer}
 
 	// Indicate that the workload needs an update
-	workloads.MarkWorkloadNeedsUpdate(csqls[0], wl)
+	workload.MarkWorkloadNeedsUpdate(csqls[0], wl)
 
 	// update the containers
-	_, err := workloads.UpdateWorkloadContainers(wl, csqls)
+	_, err := workload.UpdateWorkloadContainers(wl, csqls)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -564,7 +564,7 @@ func TestProxyCLIArgs(t *testing.T) {
 			wantProxyArgContains: []string{
 				"--structured-logs",
 				"--health-check",
-				fmt.Sprintf("--http-port=%d", workloads.DefaultHealthCheckPort),
+				fmt.Sprintf("--http-port=%d", workload.DefaultHealthCheckPort),
 			},
 		},
 		{
@@ -604,8 +604,8 @@ func TestProxyCLIArgs(t *testing.T) {
 					}},
 			},
 			wantProxyArgContains: []string{
-				fmt.Sprintf("hello:world:one?port=%d", workloads.DefaultFirstPort),
-				fmt.Sprintf("hello:world:two?port=%d", workloads.DefaultFirstPort+1)},
+				fmt.Sprintf("hello:world:one?port=%d", workload.DefaultFirstPort),
+				fmt.Sprintf("hello:world:two?port=%d", workload.DefaultFirstPort+1)},
 		},
 		{
 			desc: "env name conflict causes error",
@@ -620,8 +620,8 @@ func TestProxyCLIArgs(t *testing.T) {
 					}},
 			},
 			wantProxyArgContains: []string{
-				fmt.Sprintf("hello:world:one?port=%d", workloads.DefaultFirstPort),
-				fmt.Sprintf("hello:world:two?port=%d", workloads.DefaultFirstPort+1)},
+				fmt.Sprintf("hello:world:one?port=%d", workload.DefaultFirstPort),
+				fmt.Sprintf("hello:world:two?port=%d", workload.DefaultFirstPort+1)},
 			wantErrorCodes: []string{v1alpha1.ErrorCodeEnvConflict},
 		},
 		{
@@ -639,8 +639,8 @@ func TestProxyCLIArgs(t *testing.T) {
 					}},
 			},
 			wantProxyArgContains: []string{
-				fmt.Sprintf("hello:world:one?auto-iam-authn=true&port=%d", workloads.DefaultFirstPort),
-				fmt.Sprintf("hello:world:two?auto-iam-authn=false&port=%d", workloads.DefaultFirstPort+1)},
+				fmt.Sprintf("hello:world:one?auto-iam-authn=true&port=%d", workload.DefaultFirstPort),
+				fmt.Sprintf("hello:world:two?auto-iam-authn=false&port=%d", workload.DefaultFirstPort+1)},
 		},
 		{
 			desc: "private-ip set",
@@ -657,8 +657,8 @@ func TestProxyCLIArgs(t *testing.T) {
 					}},
 			},
 			wantProxyArgContains: []string{
-				fmt.Sprintf("hello:world:one?port=%d&private-ip=true", workloads.DefaultFirstPort),
-				fmt.Sprintf("hello:world:two?port=%d&private-ip=false", workloads.DefaultFirstPort+1)},
+				fmt.Sprintf("hello:world:one?port=%d&private-ip=true", workload.DefaultFirstPort),
+				fmt.Sprintf("hello:world:two?port=%d&private-ip=false", workload.DefaultFirstPort+1)},
 		},
 		{
 			desc: "telemetry flags",
@@ -684,7 +684,7 @@ func TestProxyCLIArgs(t *testing.T) {
 				}},
 			},
 			wantProxyArgContains: []string{
-				fmt.Sprintf("hello:world:one?port=%d", workloads.DefaultFirstPort),
+				fmt.Sprintf("hello:world:one?port=%d", workload.DefaultFirstPort),
 				"--sqladmin-api-endpoint=https://example.com",
 				"--telemetry-sample-rate=200",
 				"--prometheus-namespace=hello",
@@ -739,7 +739,7 @@ func TestProxyCLIArgs(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 
 			// Create a deployment
-			wl := &workloads.DeploymentWorkload{Deployment: &appsv1.Deployment{
+			wl := &workload.DeploymentWorkload{Deployment: &appsv1.Deployment{
 				TypeMeta:   metav1.TypeMeta{Kind: "Deployment", APIVersion: "apps/v1"},
 				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "busybox", Labels: map[string]string{"app": "hello"}},
 				Spec: appsv1.DeploymentSpec{
@@ -756,10 +756,10 @@ func TestProxyCLIArgs(t *testing.T) {
 			csqls := []*v1alpha1.AuthProxyWorkload{authProxyWorkloadFromSpec("instance1", tc.proxySpec)}
 
 			// Indicate that the workload needs an update
-			workloads.MarkWorkloadNeedsUpdate(csqls[0], wl)
+			workload.MarkWorkloadNeedsUpdate(csqls[0], wl)
 
 			// update the containers
-			_, updateErr := workloads.UpdateWorkloadContainers(wl, csqls)
+			_, updateErr := workload.UpdateWorkloadContainers(wl, csqls)
 
 			if len(tc.wantErrorCodes) > 0 {
 				assertErrorCodeContains(t, updateErr, tc.wantErrorCodes)
@@ -838,18 +838,18 @@ func TestProperCleanupOfEnvAndVolumes(t *testing.T) {
 	}}
 
 	// Indicate that the workload needs an update
-	workloads.MarkWorkloadNeedsUpdate(csqls[0], wl)
+	workload.MarkWorkloadNeedsUpdate(csqls[0], wl)
 
 	// update the containers
-	_, err := workloads.UpdateWorkloadContainers(wl, csqls)
+	_, err := workload.UpdateWorkloadContainers(wl, csqls)
 	if err != nil {
 		t.Fatal(err)
 		return
 	}
 	// do it again to make sure its idempotent
 	csqls[0].SetGeneration(csqls[0].GetGeneration() + 1)
-	workloads.MarkWorkloadNeedsUpdate(csqls[0], wl)
-	_, err = workloads.UpdateWorkloadContainers(wl, csqls)
+	workload.MarkWorkloadNeedsUpdate(csqls[0], wl)
+	_, err = workload.UpdateWorkloadContainers(wl, csqls)
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -900,7 +900,7 @@ func TestProperCleanupOfEnvAndVolumes(t *testing.T) {
 	}
 
 	// Update again with an empty list
-	_, err = workloads.UpdateWorkloadContainers(wl, []*v1alpha1.AuthProxyWorkload{})
+	_, err = workload.UpdateWorkloadContainers(wl, []*v1alpha1.AuthProxyWorkload{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -942,7 +942,7 @@ func assertErrorCodeContains(t *testing.T, gotErr error, wantErrors []string) {
 		}
 		return
 	}
-	gotError, ok := gotErr.(*workloads.ConfigError)
+	gotError, ok := gotErr.(*workload.ConfigError)
 	if !ok {
 		t.Errorf("got an error %v, wants error of type *internal.ConfigError", gotErr)
 		return
