@@ -15,4 +15,7 @@
 // Package workloads holds logic for manipulating kubernetes workload
 // data structs. Code in this package assumes that it is single-threaded, running
 // on data structures only accessible to the current thread.
+//
+// In addition, workloads contains functions that help format safe names for
+// // kubernetes resources, following the rfc1035/rfc1123 label (DNS_LABEL) format.
 package workloads

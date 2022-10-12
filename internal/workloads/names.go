@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package names contains functions that help format safe names for
-// kubernetes resources, following the rfc1035/rfc1123 label (DNS_LABEL) format.
 package workloads
 
 import (
