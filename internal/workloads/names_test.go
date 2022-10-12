@@ -15,8 +15,9 @@
 package workloads_test
 
 import (
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workloads"
 	"testing"
+
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workloads"
 
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
 )
