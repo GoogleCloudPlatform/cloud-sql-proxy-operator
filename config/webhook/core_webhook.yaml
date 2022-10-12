@@ -17,7 +17,7 @@
 # Modify files:
 # - config/webhook/kustomization.yaml – Add a reference to this file
 # - main.go – Add the line `mgr.GetWebhookServer().Register("/mutate-v1-pod" //...`
-# - controllers/pod_webhook_controller.go – implementation of the core webhook
+# - controller/pod_webhook_controller.go – implementation of the core webhook
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
@@ -30,7 +30,7 @@ webhooks:
       service:
         name: webhook-service
         namespace: system
-        path: /mutate-workloads # This matches the path in controllers/setup.go for pod controllers
+        path: /mutate-workloads # This matches the path in controller/setup.go for pod controller
     # Note: if you have a webhook for Pod and set failurePolicy to fail, then
     # in the likely case where your webhook has a bug, it will prevent all pods
     # from being created or started, completely stopping the entire cluster from
