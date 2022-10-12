@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package workloads_test
+package workload_test
 
 import (
 	"testing"
 
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workloads"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
 
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
 )
@@ -61,7 +61,7 @@ func TestSafePrefixedName(t *testing.T) {
 	}
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
-			got := workloads.SafePrefixedName("csql-", tc.name)
+			got := workload.SafePrefixedName("csql-", tc.name)
 			if got != tc.want {
 				t.Errorf("want %v. got %v", tc.want, got)
 			}
@@ -74,7 +74,7 @@ func TestSafePrefixedName(t *testing.T) {
 
 func TestContainerName(t *testing.T) {
 	csql := authProxyWorkload("hello-world", []v1alpha1.InstanceSpec{{ConnectionString: "proj:inst:db"}})
-	got := workloads.ContainerName(csql)
+	got := workload.ContainerName(csql)
 	want := "csql-default-hello-world"
 	if want != got {
 		t.Errorf("got %v, want %v", got, want)
@@ -83,7 +83,7 @@ func TestContainerName(t *testing.T) {
 
 func TestVolumeName(t *testing.T) {
 	csql := authProxyWorkload("hello-world", []v1alpha1.InstanceSpec{{ConnectionString: "proj:inst:db"}})
-	got := workloads.VolumeName(csql, &csql.Spec.Instances[0], "temp")
+	got := workload.VolumeName(csql, &csql.Spec.Instances[0], "temp")
 	want := "csql-default-hello-world-temp-proj-inst-db"
 	if want != got {
 		t.Errorf("got %v, want %v", got, want)
