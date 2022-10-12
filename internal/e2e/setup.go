@@ -26,7 +26,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/controllers"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/controller"
 	helpers2 "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
 	"github.com/go-logr/logr"
 	"go.uber.org/zap/zapcore"
@@ -135,7 +135,7 @@ func SetupTests() (func(), error) {
 		return teardownFunc, fmt.Errorf("unable to setup e2e kubernetes client  %v", err)
 	}
 	s := scheme.Scheme
-	controllers.InitScheme(s)
+	controller.InitScheme(s)
 	c, err = client.New(config, client.Options{Scheme: s})
 	if err != nil {
 		return teardownFunc, fmt.Errorf("Unable to initialize kubernetes client %{v}", err)

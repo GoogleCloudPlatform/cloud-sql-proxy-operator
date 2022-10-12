@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controllers
+package controller
 
 import (
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
@@ -58,7 +58,7 @@ func SetupManagers(mgr manager.Manager) error {
 	}
 
 	//+kubebuilder:scaffold:builder
-	// kubebuilder to scaffold additional controllers here.
+	// kubebuilder to scaffold additional controller here.
 	// When kubebuilder scaffolds a new controller here, please
 	// adjust the code so it follows the pattern above.
 

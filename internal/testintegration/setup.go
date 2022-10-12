@@ -26,7 +26,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/controllers"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/controller"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
 	"github.com/go-logr/logr"
 	"go.uber.org/zap/zapcore"
@@ -119,7 +119,7 @@ func EnvTestSetup() (func(), error) {
 	}
 
 	s := scheme.Scheme
-	controllers.InitScheme(s)
+	controller.InitScheme(s)
 
 	Client, err = client.New(cfg, client.Options{Scheme: s})
 	if err != nil {
@@ -143,7 +143,7 @@ func EnvTestSetup() (func(), error) {
 		return teardownFunc, fmt.Errorf("unable to start kuberenetes envtest %v", err)
 	}
 
-	err = controllers.SetupManagers(mgr)
+	err = controller.SetupManagers(mgr)
 	if err != nil {
 		return teardownFunc, fmt.Errorf("unable to start kuberenetes envtest %v", err)
 	}

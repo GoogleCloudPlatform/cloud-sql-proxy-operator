@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package controllers holds logic that interacts with the kubernetes API
+// Package controller holds logic that interacts with the kubernetes API
 // to reconcile the AuthProxyWorkload custom resources.
 //
 // This follows the kubebuilder pattern for defining custom resources.
-package controllers
+package controller
