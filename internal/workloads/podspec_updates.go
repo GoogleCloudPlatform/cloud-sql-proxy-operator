@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/names"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -240,9 +239,9 @@ func WorkloadStatus(p *cloudsqlapi.AuthProxyWorkload, wl Workload) WorkloadUpdat
 
 func updateAnnNames(p *cloudsqlapi.AuthProxyWorkload) (reqName, resultName string) {
 	reqName = cloudsqlapi.AnnotationPrefix + "/" +
-		names.SafePrefixedName("req-", p.Namespace+"-"+p.Name)
+		SafePrefixedName("req-", p.Namespace+"-"+p.Name)
 	resultName = cloudsqlapi.AnnotationPrefix + "/" +
-		names.SafePrefixedName("app-", p.Namespace+"-"+p.Name)
+		SafePrefixedName("app-", p.Namespace+"-"+p.Name)
 	return reqName, resultName
 }
 
@@ -411,7 +410,7 @@ func (s *updateState) addPort(p int32, containerName string, n types.NamespacedN
 		}
 		s.mods.Ports = append(s.mods.Ports, mp)
 	}
-	if containerName != "" && !strings.HasPrefix(containerName, names.ContainerPrefix) {
+	if containerName != "" && !strings.HasPrefix(containerName, ContainerPrefix) {
 		mp.OriginalValues[containerName] = p
 	}
 
@@ -549,7 +548,7 @@ func (s *updateState) update(wl Workload, matches []*cloudsqlapi.AuthProxyWorklo
 
 	var nonAuthProxyContainers []corev1.Container
 	for i := 0; i < len(containers); i++ {
-		if !strings.HasPrefix(containers[i].Name, names.ContainerPrefix) {
+		if !strings.HasPrefix(containers[i].Name, ContainerPrefix) {
 			nonAuthProxyContainers = append(nonAuthProxyContainers, containers[i])
 		}
 	}
@@ -568,7 +567,7 @@ func (s *updateState) update(wl Workload, matches []*cloudsqlapi.AuthProxyWorklo
 
 		for j := range containers {
 			container := &containers[j]
-			if container.Name == names.ContainerName(inst) {
+			if container.Name == ContainerName(inst) {
 				instContainer = container
 				break
 			}
@@ -589,14 +588,14 @@ func (s *updateState) update(wl Workload, matches []*cloudsqlapi.AuthProxyWorklo
 
 	for j := range containers {
 		container := &containers[j]
-		if !strings.HasPrefix(container.Name, names.ContainerPrefix) {
+		if !strings.HasPrefix(container.Name, ContainerPrefix) {
 			filteredContainers = append(filteredContainers, *container)
 			continue
 		}
 
 		var found bool
 		for i := range matches {
-			if names.ContainerName(matches[i]) == container.Name {
+			if ContainerName(matches[i]) == container.Name {
 				found = true
 				break
 			}
@@ -650,7 +649,7 @@ func (s *updateState) UpdateContainer(p *cloudsqlapi.AuthProxyWorkload, wl Workl
 	// if the c was fully overridden, just use that c.
 	if p.Spec.AuthProxyContainer != nil && p.Spec.AuthProxyContainer.Container != nil {
 		p.Spec.AuthProxyContainer.Container.DeepCopyInto(c)
-		c.Name = names.ContainerName(p)
+		c.Name = ContainerName(p)
 		return doUpdate
 	}
 
@@ -665,7 +664,7 @@ func (s *updateState) UpdateContainer(p *cloudsqlapi.AuthProxyWorkload, wl Workl
 		"--health-check",
 		"--structured-logs")
 
-	c.Name = names.ContainerName(p)
+	c.Name = ContainerName(p)
 	c.ImagePullPolicy = "IfNotPresent"
 
 	cliArgs = s.applyContainerSpec(p, c, cliArgs)
@@ -697,7 +696,7 @@ func (s *updateState) UpdateContainer(p *cloudsqlapi.AuthProxyWorkload, wl Workl
 		} else {
 			// else if it is a unix socket
 			params["unix-socket"] = inst.UnixSocketPath
-			mountName := names.VolumeName(p, inst, "unix")
+			mountName := VolumeName(p, inst, "unix")
 			s.addVolumeMount(p, inst,
 				corev1.VolumeMount{
 					Name:      mountName,

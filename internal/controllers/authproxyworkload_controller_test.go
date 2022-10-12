@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/names"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workloads"
 	"go.uber.org/zap/zapcore"
@@ -215,9 +214,9 @@ func TestReconcileState31(t *testing.T) {
 
 	// mimic a pod that was updated by the webhook
 	resultName := v1alpha1.AnnotationPrefix + "/" +
-		names.SafePrefixedName("app-", p.Namespace+"-"+p.Name)
+		workloads.SafePrefixedName("app-", p.Namespace+"-"+p.Name)
 	reqName := v1alpha1.AnnotationPrefix + "/" +
-		names.SafePrefixedName("req-", p.Namespace+"-"+p.Name)
+		workloads.SafePrefixedName("req-", p.Namespace+"-"+p.Name)
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "thing",

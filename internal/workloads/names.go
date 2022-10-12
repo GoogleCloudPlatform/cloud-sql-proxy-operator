@@ -14,7 +14,7 @@
 
 // Package names contains functions that help format safe names for
 // kubernetes resources, following the rfc1035/rfc1123 label (DNS_LABEL) format.
-package names
+package workloads
 
 import (
 	"fmt"
