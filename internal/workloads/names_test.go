@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package names_test
+package workloads_test
 
 import (
 	"testing"
 
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workloads"
+
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/names"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestSafePrefixedName(t *testing.T) {
@@ -61,7 +61,7 @@ func TestSafePrefixedName(t *testing.T) {
 	}
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
-			got := names.SafePrefixedName("csql-", tc.name)
+			got := workloads.SafePrefixedName("csql-", tc.name)
 			if got != tc.want {
 				t.Errorf("want %v. got %v", tc.want, got)
 			}
@@ -73,8 +73,8 @@ func TestSafePrefixedName(t *testing.T) {
 }
 
 func TestContainerName(t *testing.T) {
-	csql := authProxyWorkload("hello-world", "default")
-	got := names.ContainerName(csql)
+	csql := authProxyWorkload("hello-world", []v1alpha1.InstanceSpec{{ConnectionString: "proj:inst:db"}})
+	got := workloads.ContainerName(csql)
 	want := "csql-default-hello-world"
 	if want != got {
 		t.Errorf("got %v, want %v", got, want)
@@ -82,28 +82,10 @@ func TestContainerName(t *testing.T) {
 }
 
 func TestVolumeName(t *testing.T) {
-	csql := authProxyWorkload("hello-world", "default")
-	got := names.VolumeName(csql, &csql.Spec.Instances[0], "temp")
+	csql := authProxyWorkload("hello-world", []v1alpha1.InstanceSpec{{ConnectionString: "proj:inst:db"}})
+	got := workloads.VolumeName(csql, &csql.Spec.Instances[0], "temp")
 	want := "csql-default-hello-world-temp-proj-inst-db"
 	if want != got {
 		t.Errorf("got %v, want %v", got, want)
-	}
-}
-
-func authProxyWorkload(name, namespace string) *v1alpha1.AuthProxyWorkload {
-	// Create a CloudSqlInstance that matches the deployment
-	return &v1alpha1.AuthProxyWorkload{
-		TypeMeta:   metav1.TypeMeta{Kind: "AuthProxyWorkload", APIVersion: v1alpha1.GroupVersion.String()},
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
-		Spec: v1alpha1.AuthProxyWorkloadSpec{
-			Workload: v1alpha1.WorkloadSelectorSpec{
-				Selector: &metav1.LabelSelector{
-					MatchLabels:      map[string]string{"app": "hello"},
-					MatchExpressions: nil,
-				},
-			},
-			Instances: []v1alpha1.InstanceSpec{{ConnectionString: "proj:inst:db"}},
-		},
-		Status: v1alpha1.AuthProxyWorkloadStatus{},
 	}
 }
