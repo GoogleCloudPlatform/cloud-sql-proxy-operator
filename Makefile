@@ -166,7 +166,6 @@ GO_BUILD_FLAGS = -ldflags "-X main.version=$(VERSION) -X main.buildID=$(OPERATOR
 build: generate fmt vet manifests ## Build manager binary.
 	go build -o bin/manager main.go
 	go build $(GO_BUILD_FLAGS) -o bin/manager  main.go
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build $(GO_BUILD_FLAGS) -o bin/manager_linux_arm64 main.go
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(GO_BUILD_FLAGS) -o bin/manager_linux_amd64 main.go
 
 .PHONY: run
@@ -376,7 +375,7 @@ $(GCLOUD_PROXY_URL_FILE):
 	IMAGE_NAME=proxy-v2 \
 	REPO_URL=${GCLOUD_DOCKER_URL} \
 	IMAGE_URL_OUT=$@ \
-	PLATFORMS=linux/arm64/v8,linux/amd64 \
+	PLATFORMS=linux/amd64 \
 	DOCKER_FILE_NAME=Dockerfile \
 	$(PWD)/tools/docker-build.sh
 
@@ -395,7 +394,7 @@ $(GCLOUD_OPERATOR_URL_FILE): build
 	IMAGE_NAME=cloud-sql-auth-proxy-operator \
 	REPO_URL=${GCLOUD_DOCKER_URL} \
 	IMAGE_URL_OUT=$@ \
-	PLATFORMS=linux/arm64/v8,linux/amd64 \
+	PLATFORMS=linux/amd64 \
 	DOCKER_FILE_NAME=Dockerfile \
 	$(PWD)/tools/docker-build.sh
 
@@ -442,7 +441,7 @@ release_image_push: ## Build and push a operator image to the release registry
 	IMAGE_VERSION=$(OPERATOR_BUILD_ID) \
 	REPO_URL=${RELEASE_REPO_URL} \
 	IMAGE_URL_OUT=${RELEASE_IMAGE_URL_PATH} \
-	PLATFORMS=linux/arm64/v8,linux/amd64 \
+	PLATFORMS=linux/amd64 \
 	DOCKER_FILE_NAME=Dockerfile $(PWD)/tools/docker-build.sh
 
 	gcloud container images add-tag --quiet "$(RELEASE_IMAGE_BUILD_ID_URL)" "$(RELEASE_IMAGE_VERSION_URL)"
