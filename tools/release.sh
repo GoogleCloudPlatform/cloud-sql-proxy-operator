@@ -43,32 +43,27 @@ fi
 
 echo "Operator Build ID: $OPERATOR_BUILD_ID"
 
-function all() {
-  ##
-  # Install debian tools
-  apt-get update
-  apt-get install -y git build-essential curl
+##
+# Install build tools
+apt-get update
+apt-get install -y git build-essential curl
 
-  ##
-  # Install Go
-  curl -L -o .bin/go.tar.gz  https://go.dev/dl/go1.18.7.linux-amd64.tar.gz
-  rm -rf /usr/local/go && tar -C /usr/local -xzf .bin/go.tar.gz
-  export PATH=$PATH:/usr/local/go/bin
-  which go
-  go version
+##
+# Install Go
+curl -L -o .bin/go.tar.gz  https://go.dev/dl/go1.18.7.linux-amd64.tar.gz
+rm -rf /usr/local/go && tar -C /usr/local -xzf .bin/go.tar.gz
+export PATH=$PATH:/usr/local/go/bin
+which go
+go version
 
-  ##
-  # install gcloud cli
-  curl -L -o .bin/gcloud.tar.gz https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-405.0.0-linux-x86_64.tar.gz
-  rm -rf /workspace/.bin/google-cloud-sdk && tar -C /workspace/.bin -xzf .bin/gcloud.tar.gz
-  export PATH=$PATH:/workspace/.bin/google-cloud-sdk/bin
-  which gcloud
-  gcloud version
+##
+# install gcloud cli
+curl -L -o .bin/gcloud.tar.gz https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-405.0.0-linux-x86_64.tar.gz
+rm -rf /workspace/.bin/google-cloud-sdk && tar -C /workspace/.bin -xzf .bin/gcloud.tar.gz
+export PATH=$PATH:/workspace/.bin/google-cloud-sdk/bin
+which gcloud
+gcloud version
 
-  ##
-  # Release the container
-  make release
-}
-
-
-$@
+##
+# Release the container
+make release
