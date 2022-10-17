@@ -18,8 +18,12 @@
 # build-identifier uses the HEAD Git SHA to provide a unique id number for a build.
 # If the working directory is dirty, it will append the current timestamp
 # to the HEAD Git SHA so that the build identifier is unique.
+
+# If the OPERATOR_BUILD_ID env var is set, then use it and don't try to compute
+# the build id
 if [[ -n "${OPERATOR_BUILD_ID:-}" ]] ; then
   echo -n "$OPERATOR_BUILD_ID"
+  exit 0
 fi
 
 NOW=$(date -u "+%Y%m%dT%H%M" | tr -d "\n")
