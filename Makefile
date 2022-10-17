@@ -13,7 +13,7 @@ PROXY_PROJECT_DIR ?= $(PWD)/tmp/cloud-sql-proxy
 GCLOUD_PROJECT_ID ?= error-no-project-id-set
 
 ##
-# In case shell doesn't set PWD
+# In case the $PWD env var is not set
 PWD?=$(shell pwd)
 
 ##
