@@ -12,17 +12,47 @@ build.env:
 PROXY_PROJECT_DIR ?= $(PWD)/tmp/cloud-sql-proxy
 GCLOUD_PROJECT_ID ?= error-no-project-id-set
 
+##
+# In case shell doesn't set PWD
+PWD?=$(shell pwd)
+
+##
+# Define Build ID and Version
+VERSION=$(shell cat $(PWD)/version.txt | tr -d '\n')
+
+# build id from release job
+ifdef RELEASE_TEST_BUILD_ID
+OPERATOR_BUILD_ID ?= $(RELEASE_TEST_BUILD_ID)
+endif
+
+# build id from release job tag
+ifdef RELEASE_TAG_NAME
+OPERATOR_BUILD_ID ?= $(RELEASE_TAG_NAME)-$(COMMIT_SHA)
+endif
+
+# build id from cloud build commit
+ifndef RELEASE_TAG_NAME
+ifdef COMMIT_SHA
+OPERATOR_BUILD_ID ?= $(COMMIT_SHA)
+endif
+endif
+
+# Default build id computed from local git working directory
+OPERATOR_BUILD_ID ?= $(shell $(PWD)/tools/build-identifier.sh | tr -d '\n')
+
+
+##
+# definitions for the build environment
+
 # Enable CRD Generation
 CRD_OPTIONS ?= "crd"
 
-
-# The local dev architecture
+##
+# The local dev architecture to download the correct tools
 GOOS:=$(shell go env GOOS)
 GOARCH:=$(shell go env GOARCH)
 
 
-# Image URL to use all building/pushing image targets
-IMG ?= controller:latest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.24.2
 
@@ -157,52 +187,17 @@ test: manifests generate fmt vet envtest ## Run tests (but not internal/teste2e)
 
 ##@ Build
 # Load active version from version.txt
-VERSION=$(shell cat $(PWD)/version.txt | tr -d '\n')
-COMPUTED_BUILD_ID := $(shell $(PWD)/tools/build-identifier.sh | tr -d '\n')
-OPERATOR_BUILD_ID ?= $(COMPUTED_BUILD_ID)
 GO_BUILD_FLAGS = -ldflags "-X main.version=$(VERSION) -X main.buildID=$(OPERATOR_BUILD_ID)"
 
 .PHONY: build
 build: generate fmt vet manifests ## Build manager binary.
-	go build -o bin/manager main.go
+	go build $(GO_BUILD_FLAGS) -o bin/manager main.go
 	go build $(GO_BUILD_FLAGS) -o bin/manager  main.go
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(GO_BUILD_FLAGS) -o bin/manager_linux_amd64 main.go
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run ./main.go
-
-.PHONY: docker-build
-docker-build: test ## Build docker image with the manager.
-	docker build -t ${IMG} .
-
-.PHONY: docker-push
-docker-push: ## Push docker image with the manager.
-	docker push ${IMG}
-
-##@ Deployment
-
-ifndef ignore-not-found
-  ignore-not-found = false
-endif
-
-.PHONY: install
-install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/crd | kubectl apply -f -
-
-.PHONY: uninstall
-uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
-	$(KUSTOMIZE) build config/crd | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
-
-.PHONY: deploy
-deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build config/default | kubectl apply -f -
-
-.PHONY: undeploy
-undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
-	$(KUSTOMIZE) build config/default | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
-
 
 CERT_MANAGER_YAML=config/certmanager-deployment/certmanager-deployment.yaml
 .PHONY: $(CERT_MANAGER_YAML)
@@ -233,7 +228,7 @@ TERRAFORM_VERSION ?= 1.2.7
 KUBECTL_VERSION ?= v1.24.0
 
 .PHONY: download_tools
-download_tools: kustomize controller-gen envtest kubebuilder kubectl terraform  ## Download all the tools
+download_tools: kustomize controller-gen envtest kubebuilder kubectl terraform golangci-lint ## Download all the tools
 
 KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 .PHONY: kustomize
@@ -421,33 +416,31 @@ gcloud_k9s: ## Connect to the gcloud test cluster using the k9s tool
 
 
 ####
-##@ Release Process
-# Release image to registry
-
-RELEASE_REPO_URL=gcr.io/cloud-sql-connectors/cloud-sql-operator-dev
+##@ Release Process to push release images to the public registry
+RELEASE_REPO_PATH=cloud-sql-connectors/cloud-sql-operator-dev
 RELEASE_IMAGE_URL_PATH=$(PWD)/bin/release-image-url.txt
 RELEASE_IMAGE_NAME=cloud-sql-proxy-operator
 
-RELEASE_IMAGE_BUILD_ID_URL=$(RELEASE_REPO_URL)/$(RELEASE_IMAGE_NAME):$(OPERATOR_BUILD_ID)
-RELEASE_IMAGE_VERSION_URL=$(RELEASE_REPO_URL)/$(RELEASE_IMAGE_NAME):$(VERSION)
-RELEASE_IMAGE_VERSION_URL_US=us.gcr.io/cloud-sql-connectors/cloud-sql-operator-dev/$(RELEASE_IMAGE_NAME):$(VERSION)
-RELEASE_IMAGE_VERSION_URL_EU=eu.gcr.io/cloud-sql-connectors/cloud-sql-operator-dev/$(RELEASE_IMAGE_NAME):$(VERSION)
-RELEASE_IMAGE_VERSION_URL_ASIA=asia.gcr.io/cloud-sql-connectors/cloud-sql-operator-dev/$(RELEASE_IMAGE_NAME):$(VERSION)
+RELEASE_IMAGE_BUILD_ID_URL=gcr.io/$(RELEASE_REPO_PATH)/$(RELEASE_IMAGE_NAME):$(OPERATOR_BUILD_ID)
+RELEASE_IMAGE_VERSION_URL=gcr.io/$(RELEASE_REPO_PATH)/$(RELEASE_IMAGE_NAME):$(VERISON)
+
+RELEASE_TAG_PATH=$(RELEASE_REPO_PATH)/$(RELEASE_IMAGE_NAME):$(VERSION)
+RELEASE_IMAGE_TAGS=gcr.io/$(RELEASE_TAG_PATH), \
+				   us.gcr.io/$(RELEASE_TAG_PATH), \
+				   eu.gcr.io/$(RELEASE_TAG_PATH), \
+				   asia.gcr.io/$(RELEASE_TAG_PATH)
+
 
 .PHONY: release_image_push
 release_image_push: ## Build and push a operator image to the release registry
 	PROJECT_DIR=$(PWD) \
 	IMAGE_NAME=$(RELEASE_IMAGE_NAME) \
 	IMAGE_VERSION=$(OPERATOR_BUILD_ID) \
-	REPO_URL=${RELEASE_REPO_URL} \
-	IMAGE_URL_OUT=${RELEASE_IMAGE_URL_PATH} \
+	REPO_URL=gcr.io/$(RELEASE_REPO_PATH) \
+	IMAGE_URL_OUT=$(RELEASE_IMAGE_URL_PATH) \
+	EXTRA_TAGS="$(RELEASE_IMAGE_TAGS)" \
 	PLATFORMS=linux/amd64 \
 	DOCKER_FILE_NAME=Dockerfile $(PWD)/tools/docker-build.sh
-
-	gcloud container images add-tag --quiet "$(RELEASE_IMAGE_BUILD_ID_URL)" "$(RELEASE_IMAGE_VERSION_URL)"
-	gcloud container images add-tag --quiet "$(RELEASE_IMAGE_BUILD_ID_URL)" "$(RELEASE_IMAGE_VERSION_URL_US)"
-	gcloud container images add-tag --quiet "$(RELEASE_IMAGE_BUILD_ID_URL)" "$(RELEASE_IMAGE_VERSION_URL_EU)"
-	gcloud container images add-tag --quiet "$(RELEASE_IMAGE_BUILD_ID_URL)" "$(RELEASE_IMAGE_VERSION_URL_ASIA)"
 
 .PHONY: release_k8s_publish
 release_k8s_publish: bin/cloud-sql-proxy-operator.yaml bin/install.sh ## Publish install scripts to the release storage bucket
@@ -457,7 +450,7 @@ release_k8s_publish: bin/cloud-sql-proxy-operator.yaml bin/install.sh ## Publish
 		gs://cloud-sql-connectors/cloud-sql-proxy-operator/$(VERSION)/cloud-sql-proxy-operator.yaml
 
 .PHONY: bin/cloud-sql-proxy-operator.yaml
-bin/cloud-sql-proxy-operator.yaml: kustomize
+bin/cloud-sql-proxy-operator.yaml: kustomize ## Build the single yaml file for deploying the operator
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(RELEASE_IMAGE_VERSION_URL)
 	mkdir -p bin/k8s/
 	$(KUSTOMIZE) build config/crd > $@
@@ -467,9 +460,29 @@ bin/cloud-sql-proxy-operator.yaml: kustomize
 	$(KUSTOMIZE) build config/default >> $@
 
 .PHONY: bin/install.sh
-bin/install.sh:
+bin/install.sh: ## Build install shell script to deploy the operator
 	sed 's/__VERSION__/$(VERSION)/g' < tools/install.sh > bin/install.sh.tmp
 	sed 's|__IMAGE_URL__|$(RELEASE_IMAGE_VERSION_URL)|g' < bin/install.sh.tmp > bin/install.sh
 
 .PHONY: release
-release: build release_image_push release_k8s_publish ## Release the artifacts
+release: release_container_tools build release_image_push release_k8s_publish ## Release all artifacts for the current version
+	echo "done"
+
+.PHONY: release_container_tools
+release_container_tools: ## Copy cached release tools from the /tools/bin directory
+	@echo "Release Tools:"
+	@echo " Version: $(VERSION)"
+	@echo " Release Image: $(RELEASE_IMAGE_VERSION_URL)"
+	mkdir -p $(PWD)/bin
+	test -d /tools/bin && cp -r /tools/bin/* $(PWD)/bin
+
+.PHONY: builder_image
+builder_image: ## Build and push the builder image to be used in Cloud Build
+	PROJECT_DIR=$(PWD) \
+	IMAGE_NAME=cloud-sql-operator-builder \
+	REPO_URL=gcr.io/cloud-sql-connectors/builders \
+	IMAGE_VERSION=latest \
+	IMAGE_URL_OUT=$(PWD)/bin/release-builder-image-url.txt \
+	PLATFORMS=linux/amd64 \
+	DOCKER_FILE_NAME=Dockerfile-builder \
+	$(PWD)/tools/docker-build.sh

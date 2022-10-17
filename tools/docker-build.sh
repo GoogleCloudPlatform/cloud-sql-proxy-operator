@@ -33,6 +33,7 @@ docker-build.sh - generate a tag for a docker image from its git commit hash
   PLATFORMS - the docker buildx --platform argument
   DOCKER_FILE_NAME - (optional) relative filename of the Dockerfile from PROJECT_DIR
   IMAGE_URL_OUT - Write the docker image url into this file
+  EXTRA_TAGS - Tag this image with this comma-separated list of tags
   LOAD - when set, script will run docker buildx with --load instead of --push
 
 Usage:
@@ -40,6 +41,7 @@ Usage:
   IMAGE_NAME=cloudsql-operator \\
   REPO_URL=uscentral-1.gcr.io/project/reponame \\
   IMAGE_URL_OUT=/home/projects/cloudsql/cloudsql-operator/bin/image-url.txt \\
+  EXTRA_TAGS=us.gcr.io/repo:1,asia.gcr.io/repo:1.0
   PLATFORMS=linux/arm64/v8,linux/amd64 \\
   DOCKER_FILE_NAME=Dockerfile \\
   docker-build.sh
@@ -90,9 +92,21 @@ else
   LOAD_ARG="--load"
 fi
 
+TAG_FLAGS=("-t" "$IMAGE_URL")
+if [[ -n "${EXTRA_TAGS}" ]] ; then
+  # split EXTRA_TAGS by space and comma
+  IFS=', ' read -a extra_tags <<< "${EXTRA_TAGS}"
+  TAG_FLAGS=()
+  for tag in "${extra_tags[@]}"
+  do
+      TAG_FLAGS+=("-t" "$tag")
+  done
+fi
+
 docker buildx build --platform "$PLATFORMS" \
   -f "${DOCKER_FILE_NAME:-Dockerfile}" \
-  -t "$IMAGE_URL" "$LOAD_ARG" "$PWD"
+   "${TAG_FLAGS[@]}" \
+  "$LOAD_ARG" "$PWD"
 
 echo "Writing image url to $IMAGE_URL_OUT"
 echo -n "$IMAGE_URL" > "$IMAGE_URL_OUT"
