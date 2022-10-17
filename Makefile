@@ -85,7 +85,7 @@ pre_commit: git_workdir_clean lint ## Run all the formatting and checks before c
 
 .PHONY: lint
 lint:  ## runs code format and validation tools
-	make build manifests reset_image
+	make generate fmt vet manifests reset_image
 	make add_copyright_header
 	make go_fmt yaml_fmt
 	make go_lint
