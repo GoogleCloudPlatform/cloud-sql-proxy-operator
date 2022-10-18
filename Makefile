@@ -10,7 +10,7 @@ build.env:
 
 # Should be set by build.env
 PROXY_PROJECT_DIR ?= $(PWD)/tmp/cloud-sql-proxy
-GCLOUD_PROJECT_ID ?= error-no-project-id-set
+E2E_PROJECT_ID ?= error-no-project-id-set
 
 # Enable CRD Generation
 CRD_OPTIONS ?= "crd"
@@ -286,92 +286,92 @@ k9s: ## Check that k9s is installed
 		(echo "Please install k9s, https://k9scli.io/topics/install/" ; exit 1)
 
 ##@ Google Cloud End to End Test
-.PHONY: gcloud_test
-gcloud_test: gcloud_test_infra gcloud_proxy_image_push gcloud_test_run gcloud_test_cleanup ## Run end-to-end tests on Google Cloud
+.PHONY: e2e_test
+e2e_test: e2e_test_infra e2e_proxy_image_push e2e_test_run e2e_test_cleanup ## Run end-to-end tests on Google Cloud
 
-.PHONY: gcloud_test_infra
-gcloud_test_infra: gcloud_project gcloud_cluster gcloud_cert_manager_deploy  ## Build test infrastructure for e2e tests
+.PHONY: e2e_test_infra
+e2e_test_infra: e2e_project e2e_cluster e2e_cert_manager_deploy  ## Build test infrastructure for e2e tests
 
-.PHONY: gcloud_test_run
-gcloud_test_run: gcloud_install gcloud_operator_image_push gcloud_deploy gcloud_test_run_gotest ## Build and run the e2e test code
+.PHONY: e2e_test_run
+e2e_test_run: e2e_install e2e_operator_image_push e2e_deploy e2e_test_run_gotest ## Build and run the e2e test code
 
-.PHONY: gcloud_test_cleanup
-gcloud_test_cleanup: manifests gcloud_cleanup_test_namespaces gcloud_undeploy ## Remove all operator and testcase configs from the e2e k8s cluster
+.PHONY: e2e_test_cleanup
+e2e_test_cleanup: manifests e2e_cleanup_test_namespaces e2e_undeploy ## Remove all operator and testcase configs from the e2e k8s cluster
 
-.PHONY: gcloud_test_infra_cleanup
-gcloud_test_infra_cleanup: gcloud_project ## Remove all operator and testcase configs from the e2e k8s cluster
+.PHONY: e2e_test_infra_cleanup
+e2e_test_infra_cleanup: e2e_project ## Remove all operator and testcase configs from the e2e k8s cluster
 	PROJECT_DIR=$(PWD) \
-  		GCLOUD_PROJECT_ID=$(GCLOUD_PROJECT_ID) \
+  		E2E_PROJECT_ID=$(E2E_PROJECT_ID) \
   		KUBECONFIG_GCLOUD=$(KUBECONFIG_GCLOUD) \
-  		GCLOUD_DOCKER_URL_FILE=$(GCLOUD_DOCKER_URL_FILE) \
+  		E2E_DOCKER_URL_FILE=$(E2E_DOCKER_URL_FILE) \
   		testinfra/run.sh destroy
 
 
 # The URL to the container image repo provisioned for e2e tests
-GCLOUD_DOCKER_URL_FILE :=$(PWD)/bin/gcloud-docker-repo.url
-GCLOUD_DOCKER_URL=$(shell cat $(GCLOUD_DOCKER_URL_FILE))
+E2E_DOCKER_URL_FILE :=$(PWD)/bin/gcloud-docker-repo.url
+E2E_DOCKER_URL=$(shell cat $(E2E_DOCKER_URL_FILE))
 
 ## This is the default location from terraform
 KUBECONFIG_GCLOUD ?= $(PWD)/bin/gcloud-kubeconfig.yaml
 
 # kubectl command with proper environment vars set
-GCLOUD_KUBECTL_ARGS = USE_GKE_GCLOUD_AUTH_PLUGIN=True KUBECONFIG=$(KUBECONFIG_GCLOUD)
-GCLOUD_KUBECTL = $(GCLOUD_KUBECTL_ARGS) $(KUBECTL)
+E2E_KUBECTL_ARGS = USE_GKE_E2E_AUTH_PLUGIN=True KUBECONFIG=$(KUBECONFIG_GCLOUD)
+E2E_KUBECTL = $(E2E_KUBECTL_ARGS) $(KUBECTL)
 
-.PHONY: gcloud_project
-gcloud_project: ## Check that the Google Cloud project exists
-	gcloud projects describe $(GCLOUD_PROJECT_ID) 2>/dev/null || \
-		( echo "No Google Cloud Project $(GCLOUD_PROJECT_ID) found"; exit 1 )
+.PHONY: e2e_project
+e2e_project: ## Check that the Google Cloud project exists
+	gcloud projects describe $(E2E_PROJECT_ID) 2>/dev/null || \
+		( echo "No Google Cloud Project $(E2E_PROJECT_ID) found"; exit 1 )
 
-gcloud_cluster: gcloud_project terraform ## Build infrastructure for e2e tests
+e2e_cluster: e2e_project terraform ## Build infrastructure for e2e tests
 	PROJECT_DIR=$(PWD) \
-  		GCLOUD_PROJECT_ID=$(GCLOUD_PROJECT_ID) \
+  		E2E_PROJECT_ID=$(E2E_PROJECT_ID) \
   		KUBECONFIG_GCLOUD=$(KUBECONFIG_GCLOUD) \
-  		GCLOUD_DOCKER_URL_FILE=$(GCLOUD_DOCKER_URL_FILE) \
+  		E2E_DOCKER_URL_FILE=$(E2E_DOCKER_URL_FILE) \
   		testinfra/run.sh apply
 
-gcloud_cluster_cleanup: gcloud_project terraform ## Build infrastructure for e2e tests
+e2e_cluster_cleanup: e2e_project terraform ## Build infrastructure for e2e tests
 	PROJECT_DIR=$(PWD) \
-  		GCLOUD_PROJECT_ID=$(GCLOUD_PROJECT_ID) \
+  		E2E_PROJECT_ID=$(E2E_PROJECT_ID) \
   		KUBECONFIG_GCLOUD=$(KUBECONFIG_GCLOUD) \
-  		GCLOUD_DOCKER_URL_FILE=$(GCLOUD_DOCKER_URL_FILE) \
+  		E2E_DOCKER_URL_FILE=$(E2E_DOCKER_URL_FILE) \
   		testinfra/run.sh destroy
 
-.PHONY: gcloud_cert_manager_deploy
-gcloud_cert_manager_deploy: kubectl ## Deploy the certificate manager
-	$(GCLOUD_KUBECTL) apply -f config/certmanager-deployment/certmanager-deployment.yaml
+.PHONY: e2e_cert_manager_deploy
+e2e_cert_manager_deploy: kubectl ## Deploy the certificate manager
+	$(E2E_KUBECTL) apply -f config/certmanager-deployment/certmanager-deployment.yaml
 	# wait for cert manager to become available before continuing
-	$(GCLOUD_KUBECTL) rollout status deployment cert-manager -n cert-manager --timeout=90s
+	$(E2E_KUBECTL) rollout status deployment cert-manager -n cert-manager --timeout=90s
 
 
-.PHONY: gcloud_install
-gcloud_install: manifests kustomize kubectl ## Install CRDs into the GKE cluster
-	$(KUSTOMIZE) build config/crd | $(GCLOUD_KUBECTL) apply -f -
+.PHONY: e2e_install
+e2e_install: manifests kustomize kubectl ## Install CRDs into the GKE cluster
+	$(KUSTOMIZE) build config/crd | $(E2E_KUBECTL) apply -f -
 
-.PHONY: gcloud_deploy
-gcloud_deploy: manifests  kustomize kubectl ## Deploy controller to the GKE cluster
-	cd config/manager && $(KUSTOMIZE) edit set image controller=$(GCLOUD_OPERATOR_URL)
-	$(KUSTOMIZE) build config/default | USE_GKE_GCLOUD_AUTH_PLUGIN=True  KUBECONFIG=$(KUBECONFIG_GCLOUD) $(KUBECTL) apply -f -
-	$(GCLOUD_KUBECTL) rollout status deployment -n cloud-sql-proxy-operator-system cloud-sql-proxy-operator-controller-manager --timeout=90s
+.PHONY: e2e_deploy
+e2e_deploy: manifests  kustomize kubectl ## Deploy controller to the GKE cluster
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(E2E_OPERATOR_URL)
+	$(KUSTOMIZE) build config/default | USE_GKE_E2E_AUTH_PLUGIN=True  KUBECONFIG=$(KUBECONFIG_GCLOUD) $(KUBECTL) apply -f -
+	$(E2E_KUBECTL) rollout status deployment -n cloud-sql-proxy-operator-system cloud-sql-proxy-operator-controller-manager --timeout=90s
 
-.PHONY: gcloud_undeploy
-gcloud_undeploy: manifests  kustomize kubectl ## Deploy controller to the GKE cluster
-	$(KUSTOMIZE) build config/default | $(GCLOUD_KUBECTL) delete -f -
+.PHONY: e2e_undeploy
+e2e_undeploy: manifests  kustomize kubectl ## Deploy controller to the GKE cluster
+	$(KUSTOMIZE) build config/default | $(E2E_KUBECTL) delete -f -
 
 ###
 # Build the cloudsql-proxy v2 docker image and push it to the
 # google cloud project repo.
-GCLOUD_PROXY_URL_FILE=$(PWD)/bin/last-proxy-image-url.txt
-GCLOUD_PROXY_URL=$(shell cat $(GCLOUD_PROXY_URL_FILE) | tr -d "\n")
+E2E_PROXY_URL_FILE=$(PWD)/bin/last-proxy-image-url.txt
+E2E_PROXY_URL=$(shell cat $(E2E_PROXY_URL_FILE) | tr -d "\n")
 
-.PHONY: gcloud_proxy_image_push
-gcloud_proxy_image_push: $(GCLOUD_PROXY_URL_FILE) ## Build and push a proxy image
+.PHONY: e2e_proxy_image_push
+e2e_proxy_image_push: $(E2E_PROXY_URL_FILE) ## Build and push a proxy image
 
-.PHONY: $(GCLOUD_PROXY_URL_FILE)
-$(GCLOUD_PROXY_URL_FILE):
+.PHONY: $(E2E_PROXY_URL_FILE)
+$(E2E_PROXY_URL_FILE):
 	PROJECT_DIR=$(PROXY_PROJECT_DIR) \
 	IMAGE_NAME=proxy-v2 \
-	REPO_URL=${GCLOUD_DOCKER_URL} \
+	REPO_URL=${E2E_DOCKER_URL} \
 	IMAGE_URL_OUT=$@ \
 	PLATFORMS=linux/arm64/v8,linux/amd64 \
 	DOCKER_FILE_NAME=Dockerfile \
@@ -380,38 +380,38 @@ $(GCLOUD_PROXY_URL_FILE):
 ###
 # Build the operator docker image and push it to the
 # google cloud project repo.
-GCLOUD_OPERATOR_URL_FILE=$(PWD)/bin/last-gcloud-operator-url.txt
-GCLOUD_OPERATOR_URL=$(shell cat $(GCLOUD_OPERATOR_URL_FILE) | tr -d "\n")
+E2E_OPERATOR_URL_FILE=$(PWD)/bin/last-gcloud-operator-url.txt
+E2E_OPERATOR_URL=$(shell cat $(E2E_OPERATOR_URL_FILE) | tr -d "\n")
 
-.PHONY: gcloud_operator_image_push
-gcloud_operator_image_push: $(GCLOUD_OPERATOR_URL_FILE) ## Build and push a operator image
+.PHONY: e2e_operator_image_push
+e2e_operator_image_push: $(E2E_OPERATOR_URL_FILE) ## Build and push a operator image
 
-.PHONY: $(GCLOUD_OPERATOR_URL_FILE)
-$(GCLOUD_OPERATOR_URL_FILE): build
+.PHONY: $(E2E_OPERATOR_URL_FILE)
+$(E2E_OPERATOR_URL_FILE): build
 	PROJECT_DIR=$(PWD) \
 	IMAGE_NAME=cloud-sql-auth-proxy-operator \
-	REPO_URL=${GCLOUD_DOCKER_URL} \
+	REPO_URL=${E2E_DOCKER_URL} \
 	IMAGE_URL_OUT=$@ \
 	PLATFORMS=linux/arm64/v8,linux/amd64 \
 	DOCKER_FILE_NAME=Dockerfile \
 	$(PWD)/tools/docker-build.sh
 
 
-.PHONY: gcloud_cleanup_test_namespaces
-gcloud_cleanup_test_namespaces: $(KUSTOMIZE) $(KUBECTL) 	## list all namespaces, delete those named "test*"
-	$(GCLOUD_KUBECTL) get ns -o=name | \
+.PHONY: e2e_cleanup_test_namespaces
+e2e_cleanup_test_namespaces: $(KUSTOMIZE) $(KUBECTL) 	## list all namespaces, delete those named "test*"
+	$(E2E_KUBECTL) get ns -o=name | \
 		grep namespace/test | \
-		$(GCLOUD_KUBECTL_ENV) xargs $(KUBECTL) delete
+		$(E2E_KUBECTL_ENV) xargs $(KUBECTL) delete
 
 
-.PHONY: gcloud_test_run_gotest
-gcloud_test_run_gotest: ## Run the golang tests
-	USE_GKE_GCLOUD_AUTH_PLUGIN=True \
+.PHONY: e2e_test_run_gotest
+e2e_test_run_gotest: ## Run the golang tests
+	USE_GKE_E2E_AUTH_PLUGIN=True \
 		TEST_INFRA_JSON=$(LOCALBIN)/testinfra.json \
-		PROXY_IMAGE_URL=$(GCLOUD_PROXY_URL) \
-		OPERATOR_IMAGE_URL=$(GCLOUD_OPERATOR_URL) \
+		PROXY_IMAGE_URL=$(E2E_PROXY_URL) \
+		OPERATOR_IMAGE_URL=$(E2E_OPERATOR_URL) \
 		go test --count=1 -v github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/teste2e
 
-.PHONY: gcloud_k9s
-gcloud_k9s: ## Connect to the gcloud test cluster using the k9s tool
-	USE_GKE_GCLOUD_AUTH_PLUGIN=True KUBECONFIG=$(KUBECONFIG_GCLOUD) k9s
+.PHONY: e2e_k9s
+e2e_k9s: ## Connect to the gcloud test cluster using the k9s tool
+	USE_GKE_E2E_AUTH_PLUGIN=True KUBECONFIG=$(KUBECONFIG_GCLOUD) k9s
