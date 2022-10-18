@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -eio pipefail
+set -euxo
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 ##
@@ -32,8 +32,8 @@ docker-build.sh - generate a tag for a docker image from its git commit hash
   REPO_URL - the url to the container repository
   PLATFORMS - the docker buildx --platform argument
   DOCKER_FILE_NAME - (optional) relative filename of the Dockerfile from PROJECT_DIR
-  IMAGE_URL_OUT - Write the docker image url into this file
-  EXTRA_TAGS - Tag this image with this comma-separated list of tags
+  IMAGE_URL_OUT - (optional) Write the docker image url into this file
+  EXTRA_TAGS - (optional) Tag this image with this comma-separated list of tags
   LOAD - when set, script will run docker buildx with --load instead of --push
 
 Usage:
@@ -62,10 +62,6 @@ if [[ -z "${REPO_URL:-}" && -z "${LOAD:-}" ]] ; then
   bad="bad"
   echo "either REPO_URL or LOAD environment variables must be set"
 fi
-if [[ -z "${IMAGE_URL_OUT:-}" ]] ; then
-  bad="bad"
-  echo "IMAGE_URL_OUT environment variable must be set"
-fi
 if [[ -z "${PLATFORMS:-}" ]] ; then
   bad="bad"
   echo "PLATFORMS environment variable must be set"
@@ -93,7 +89,7 @@ else
 fi
 
 TAG_FLAGS=("-t" "$IMAGE_URL")
-if [[ -n "${EXTRA_TAGS}" ]] ; then
+if [[ -n "${EXTRA_TAGS:-}" ]] ; then
   # split EXTRA_TAGS by space and comma
   IFS=', ' read -a extra_tags <<< "${EXTRA_TAGS}"
   TAG_FLAGS=()
@@ -108,7 +104,10 @@ docker buildx build --platform "$PLATFORMS" \
    "${TAG_FLAGS[@]}" \
   "$LOAD_ARG" "$PWD"
 
-echo "Writing image url to $IMAGE_URL_OUT"
-echo -n "$IMAGE_URL" > "$IMAGE_URL_OUT"
+if [[ -n "${IMAGE_URL_OUT:-}" ]] ; then
+  mkdir -p $(dirname "$IMAGE_URL_OUT")
+  echo "Writing image url to $IMAGE_URL_OUT"
+  echo -n "$IMAGE_URL" > "$IMAGE_URL_OUT"
+fi
 
 echo "Docker buildx build complete."

@@ -27,4 +27,6 @@ options:
     - "RELEASE_COMMIT_SHA=$COMMIT_SHA"
     - "RELEASE_TAG_NAME=$TAG_NAME"
 substitutions:
+  # _TEST_BUILD_ID is used exclusively for release process development.
+  # Always leave this blank for prod releases
   _TEST_BUILD_ID: ""

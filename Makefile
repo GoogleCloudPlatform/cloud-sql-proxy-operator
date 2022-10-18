@@ -482,7 +482,6 @@ builder_image: ## Build and push the builder image to be used in Cloud Build
 	IMAGE_NAME=cloud-sql-operator-builder \
 	REPO_URL=gcr.io/cloud-sql-connectors/builders \
 	IMAGE_VERSION=latest \
-	IMAGE_URL_OUT=$(PWD)/bin/release-builder-image-url.txt \
 	PLATFORMS=linux/amd64 \
-	DOCKER_FILE_NAME=Dockerfile-builder \
+	DOCKER_FILE_NAME=Dockerfile.builder \
 	$(PWD)/tools/docker-build.sh

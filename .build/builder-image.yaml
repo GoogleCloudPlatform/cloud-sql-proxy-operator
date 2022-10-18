@@ -17,11 +17,7 @@
 #  gcloud builds submit --project=cloud-sql-connectors --config=.build/builder-image.yaml
 steps:
   - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: make
     args:
-      - "build"
-      - "-t"
-      - "gcr.io/cloud-sql-connectors/builders/cloud-sql-operator-builder:latest"
-      - "-f"
-      - "Dockerfile.builder"
-      - "."
+      - "builder_image"
     id: 'build-builder-image'

@@ -26,7 +26,7 @@ ENV PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/google-cloud-sdk/bin:/usr/loca
 # Cache project go dependencies
 WORKDIR /tools
 COPY go.mod go.sum ./
-RUN go mod graph | awk '{if ($1 !~ "@") print $2}' | xargs go get
+RUN go mod download
 
 ##
 # Download tools needed during the build
