@@ -39,28 +39,28 @@ to properly up the local environment for E2E tests. You will need to set:
 
 ### Run the tests
 
-Run `make gcloud_test` in the base directory of this project. This will run the
+Run `make e2e_test` in the base directory of this project. This will run the
 following make targets in sequence:
 
-- `make gcloud_test_infra` will use Terraform to create an artifact registry,
+- `make e2e_test_infra` will use Terraform to create an artifact registry,
   GKE cluster and postgres database.
-- `make gcloud_proxy_image_push` will build the Cloud SQL Proxy image from our
+- `make e2e_proxy_image_push` will build the Cloud SQL Proxy image from our
   cloud-sql-proxy working directory and push it to the operator.
-- `make gcloud_test_run` will build docker images for the operator and the Cloud
+- `make e2e_test_run` will build docker images for the operator and the Cloud
   SQL Proxy, and push those images to the artifact registry.
-- `make gcloud_test_cleanup` will remove all deployments and configuration from
+- `make e2e_test_cleanup` will remove all deployments and configuration from
   the kuberentes created by the end-to-end tests.
 
-The first time you run `make gcloud_test` it may take 20-30 minutes to provision
+The first time you run `make e2e_test` it may take 20-30 minutes to provision
 Google Cloud resources for the tests. Subsequent runs will reuse the Google
 Cloud resources, and therefore will run much faster.
 
 When you are developing end-to-end tests, you may sometimes use these build
 targets as short-cuts to run the tests faster:
 
-- `make gcloud_test_run` will build and deploy the operator docker images from
+- `make e2e_test_run` will build and deploy the operator docker images from
   your working directory and run the end-to-end tests.
-- `make gcloud_test_run_gotest` will just run the end-to-end tests without
+- `make e2e_test_run_gotest` will just run the end-to-end tests without
   rebuilding images or checking infrastructure.
 - `make k9s` will open the k9s tool pointing at the . K9s is a cool terminal UI
   that simplifies browsing the  
@@ -68,7 +68,7 @@ targets as short-cuts to run the tests faster:
 
 Clean up after the end-to-end tests with these targets:
 
-- `make gcloud_test_cleanup` will remove the operator and all test deployments
+- `make e2e_test_cleanup` will remove the operator and all test deployments
   from the kubernetes cluster.
 - `make gcloud-test-infra-cleanup` will remove all the Google Cloud
   infrastructure used by the test.
