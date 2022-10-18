@@ -6,8 +6,9 @@ Release Artifacts
 - (future) helm chart
 
 ```mermaid
-graph TD;
-    build--->all
+graph LR;
+
+build--->all
 pre_commit--->github_lint
 git_workdir_clean--->pre_commit
 lint--->pre_commit
