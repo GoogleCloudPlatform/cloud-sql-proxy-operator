@@ -22,6 +22,6 @@ steps:
       - "-t"
       - "gcr.io/cloud-sql-connectors/builders/cloud-sql-operator-builder:latest"
       - "-f"
-      - "Dockerfile-builder"
+      - "Dockerfile.builder"
       - "."
     id: 'build-builder-image'
