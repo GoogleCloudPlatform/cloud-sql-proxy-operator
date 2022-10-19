@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/containerregistrycache"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -41,6 +42,10 @@ const (
 	// DefaultHealthCheckPort is the used by the proxy to expose prometheus
 	// and kubernetes health checks.
 	DefaultHealthCheckPort int32 = 9801
+
+	// defaultProxyImage is the well-known image to use for the Cloud SQL Proxy
+	// when no image is specified in the AuthProxyWorkload spec.
+	defaultProxyImage = "gcr.io/cloud-sql-connectors/cloud-sql-proxy"
 )
 
 var l = logf.Log.WithName("internal.workload")
@@ -54,10 +59,13 @@ type WorkloadUpdater interface {
 }
 
 type realWorkloadUpdater struct {
+	proxyImage *containerregistrycache.ContainerRegistryCache
 }
 
 func NewWorkloadUpdater() WorkloadUpdater {
-	return &realWorkloadUpdater{}
+	return &realWorkloadUpdater{
+		proxyImage: containerregistrycache.NewContainerRegistryCache(defaultProxyImage),
+	}
 }
 
 // ConfigError is an error with extra details about why an AuthProxyWorkload
@@ -785,7 +793,13 @@ func (s *updateState) applyContainerSpec(p *cloudsqlapi.AuthProxyWorkload, c *co
 
 	}
 
-	c.Image = s.defaultProxyImage()
+	var err error
+	c.Image, err = s.u.proxyImage.LatestImage()
+	if err != nil {
+		s.addError(cloudsqlapi.ErrorCodeDefaultProxyImageMissing,
+			fmt.Sprintf("the default cloud-sql-proxy image could not be retrieved, %v", err), p)
+		c.Image = defaultProxyImage
+	}
 	if p.Spec.AuthProxyContainer.Image != "" {
 		c.Image = p.Spec.AuthProxyContainer.Image
 	}
@@ -1077,9 +1091,4 @@ func (s *updateState) applyAuthenticationSpec(proxy *cloudsqlapi.AuthProxyWorklo
 	// that it is implemented correctly.
 	// --credentials-file
 	return args
-}
-
-func (s *updateState) defaultProxyImage() string {
-	// TODO look this up from the public registry
-	return "us-central1-docker.pkg.dev/csql-operator-test/test76e6d646e2caac1c458c/proxy-v2:latest"
 }

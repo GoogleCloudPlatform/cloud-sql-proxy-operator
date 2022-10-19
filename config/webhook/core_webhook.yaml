@@ -72,5 +72,5 @@ webhooks:
           - jobs
           - cronjobs
         scope: "*"
-    timeoutSeconds: 2
+    timeoutSeconds: 15
     sideEffects: None
