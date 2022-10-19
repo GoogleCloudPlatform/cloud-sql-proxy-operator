@@ -45,19 +45,11 @@ const (
 
 var l = logf.Log.WithName("internal.workload")
 
-type WorkloadUpdater interface {
-	ReconcileWorkload(pl *cloudsqlapi.AuthProxyWorkloadList, wl Workload) (bool, []*cloudsqlapi.AuthProxyWorkload, error)
-	MarkWorkloadNeedsUpdate(p *cloudsqlapi.AuthProxyWorkload, wl Workload) (bool, WorkloadUpdateStatus)
-	MarkWorkloadUpdated(p *cloudsqlapi.AuthProxyWorkload, wl Workload) (bool, WorkloadUpdateStatus)
-	Status(p *cloudsqlapi.AuthProxyWorkload, wl Workload) WorkloadUpdateStatus
-	UpdateWorkloadContainers(wl Workload, matches []*cloudsqlapi.AuthProxyWorkload) (bool, error)
+type Updater struct {
 }
 
-type realWorkloadUpdater struct {
-}
-
-func NewWorkloadUpdater() WorkloadUpdater {
-	return &realWorkloadUpdater{}
+func NewUpdater() *Updater {
+	return &Updater{}
 }
 
 // ConfigError is an error with extra details about why an AuthProxyWorkload
@@ -131,7 +123,7 @@ var defaultContainerResources = corev1.ResourceRequirements{
 
 // ReconcileWorkload finds all AuthProxyWorkload resources matching this workload and then
 // updates the workload's containers. This does not save the updated workload.
-func (u *realWorkloadUpdater) ReconcileWorkload(pl *cloudsqlapi.AuthProxyWorkloadList, wl Workload) (bool, []*cloudsqlapi.AuthProxyWorkload, error) {
+func (u *Updater) ReconcileWorkload(pl *cloudsqlapi.AuthProxyWorkloadList, wl Workload) (bool, []*cloudsqlapi.AuthProxyWorkload, error) {
 	// if a wl has an owner, then ignore it.
 	if len(wl.Object().GetOwnerReferences()) > 0 {
 		return false, nil, nil
@@ -158,7 +150,7 @@ func (u *realWorkloadUpdater) ReconcileWorkload(pl *cloudsqlapi.AuthProxyWorkloa
 
 // filterMatchingInstances returns a list of AuthProxyWorkload whose selectors match
 // the workload.
-func (u *realWorkloadUpdater) filterMatchingInstances(pl *cloudsqlapi.AuthProxyWorkloadList, wl Workload) []*cloudsqlapi.AuthProxyWorkload {
+func (u *Updater) filterMatchingInstances(pl *cloudsqlapi.AuthProxyWorkloadList, wl Workload) []*cloudsqlapi.AuthProxyWorkload {
 	matchingAuthProxyWorkloads := make([]*cloudsqlapi.AuthProxyWorkload, 0, len(pl.Items))
 	for i := range pl.Items {
 		p := &pl.Items[i]
@@ -191,14 +183,14 @@ type WorkloadUpdateStatus struct {
 
 // MarkWorkloadNeedsUpdate Updates annotations on the workload indicating that it may need an update.
 // returns true if the workload actually needs an update.
-func (u *realWorkloadUpdater) MarkWorkloadNeedsUpdate(p *cloudsqlapi.AuthProxyWorkload, wl Workload) (bool, WorkloadUpdateStatus) {
+func (u *Updater) MarkWorkloadNeedsUpdate(p *cloudsqlapi.AuthProxyWorkload, wl Workload) (bool, WorkloadUpdateStatus) {
 	return u.updateWorkloadAnnotations(p, wl, false)
 }
 
 // MarkWorkloadUpdated Updates annotations on the workload indicating that it
 // has been updated, returns true of any modifications were made to the workload.
 // for the AuthProxyWorkload.
-func (u *realWorkloadUpdater) MarkWorkloadUpdated(p *cloudsqlapi.AuthProxyWorkload, wl Workload) (bool, WorkloadUpdateStatus) {
+func (u *Updater) MarkWorkloadUpdated(p *cloudsqlapi.AuthProxyWorkload, wl Workload) (bool, WorkloadUpdateStatus) {
 	return u.updateWorkloadAnnotations(p, wl, true)
 }
 
@@ -208,7 +200,7 @@ func (u *realWorkloadUpdater) MarkWorkloadUpdated(p *cloudsqlapi.AuthProxyWorklo
 // tracking which version should be applied, The workload admission webhook is
 // responsible for applying the DBInstances that apply to a workload
 // when the workload is created or modified.
-func (u *realWorkloadUpdater) updateWorkloadAnnotations(p *cloudsqlapi.AuthProxyWorkload, wl Workload, doingUpdate bool) (bool, WorkloadUpdateStatus) {
+func (u *Updater) updateWorkloadAnnotations(p *cloudsqlapi.AuthProxyWorkload, wl Workload, doingUpdate bool) (bool, WorkloadUpdateStatus) {
 	s := u.Status(p, wl)
 
 	if s.LastUpdatedGeneration == s.InstanceGeneration {
@@ -236,7 +228,7 @@ func (u *realWorkloadUpdater) updateWorkloadAnnotations(p *cloudsqlapi.AuthProxy
 // Status checks the annotations on a workload related to this
 // AuthProxyWorkload resource, returning what generation of the AuthProxyWorkload
 // resource was last requested, and applied to the workload.
-func (u *realWorkloadUpdater) Status(p *cloudsqlapi.AuthProxyWorkload, wl Workload) WorkloadUpdateStatus {
+func (u *Updater) Status(p *cloudsqlapi.AuthProxyWorkload, wl Workload) WorkloadUpdateStatus {
 	var s WorkloadUpdateStatus
 	reqName, resultName := u.updateAnnNames(p)
 	s.InstanceGeneration = fmt.Sprintf("%d", p.GetGeneration())
@@ -252,7 +244,7 @@ func (u *realWorkloadUpdater) Status(p *cloudsqlapi.AuthProxyWorkload, wl Worklo
 
 }
 
-func (u *realWorkloadUpdater) updateAnnNames(p *cloudsqlapi.AuthProxyWorkload) (reqName, resultName string) {
+func (u *Updater) updateAnnNames(p *cloudsqlapi.AuthProxyWorkload) (reqName, resultName string) {
 	reqName = cloudsqlapi.AnnotationPrefix + "/" +
 		SafePrefixedName("req-", p.Namespace+"-"+p.Name)
 	resultName = cloudsqlapi.AnnotationPrefix + "/" +
@@ -262,7 +254,7 @@ func (u *realWorkloadUpdater) updateAnnNames(p *cloudsqlapi.AuthProxyWorkload) (
 
 // UpdateWorkloadContainers applies the proxy containers from all of the
 // instances listed in matchingAuthProxyWorkloads to the workload
-func (u *realWorkloadUpdater) UpdateWorkloadContainers(wl Workload, matches []*cloudsqlapi.AuthProxyWorkload) (bool, error) {
+func (u *Updater) UpdateWorkloadContainers(wl Workload, matches []*cloudsqlapi.AuthProxyWorkload) (bool, error) {
 	state := updateState{
 		u:          u,
 		nextDBPort: DefaultFirstPort,
@@ -316,7 +308,7 @@ type updateState struct {
 	mods       workloadMods
 	removed    []*dbInstance
 	nextDBPort int32
-	u          *realWorkloadUpdater
+	u          *Updater
 }
 
 // workloadMods holds all modifications to this workload done by the operator so

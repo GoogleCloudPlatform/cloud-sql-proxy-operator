@@ -333,7 +333,7 @@ func reconciler(p *v1alpha1.AuthProxyWorkload, cb client.Client) (*AuthProxyWork
 	r := &AuthProxyWorkloadReconciler{
 		Client:          cb,
 		recentlyDeleted: &recentlyDeletedCache{},
-		u:               workload.NewWorkloadUpdater(),
+		u:               workload.NewUpdater(),
 	}
 	req := ctrl.Request{
 		NamespacedName: types.NamespacedName{

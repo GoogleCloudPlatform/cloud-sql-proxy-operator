@@ -38,7 +38,7 @@ func InitScheme(scheme *runtime.Scheme) {
 // SetupManagers was moved out of ../main.go to here so that it can be invoked
 // from the testintegration tests AND from the actual operator.
 func SetupManagers(mgr manager.Manager) error {
-	u := workload.NewWorkloadUpdater()
+	u := workload.NewUpdater()
 
 	setupLog.Info("Configuring reconcilers...")
 	var err error

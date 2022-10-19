@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-var u = workload.NewWorkloadUpdater()
+var u = workload.NewUpdater()
 
 func deploymentWorkload() *workload.DeploymentWorkload {
 	return &workload.DeploymentWorkload{Deployment: &appsv1.Deployment{

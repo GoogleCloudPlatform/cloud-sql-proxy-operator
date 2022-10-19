@@ -30,7 +30,7 @@ import (
 )
 
 // SetupWorkloadControllers Watch changes for Istio resources managed by the operator
-func SetupWorkloadControllers(mgr ctrl.Manager, u workload.WorkloadUpdater) error {
+func SetupWorkloadControllers(mgr ctrl.Manager, u *workload.Updater) error {
 	mgr.GetWebhookServer().Register("/mutate-workloads", &webhook.Admission{
 		Handler: &WorkloadAdmissionWebhook{
 			Client: mgr.GetClient(),
@@ -45,7 +45,7 @@ func SetupWorkloadControllers(mgr ctrl.Manager, u workload.WorkloadUpdater) erro
 type WorkloadAdmissionWebhook struct {
 	Client  client.Client
 	decoder *admission.Decoder
-	u       workload.WorkloadUpdater
+	u       *workload.Updater
 }
 
 // InjectDecoder Dependency injection required by KubeBuilder controller runtime.

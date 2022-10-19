@@ -70,11 +70,11 @@ type AuthProxyWorkloadReconciler struct {
 	client.Client
 	Scheme          *runtime.Scheme
 	recentlyDeleted *recentlyDeletedCache
-	u               workload.WorkloadUpdater
+	u               *workload.Updater
 }
 
 // NewAuthProxyWorkloadManager constructs an AuthProxyWorkloadReconciler
-func NewAuthProxyWorkloadReconciler(mgr ctrl.Manager, u workload.WorkloadUpdater) (*AuthProxyWorkloadReconciler, error) {
+func NewAuthProxyWorkloadReconciler(mgr ctrl.Manager, u *workload.Updater) (*AuthProxyWorkloadReconciler, error) {
 	r := &AuthProxyWorkloadReconciler{
 		Client:          mgr.GetClient(),
 		Scheme:          mgr.GetScheme(),
