@@ -45,9 +45,11 @@ const (
 
 var l = logf.Log.WithName("internal.workload")
 
+// Updater holds global used while reconciling workloads.
 type Updater struct {
 }
 
+// NewUpdater creates a new instance of Updater.
 func NewUpdater() *Updater {
 	return &Updater{}
 }
@@ -256,7 +258,7 @@ func (u *Updater) updateAnnNames(p *cloudsqlapi.AuthProxyWorkload) (reqName, res
 // instances listed in matchingAuthProxyWorkloads to the workload
 func (u *Updater) UpdateWorkloadContainers(wl Workload, matches []*cloudsqlapi.AuthProxyWorkload) (bool, error) {
 	state := updateState{
-		u:          u,
+		updater:    u,
 		nextDBPort: DefaultFirstPort,
 		err: ConfigError{
 			workloadKind:      wl.Object().GetObjectKind().GroupVersionKind(),
@@ -308,7 +310,7 @@ type updateState struct {
 	mods       workloadMods
 	removed    []*dbInstance
 	nextDBPort int32
-	u          *Updater
+	updater    *Updater
 }
 
 // workloadMods holds all modifications to this workload done by the operator so
@@ -642,7 +644,7 @@ func (s *updateState) update(wl Workload, matches []*cloudsqlapi.AuthProxyWorklo
 
 // updateContainer Creates or updates the proxy container in the workload's PodSpec
 func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, wl Workload, c *corev1.Container) bool {
-	doUpdate, status := s.u.MarkWorkloadUpdated(p, wl)
+	doUpdate, status := s.updater.MarkWorkloadUpdated(p, wl)
 
 	if !doUpdate {
 		l.Info("Skipping wl {{wl}}, no update needed.", "name", wl.Object().GetName(),

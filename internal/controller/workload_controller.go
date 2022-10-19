@@ -33,8 +33,8 @@ import (
 func SetupWorkloadControllers(mgr ctrl.Manager, u *workload.Updater) error {
 	mgr.GetWebhookServer().Register("/mutate-workloads", &webhook.Admission{
 		Handler: &WorkloadAdmissionWebhook{
-			Client: mgr.GetClient(),
-			u:      u,
+			Client:  mgr.GetClient(),
+			updater: u,
 		}})
 
 	return nil
@@ -45,7 +45,7 @@ func SetupWorkloadControllers(mgr ctrl.Manager, u *workload.Updater) error {
 type WorkloadAdmissionWebhook struct {
 	Client  client.Client
 	decoder *admission.Decoder
-	u       *workload.Updater
+	updater *workload.Updater
 }
 
 // InjectDecoder Dependency injection required by KubeBuilder controller runtime.
@@ -81,7 +81,7 @@ func (a *WorkloadAdmissionWebhook) Handle(ctx context.Context, req admission.Req
 	}
 
 	l.Info("Workload before modification", "len(containers)", len(wl.PodSpec().Containers))
-	updated, matchingInstances, wlConfigErr := a.u.ReconcileWorkload(instList, wl)
+	updated, matchingInstances, wlConfigErr := a.updater.ReconcileWorkload(instList, wl)
 	if wlConfigErr != nil {
 		l.Error(wlConfigErr, "Unable to reconcile workload result in webhook: "+wlConfigErr.Error(),
 			"kind", req.Kind.Kind, "ns", req.Namespace, "name", req.Name)
