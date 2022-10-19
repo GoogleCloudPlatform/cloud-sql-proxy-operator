@@ -30,10 +30,11 @@ import (
 )
 
 // SetupWorkloadControllers Watch changes for Istio resources managed by the operator
-func SetupWorkloadControllers(mgr ctrl.Manager) error {
+func SetupWorkloadControllers(mgr ctrl.Manager, u workload.WorkloadUpdater) error {
 	mgr.GetWebhookServer().Register("/mutate-workloads", &webhook.Admission{
 		Handler: &WorkloadAdmissionWebhook{
 			Client: mgr.GetClient(),
+			u:      u,
 		}})
 
 	return nil
@@ -44,6 +45,7 @@ func SetupWorkloadControllers(mgr ctrl.Manager) error {
 type WorkloadAdmissionWebhook struct {
 	Client  client.Client
 	decoder *admission.Decoder
+	u       workload.WorkloadUpdater
 }
 
 // InjectDecoder Dependency injection required by KubeBuilder controller runtime.
@@ -79,7 +81,7 @@ func (a *WorkloadAdmissionWebhook) Handle(ctx context.Context, req admission.Req
 	}
 
 	l.Info("Workload before modification", "len(containers)", len(wl.PodSpec().Containers))
-	updated, matchingInstances, wlConfigErr := workload.ReconcileWorkload(instList, wl)
+	updated, matchingInstances, wlConfigErr := a.u.ReconcileWorkload(instList, wl)
 	if wlConfigErr != nil {
 		l.Error(wlConfigErr, "Unable to reconcile workload result in webhook: "+wlConfigErr.Error(),
 			"kind", req.Kind.Kind, "ns", req.Namespace, "name", req.Name)
@@ -113,11 +115,7 @@ func (a *WorkloadAdmissionWebhook) Handle(ctx context.Context, req admission.Req
 			"len(containers)", len(wl.PodSpec().Containers))
 	}
 
-	if err != nil {
-		return admission.Errored(http.StatusInternalServerError, err)
-	}
 	return admission.PatchResponseFromRaw(req.Object.Raw, marshaledRes)
-
 }
 
 // makeWorkload creates a Workload from a request.

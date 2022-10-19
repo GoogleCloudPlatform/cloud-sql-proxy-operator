@@ -28,6 +28,8 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+var u = workload.NewWorkloadUpdater()
+
 func deploymentWorkload() *workload.DeploymentWorkload {
 	return &workload.DeploymentWorkload{Deployment: &appsv1.Deployment{
 		TypeMeta:   metav1.TypeMeta{Kind: "Deployment", APIVersion: "apps/v1"},
@@ -82,7 +84,7 @@ func authProxyWorkloadFromSpec(name string, spec v1alpha1.AuthProxyWorkloadSpec)
 // AuthProxyWorkload in proxies.
 func markWorkloadNeedsUpdate(wl *workload.DeploymentWorkload, proxies ...*v1alpha1.AuthProxyWorkload) []*v1alpha1.AuthProxyWorkload {
 	for i := 0; i < len(proxies); i++ {
-		workload.MarkWorkloadNeedsUpdate(proxies[i], wl)
+		u.MarkWorkloadNeedsUpdate(proxies[i], wl)
 	}
 	return proxies
 }
@@ -163,7 +165,7 @@ func TestUpdateWorkload(t *testing.T) {
 	proxies := markWorkloadNeedsUpdate(wl, proxy)
 
 	// Update the container with new markWorkloadNeedsUpdate
-	_, err = workload.UpdateWorkloadContainers(wl, proxies)
+	_, err = u.UpdateWorkloadContainers(wl, proxies)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,10 +195,10 @@ func TestUpdateWorkload(t *testing.T) {
 	// update the containers again with the new instance name
 
 	// Indicate that the workload needs an update
-	workload.MarkWorkloadNeedsUpdate(proxies[0], wl)
+	u.MarkWorkloadNeedsUpdate(proxies[0], wl)
 
 	// Perform the update
-	_, err = workload.UpdateWorkloadContainers(wl, proxies)
+	_, err = u.UpdateWorkloadContainers(wl, proxies)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,7 +221,7 @@ func TestUpdateWorkload(t *testing.T) {
 	}
 
 	// now try with an empty workload list, which should remove the container
-	_, err = workload.UpdateWorkloadContainers(wl, []*v1alpha1.AuthProxyWorkload{})
+	_, err = u.UpdateWorkloadContainers(wl, []*v1alpha1.AuthProxyWorkload{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -265,10 +267,10 @@ func TestUpdateWorkloadFixedPort(t *testing.T) {
 	}
 
 	// Indicate that the workload needs an update
-	workload.MarkWorkloadNeedsUpdate(csqls[0], wl)
+	u.MarkWorkloadNeedsUpdate(csqls[0], wl)
 
 	// update the containers
-	_, err := workload.UpdateWorkloadContainers(wl, csqls)
+	_, err := u.UpdateWorkloadContainers(wl, csqls)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -331,10 +333,10 @@ func TestWorkloadNoPortSet(t *testing.T) {
 	}
 
 	// Indicate that the workload needs an update
-	workload.MarkWorkloadNeedsUpdate(csqls[0], wl)
+	u.MarkWorkloadNeedsUpdate(csqls[0], wl)
 
 	// update the containers
-	_, err := workload.UpdateWorkloadContainers(wl, csqls)
+	_, err := u.UpdateWorkloadContainers(wl, csqls)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -391,10 +393,10 @@ func TestWorkloadUnixVolume(t *testing.T) {
 	}
 
 	// Indicate that the workload needs an update
-	workload.MarkWorkloadNeedsUpdate(csqls[0], wl)
+	u.MarkWorkloadNeedsUpdate(csqls[0], wl)
 
 	// update the containers
-	_, err := workload.UpdateWorkloadContainers(wl, csqls)
+	_, err := u.UpdateWorkloadContainers(wl, csqls)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -463,10 +465,10 @@ func TestContainerImageChanged(t *testing.T) {
 	csqls[0].Spec.AuthProxyContainer = &v1alpha1.AuthProxyContainerSpec{Image: wantImage}
 
 	// Indicate that the workload needs an update
-	workload.MarkWorkloadNeedsUpdate(csqls[0], wl)
+	u.MarkWorkloadNeedsUpdate(csqls[0], wl)
 
 	// update the containers
-	_, err := workload.UpdateWorkloadContainers(wl, csqls)
+	_, err := u.UpdateWorkloadContainers(wl, csqls)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -505,10 +507,10 @@ func TestContainerReplaced(t *testing.T) {
 	csqls[0].Spec.AuthProxyContainer = &v1alpha1.AuthProxyContainerSpec{Container: wantContainer}
 
 	// Indicate that the workload needs an update
-	workload.MarkWorkloadNeedsUpdate(csqls[0], wl)
+	u.MarkWorkloadNeedsUpdate(csqls[0], wl)
 
 	// update the containers
-	_, err := workload.UpdateWorkloadContainers(wl, csqls)
+	_, err := u.UpdateWorkloadContainers(wl, csqls)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -756,10 +758,10 @@ func TestProxyCLIArgs(t *testing.T) {
 			csqls := []*v1alpha1.AuthProxyWorkload{authProxyWorkloadFromSpec("instance1", tc.proxySpec)}
 
 			// Indicate that the workload needs an update
-			workload.MarkWorkloadNeedsUpdate(csqls[0], wl)
+			u.MarkWorkloadNeedsUpdate(csqls[0], wl)
 
 			// update the containers
-			_, updateErr := workload.UpdateWorkloadContainers(wl, csqls)
+			_, updateErr := u.UpdateWorkloadContainers(wl, csqls)
 
 			if len(tc.wantErrorCodes) > 0 {
 				assertErrorCodeContains(t, updateErr, tc.wantErrorCodes)
@@ -838,18 +840,18 @@ func TestProperCleanupOfEnvAndVolumes(t *testing.T) {
 	}}
 
 	// Indicate that the workload needs an update
-	workload.MarkWorkloadNeedsUpdate(csqls[0], wl)
+	u.MarkWorkloadNeedsUpdate(csqls[0], wl)
 
 	// update the containers
-	_, err := workload.UpdateWorkloadContainers(wl, csqls)
+	_, err := u.UpdateWorkloadContainers(wl, csqls)
 	if err != nil {
 		t.Fatal(err)
 		return
 	}
 	// do it again to make sure its idempotent
 	csqls[0].SetGeneration(csqls[0].GetGeneration() + 1)
-	workload.MarkWorkloadNeedsUpdate(csqls[0], wl)
-	_, err = workload.UpdateWorkloadContainers(wl, csqls)
+	u.MarkWorkloadNeedsUpdate(csqls[0], wl)
+	_, err = u.UpdateWorkloadContainers(wl, csqls)
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -900,7 +902,7 @@ func TestProperCleanupOfEnvAndVolumes(t *testing.T) {
 	}
 
 	// Update again with an empty list
-	_, err = workload.UpdateWorkloadContainers(wl, []*v1alpha1.AuthProxyWorkload{})
+	_, err = u.UpdateWorkloadContainers(wl, []*v1alpha1.AuthProxyWorkload{})
 	if err != nil {
 		t.Fatal(err)
 	}
