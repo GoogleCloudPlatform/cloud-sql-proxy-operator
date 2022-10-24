@@ -46,7 +46,6 @@ build: build_push_docker ## Builds and pushes the docker image to tag defined in
 .PHONY: test
 test: generate go_test ## Run tests (but not internal/teste2e)
 
-
 ##
 # Development targets
 
@@ -85,7 +84,7 @@ build_push_docker: generate # Build docker image with the operator. set IMG env 
 # Kubernetes configuration targets
 
 .PHONY: go_test
-go_test: ctrl_manifests envtest # Run tests (but not internal/teste2e)
+go_test: envtest # Run tests (but not internal/teste2e)
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" \
 		go test $(shell go list ./... | grep -v 'internal/e2e') -coverprofile cover.out
 
