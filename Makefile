@@ -151,9 +151,9 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet ./...
 
-test: manifests generate fmt vet envtest ## Run tests (but not internal/teste2e)
+test: manifests generate fmt vet envtest ## Run tests
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" \
-		go test $(shell go list ./... | grep -v 'internal/e2e') -coverprofile cover.out
+		go test ./... -coverprofile cover.out
 
 ##@ Build
 # Load active version from version.txt
@@ -410,7 +410,7 @@ e2e_test_run_gotest: ## Run the golang tests
 		TEST_INFRA_JSON=$(LOCALBIN)/testinfra.json \
 		PROXY_IMAGE_URL=$(E2E_PROXY_URL) \
 		OPERATOR_IMAGE_URL=$(E2E_OPERATOR_URL) \
-		go test --count=1 -v github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/teste2e
+		go test --count=1 -v ./tests/...
 
 .PHONY: e2e_k9s
 e2e_k9s: ## Connect to the gcloud test cluster using the k9s tool

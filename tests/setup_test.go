@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package e2e holds testcases for the end-to-end tests using Google Cloud Platform
-// GKE and Cloud SQL.
-package e2e
+// Package tests holds testcases for the end-to-end tests using Google Cloud
+// Platform GKE and Cloud SQL.
+package tests
 
 import (
 	"bufio"
@@ -50,30 +50,30 @@ var (
 
 	// These vars hold state initialized by SetupTests.
 	c             client.Client
-	infra         TestInfra
+	infra         testInfra
 	proxyImageURL string
 	operatorURL   string
 )
 
-func Params(t *testing.T, ns string) *helpers2.TestCaseParams {
+func params(t *testing.T, ns string) *helpers2.TestCaseParams {
 	return &helpers2.TestCaseParams{
 		T:                t,
 		Client:           c,
 		Namespace:        helpers2.NewNamespaceName(ns),
 		ConnectionString: infra.InstanceConnectionString,
 		ProxyImageURL:    proxyImageURL,
-		Ctx:              TestContext(),
+		Ctx:              testContext(),
 	}
 }
 
-func Infra() TestInfra {
+func Infra() testInfra {
 	return infra
 }
 
 var k8sClientSet *kubernetes.Clientset
 
-// TestContext returns a background context that includes appropriate Logging configuration.
-func TestContext() context.Context {
+// testContext returns a background context that includes appropriate Logging configuration.
+func testContext() context.Context {
 	return logr.NewContext(context.Background(), logger)
 }
 
@@ -95,8 +95,8 @@ func loadValue(envVar, fromFile, defaultValue string) string {
 	return strings.Trim(string(bytes), "\r\n \t")
 }
 
-func SetupTests() (func(), error) {
-	ctx, cancelFunc := context.WithCancel(TestContext())
+func setupTests() (func(), error) {
+	ctx, cancelFunc := context.WithCancel(testContext())
 
 	// Cancel the context when teardown is called.
 	teardownFunc := func() {
@@ -108,7 +108,7 @@ func SetupTests() (func(), error) {
 	proxyImageURL = loadValue("PROXY_IMAGE_URL", "../../bin/last-proxy-image-url.txt", "cloudsql-proxy:latest")
 	operatorURL = loadValue("OPERATOR_IMAGE_URL", "../../bin/last-gcloud-operator-url.txt", "operator:latest")
 	testInfraPath := loadValue("TEST_INFRA_JSON", "", "../../bin/testinfra.json")
-	ti, err := LoadTestInfra(testInfraPath)
+	ti, err := loadTestInfra(testInfraPath)
 	if err != nil {
 		kubeconfig := "../../bin/gcloud-kubeconfig.yaml"
 		if envKubeConfig, isset := os.LookupEnv("KUBECONFIG"); isset {
@@ -155,7 +155,7 @@ func SetupTests() (func(), error) {
 	// Start the goroutines to tail the logs from the operator deployment. This
 	// prints the operator output in line with the test output so it's easier
 	// for the developer to follow.
-	podList, err := ListDeploymentPods(ctx, managerDeploymentKey)
+	podList, err := listDeploymentPods(ctx, managerDeploymentKey)
 	if err != nil {
 		return teardownFunc, fmt.Errorf("unable to find manager deployment %v", err)
 	}
@@ -184,7 +184,7 @@ func waitForCorrectOperatorPods(ctx context.Context, err error) (client.ObjectKe
 		// Check that pods are running the right version
 		// of the image. Sometimes deployments can take some time to roll out, and pods
 		// will be running a different version.
-		pods, err := ListDeploymentPods(ctx, managerDeploymentKey)
+		pods, err := listDeploymentPods(ctx, managerDeploymentKey)
 		if err != nil {
 			return fmt.Errorf("can't list manager deployment pods, %v", err)
 		}
@@ -213,8 +213,8 @@ func waitForCorrectOperatorPods(ctx context.Context, err error) (client.ObjectKe
 	return managerDeploymentKey, err
 }
 
-// ListDeploymentPods lists all the pods in a particular deployment.
-func ListDeploymentPods(ctx context.Context, deploymentKey client.ObjectKey) (*corev1.PodList, error) {
+// listDeploymentPods lists all the pods in a particular deployment.
+func listDeploymentPods(ctx context.Context, deploymentKey client.ObjectKey) (*corev1.PodList, error) {
 	dep, err := k8sClientSet.AppsV1().Deployments(deploymentKey.Namespace).Get(ctx, deploymentKey.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to find manager deployment %v", err)
@@ -278,15 +278,15 @@ func (l *testSetupLogger) Logf(format string, args ...interface{}) {
 }
 func (l *testSetupLogger) Helper() {}
 
-type TestInfra struct {
+type testInfra struct {
 	InstanceConnectionString string `json:"instance,omitempty"`
 	DB                       string `json:"db,omitempty"`
 	RootPassword             string `json:"rootPassword,omitempty"`
 	Kubeconfig               string `json:"kubeconfig,omitempty"`
 }
 
-func LoadTestInfra(testInfraJSON string) (TestInfra, error) {
-	result := TestInfra{}
+func loadTestInfra(testInfraJSON string) (testInfra, error) {
+	result := testInfra{}
 	bytes, err := os.ReadFile(testInfraJSON)
 	if err != nil {
 		return result, err
