@@ -16,6 +16,7 @@ package controller
 
 import (
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -37,10 +38,12 @@ func InitScheme(scheme *runtime.Scheme) {
 // SetupManagers was moved out of ../main.go to here so that it can be invoked
 // from the testintegration tests AND from the actual operator.
 func SetupManagers(mgr manager.Manager) error {
+	u := workload.NewUpdater()
+
 	setupLog.Info("Configuring reconcilers...")
 	var err error
 
-	_, err = NewAuthProxyWorkloadReconciler(mgr)
+	_, err = NewAuthProxyWorkloadReconciler(mgr, u)
 	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AuthProxyWorkload")
 		// Kubebuilder won't properly write the contents of this file. It will want
@@ -62,7 +65,7 @@ func SetupManagers(mgr manager.Manager) error {
 	// When kubebuilder scaffolds a new controller here, please
 	// adjust the code so it follows the pattern above.
 
-	err = SetupWorkloadControllers(mgr)
+	err = SetupWorkloadControllers(mgr, u)
 	if err != nil {
 		setupLog.Error(err, "unable to create workload admission webhook controller")
 		return err

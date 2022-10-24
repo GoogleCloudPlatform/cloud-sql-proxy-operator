@@ -54,7 +54,7 @@ func TestReconcileState11(t *testing.T) {
 		Name:      "test",
 	}, "project:region:db")
 
-	assertReconcileResult(t, p, []client.Object{p}, true, "", "")
+	runReconcileTestcase(t, p, []client.Object{p}, true, "", "")
 }
 
 func TestReconcileDeleted(t *testing.T) {
@@ -116,7 +116,7 @@ func TestReconcileState21ByName(t *testing.T) {
 		Namespace: "default",
 	}
 
-	assertReconcileResult(t, p, []client.Object{p}, false, metav1.ConditionTrue, v1alpha1.ReasonNoWorkloadsFound)
+	runReconcileTestcase(t, p, []client.Object{p}, false, metav1.ConditionTrue, v1alpha1.ReasonNoWorkloadsFound)
 }
 func TestReconcileState21BySelector(t *testing.T) {
 	p := testhelpers.BuildAuthProxyWorkload(types.NamespacedName{
@@ -132,7 +132,7 @@ func TestReconcileState21BySelector(t *testing.T) {
 		},
 	}
 
-	assertReconcileResult(t, p, []client.Object{p}, false, metav1.ConditionTrue, v1alpha1.ReasonNoWorkloadsFound)
+	runReconcileTestcase(t, p, []client.Object{p}, false, metav1.ConditionTrue, v1alpha1.ReasonNoWorkloadsFound)
 }
 
 func TestReconcileState22ByName(t *testing.T) {
@@ -160,7 +160,7 @@ func TestReconcileState22ByName(t *testing.T) {
 		},
 	}
 
-	assertReconcileResult(t, p, []client.Object{p, pod}, true, metav1.ConditionFalse, v1alpha1.ReasonStartedReconcile)
+	runReconcileTestcase(t, p, []client.Object{p, pod}, true, metav1.ConditionFalse, v1alpha1.ReasonStartedReconcile)
 }
 
 func TestReconcileState22BySelector(t *testing.T) {
@@ -185,7 +185,7 @@ func TestReconcileState22BySelector(t *testing.T) {
 		},
 	}
 
-	assertReconcileResult(t, p, []client.Object{p, pod}, true, metav1.ConditionFalse, v1alpha1.ReasonStartedReconcile)
+	runReconcileTestcase(t, p, []client.Object{p, pod}, true, metav1.ConditionFalse, v1alpha1.ReasonStartedReconcile)
 }
 
 func TestReconcileState31(t *testing.T) {
@@ -226,8 +226,8 @@ func TestReconcileState31(t *testing.T) {
 		},
 	}
 	wantWls := workload.WorkloadUpdateStatus{LastUpdatedGeneration: "1", LastRequstGeneration: "1"}
-	assertReconcileResult(t, p, []client.Object{p, pod}, wantRequeue, wantStatus, wantReason)
-	assertWorkloadUpdateStatus(t, p, pod, wantWls)
+	_, _, r := runReconcileTestcase(t, p, []client.Object{p, pod}, wantRequeue, wantStatus, wantReason)
+	assertWorkloadUpdateStatus(t, r, p, pod, wantWls)
 }
 
 func TestReconcileState32(t *testing.T) {
@@ -259,12 +259,12 @@ func TestReconcileState32(t *testing.T) {
 	}
 	wantWls := workload.WorkloadUpdateStatus{LastUpdatedGeneration: "", LastRequstGeneration: "1"}
 
-	assertReconcileResult(t, p, []client.Object{p, pod}, true, metav1.ConditionFalse, v1alpha1.ReasonStartedReconcile)
-	assertWorkloadUpdateStatus(t, p, pod, wantWls)
+	_, _, r := runReconcileTestcase(t, p, []client.Object{p, pod}, true, metav1.ConditionFalse, v1alpha1.ReasonStartedReconcile)
+	assertWorkloadUpdateStatus(t, r, p, pod, wantWls)
 }
 
-func assertWorkloadUpdateStatus(t *testing.T, p *v1alpha1.AuthProxyWorkload, pod *corev1.Pod, wantWls workload.WorkloadUpdateStatus) {
-	wls := workload.WorkloadStatus(p, &workload.PodWorkload{Pod: pod})
+func assertWorkloadUpdateStatus(t *testing.T, r *AuthProxyWorkloadReconciler, p *v1alpha1.AuthProxyWorkload, pod *corev1.Pod, wantWls workload.WorkloadUpdateStatus) {
+	wls := r.updater.Status(p, &workload.PodWorkload{Pod: pod})
 	if wls.LastRequstGeneration != wantWls.LastRequstGeneration {
 		t.Errorf("got %v, want %v, workload status LastRequstGeneration", wls.LastRequstGeneration, wantWls.LastRequstGeneration)
 	}
@@ -273,7 +273,7 @@ func assertWorkloadUpdateStatus(t *testing.T, p *v1alpha1.AuthProxyWorkload, pod
 	}
 }
 
-func assertReconcileResult(t *testing.T, p *v1alpha1.AuthProxyWorkload, clientObjects []client.Object, wantRequeue bool, wantStatus metav1.ConditionStatus, wantReason string) (context.Context, client.WithWatch) {
+func runReconcileTestcase(t *testing.T, p *v1alpha1.AuthProxyWorkload, clientObjects []client.Object, wantRequeue bool, wantStatus metav1.ConditionStatus, wantReason string) (context.Context, client.WithWatch, *AuthProxyWorkloadReconciler) {
 	t.Helper()
 	cb, err := clientBuilder()
 	if err != nil {
@@ -302,7 +302,7 @@ func assertReconcileResult(t *testing.T, p *v1alpha1.AuthProxyWorkload, clientOb
 		cond := findCondition(p.Status.Conditions, v1alpha1.ConditionUpToDate)
 		if cond == nil {
 			t.Error("UpToDate condition was nil, wants condition to exist.")
-			return ctx, c
+			return ctx, c, nil
 		}
 		if wantStatus != "" && cond.Status != wantStatus {
 			t.Errorf("got %v, want %v for UpToDate condition status", cond.Status, wantStatus)
@@ -312,7 +312,7 @@ func assertReconcileResult(t *testing.T, p *v1alpha1.AuthProxyWorkload, clientOb
 		}
 	}
 
-	return ctx, c
+	return ctx, c, r
 }
 
 func clientBuilder() (*fake.ClientBuilder, error) {
@@ -333,6 +333,7 @@ func reconciler(p *v1alpha1.AuthProxyWorkload, cb client.Client) (*AuthProxyWork
 	r := &AuthProxyWorkloadReconciler{
 		Client:          cb,
 		recentlyDeleted: &recentlyDeletedCache{},
+		updater:         workload.NewUpdater(),
 	}
 	req := ctrl.Request{
 		NamespacedName: types.NamespacedName{
