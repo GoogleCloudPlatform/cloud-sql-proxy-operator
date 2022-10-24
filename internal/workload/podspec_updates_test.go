@@ -28,12 +28,6 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-type TestImageSupplier struct{}
-
-func (i *TestImageSupplier) LatestImage() (string, error) {
-	return "example:latest", nil
-}
-
 func deploymentWorkload() *workload.DeploymentWorkload {
 	return &workload.DeploymentWorkload{Deployment: &appsv1.Deployment{
 		TypeMeta:   metav1.TypeMeta{Kind: "Deployment", APIVersion: "apps/v1"},
@@ -87,7 +81,7 @@ func authProxyWorkloadFromSpec(name string, spec v1alpha1.AuthProxyWorkloadSpec)
 // the appropriate "needs update" annotation to the workload wl for each of the
 // AuthProxyWorkload in proxies.
 func markWorkloadNeedsUpdate(wl *workload.DeploymentWorkload, proxies ...*v1alpha1.AuthProxyWorkload) []*v1alpha1.AuthProxyWorkload {
-	u := workload.NewUpdaterWithSupplier(&TestImageSupplier{})
+	u := workload.NewUpdater()
 	for i := 0; i < len(proxies); i++ {
 		u.MarkWorkloadNeedsUpdate(proxies[i], wl)
 	}
@@ -152,7 +146,7 @@ func TestUpdateWorkload(t *testing.T) {
 		wantsUpdatedInstanceName       = "project:server:newdb"
 		wantsInstanceArg               = fmt.Sprintf("%s?port=%d", wantsInstanceName, wantsPort)
 		wantsUpdatedInstanceArg        = fmt.Sprintf("%s?port=%d", wantsUpdatedInstanceName, wantsPort)
-		u                              = workload.NewUpdaterWithSupplier(&TestImageSupplier{})
+		u                              = workload.NewUpdater()
 	)
 	var err error
 
@@ -250,7 +244,7 @@ func TestUpdateWorkloadFixedPort(t *testing.T) {
 			"DB_HOST": "localhost",
 			"DB_PORT": strconv.Itoa(int(wantsPort)),
 		}
-		u = workload.NewUpdaterWithSupplier(&TestImageSupplier{})
+		u = workload.NewUpdater()
 	)
 
 	// Create a deployment
@@ -321,7 +315,7 @@ func TestWorkloadNoPortSet(t *testing.T) {
 			"DB_PORT": strconv.Itoa(int(wantsPort)),
 		}
 	)
-	u := workload.NewUpdaterWithSupplier(&TestImageSupplier{})
+	u := workload.NewUpdater()
 
 	// Create a deployment
 	wl := deploymentWorkload()
@@ -388,7 +382,7 @@ func TestWorkloadUnixVolume(t *testing.T) {
 		wantWorkloadEnv = map[string]string{
 			"DB_SOCKET_PATH": wantsUnixDir,
 		}
-		u = workload.NewUpdaterWithSupplier(&TestImageSupplier{})
+		u = workload.NewUpdater()
 	)
 
 	// Create a deployment
@@ -466,7 +460,7 @@ func TestContainerImageChanged(t *testing.T) {
 	var (
 		wantsInstanceName = "project:server:db"
 		wantImage         = "custom-image:latest"
-		u                 = workload.NewUpdaterWithSupplier(&TestImageSupplier{})
+		u                 = workload.NewUpdater()
 	)
 
 	// Create a deployment
@@ -513,7 +507,7 @@ func TestContainerReplaced(t *testing.T) {
 		wantContainer     = &corev1.Container{
 			Name: "sample", Image: "debian:latest", Command: []string{"/bin/bash"},
 		}
-		u = workload.NewUpdaterWithSupplier(&TestImageSupplier{})
+		u = workload.NewUpdater()
 	)
 
 	// Create a deployment
@@ -758,7 +752,7 @@ func TestProxyCLIArgs(t *testing.T) {
 	for i := 0; i < len(testcases); i++ {
 		tc := &testcases[i]
 		t.Run(tc.desc, func(t *testing.T) {
-			u := workload.NewUpdaterWithSupplier(&TestImageSupplier{})
+			u := workload.NewUpdater()
 
 			// Create a deployment
 			wl := &workload.DeploymentWorkload{Deployment: &appsv1.Deployment{
@@ -821,7 +815,7 @@ func TestProperCleanupOfEnvAndVolumes(t *testing.T) {
 			"DB_SOCKET_PATH": wantsUnixDir,
 			"DB_PORT":        "5000",
 		}
-		u = workload.NewUpdaterWithSupplier(&TestImageSupplier{})
+		u = workload.NewUpdater()
 	)
 
 	// Create a deployment
