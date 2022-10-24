@@ -70,7 +70,7 @@ type AuthProxyWorkloadReconciler struct {
 	client.Client
 	Scheme          *runtime.Scheme
 	recentlyDeleted *recentlyDeletedCache
-	u               *workload.Updater
+	updater         *workload.Updater
 }
 
 // NewAuthProxyWorkloadManager constructs an AuthProxyWorkloadReconciler
@@ -79,7 +79,7 @@ func NewAuthProxyWorkloadReconciler(mgr ctrl.Manager, u *workload.Updater) (*Aut
 		Client:          mgr.GetClient(),
 		Scheme:          mgr.GetScheme(),
 		recentlyDeleted: &recentlyDeletedCache{},
-		u:               u,
+		updater:         u,
 	}
 	err := r.SetupWithManager(mgr)
 	return r, err
@@ -351,7 +351,7 @@ func (r *AuthProxyWorkloadReconciler) checkReconcileComplete(
 	var foundUnreconciled bool
 	for i := 0; i < len(wls); i++ {
 		wl := wls[i]
-		s := r.u.Status(resource, wl)
+		s := r.updater.Status(resource, wl)
 		if s.LastUpdatedGeneration != s.LastRequstGeneration ||
 			s.LastUpdatedGeneration != s.InstanceGeneration {
 			foundUnreconciled = true
@@ -437,7 +437,7 @@ func (r *AuthProxyWorkloadReconciler) markWorkloadsForUpdate(ctx context.Context
 	// all matching workloads get a new annotation that will be removed
 	// when the reconcile loop for outOfDate is completed.
 	for _, wl := range matching {
-		needsUpdate, status := r.u.MarkWorkloadNeedsUpdate(resource, wl)
+		needsUpdate, status := r.updater.MarkWorkloadNeedsUpdate(resource, wl)
 
 		if needsUpdate {
 			l.Info("Needs update workload ", "name", wl.Object().GetName(),

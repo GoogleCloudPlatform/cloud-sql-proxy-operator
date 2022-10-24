@@ -45,13 +45,33 @@ const (
 
 var l = logf.Log.WithName("internal.workload")
 
+// DefaultImageSupplier retrieves the default proxy image to use right now on
+// all workloads. The value may change over time.
+type DefaultImageSupplier interface {
+	LatestImage() (string, error)
+}
+
+// stubImageSupplier will be removed and replaced in the next PR with an
+// implementaiton that loads from the public container registry.
+type stubImageSupplier struct{}
+
+func (i *stubImageSupplier) LatestImage() (string, error) {
+	return "proxy:latest", nil
+}
+
 // Updater holds global used while reconciling workloads.
 type Updater struct {
 }
 
-// NewUpdater creates a new instance of Updater.
-func NewUpdater() *Updater {
+// NewUpdaterWithSupplier creates a new instance of Updater with the default image supplier.
+func NewUpdaterWithSupplier(_ DefaultImageSupplier) *Updater {
 	return &Updater{}
+}
+
+// NewUpdater creates a new instance of Updater with a supplier
+// that loads the default proxy impage from the public docker registry
+func NewUpdater() *Updater {
+	return NewUpdaterWithSupplier(&stubImageSupplier{})
 }
 
 // ConfigError is an error with extra details about why an AuthProxyWorkload

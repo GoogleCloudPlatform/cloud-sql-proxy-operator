@@ -54,7 +54,7 @@ func TestReconcileState11(t *testing.T) {
 		Name:      "test",
 	}, "project:region:db")
 
-	assertReconcileResult(t, p, []client.Object{p}, true, "", "")
+	runReconcileTestcase(t, p, []client.Object{p}, true, "", "")
 }
 
 func TestReconcileDeleted(t *testing.T) {
@@ -116,7 +116,7 @@ func TestReconcileState21ByName(t *testing.T) {
 		Namespace: "default",
 	}
 
-	assertReconcileResult(t, p, []client.Object{p}, false, metav1.ConditionTrue, v1alpha1.ReasonNoWorkloadsFound)
+	runReconcileTestcase(t, p, []client.Object{p}, false, metav1.ConditionTrue, v1alpha1.ReasonNoWorkloadsFound)
 }
 func TestReconcileState21BySelector(t *testing.T) {
 	p := testhelpers.BuildAuthProxyWorkload(types.NamespacedName{
@@ -132,7 +132,7 @@ func TestReconcileState21BySelector(t *testing.T) {
 		},
 	}
 
-	assertReconcileResult(t, p, []client.Object{p}, false, metav1.ConditionTrue, v1alpha1.ReasonNoWorkloadsFound)
+	runReconcileTestcase(t, p, []client.Object{p}, false, metav1.ConditionTrue, v1alpha1.ReasonNoWorkloadsFound)
 }
 
 func TestReconcileState22ByName(t *testing.T) {
@@ -160,7 +160,7 @@ func TestReconcileState22ByName(t *testing.T) {
 		},
 	}
 
-	assertReconcileResult(t, p, []client.Object{p, pod}, true, metav1.ConditionFalse, v1alpha1.ReasonStartedReconcile)
+	runReconcileTestcase(t, p, []client.Object{p, pod}, true, metav1.ConditionFalse, v1alpha1.ReasonStartedReconcile)
 }
 
 func TestReconcileState22BySelector(t *testing.T) {
@@ -185,7 +185,7 @@ func TestReconcileState22BySelector(t *testing.T) {
 		},
 	}
 
-	assertReconcileResult(t, p, []client.Object{p, pod}, true, metav1.ConditionFalse, v1alpha1.ReasonStartedReconcile)
+	runReconcileTestcase(t, p, []client.Object{p, pod}, true, metav1.ConditionFalse, v1alpha1.ReasonStartedReconcile)
 }
 
 func TestReconcileState31(t *testing.T) {
@@ -226,7 +226,7 @@ func TestReconcileState31(t *testing.T) {
 		},
 	}
 	wantWls := workload.WorkloadUpdateStatus{LastUpdatedGeneration: "1", LastRequstGeneration: "1"}
-	_, _, r := assertReconcileResult(t, p, []client.Object{p, pod}, wantRequeue, wantStatus, wantReason)
+	_, _, r := runReconcileTestcase(t, p, []client.Object{p, pod}, wantRequeue, wantStatus, wantReason)
 	assertWorkloadUpdateStatus(t, r, p, pod, wantWls)
 }
 
@@ -259,12 +259,12 @@ func TestReconcileState32(t *testing.T) {
 	}
 	wantWls := workload.WorkloadUpdateStatus{LastUpdatedGeneration: "", LastRequstGeneration: "1"}
 
-	_, _, r := assertReconcileResult(t, p, []client.Object{p, pod}, true, metav1.ConditionFalse, v1alpha1.ReasonStartedReconcile)
+	_, _, r := runReconcileTestcase(t, p, []client.Object{p, pod}, true, metav1.ConditionFalse, v1alpha1.ReasonStartedReconcile)
 	assertWorkloadUpdateStatus(t, r, p, pod, wantWls)
 }
 
 func assertWorkloadUpdateStatus(t *testing.T, r *AuthProxyWorkloadReconciler, p *v1alpha1.AuthProxyWorkload, pod *corev1.Pod, wantWls workload.WorkloadUpdateStatus) {
-	wls := r.u.Status(p, &workload.PodWorkload{Pod: pod})
+	wls := r.updater.Status(p, &workload.PodWorkload{Pod: pod})
 	if wls.LastRequstGeneration != wantWls.LastRequstGeneration {
 		t.Errorf("got %v, want %v, workload status LastRequstGeneration", wls.LastRequstGeneration, wantWls.LastRequstGeneration)
 	}
@@ -273,7 +273,7 @@ func assertWorkloadUpdateStatus(t *testing.T, r *AuthProxyWorkloadReconciler, p 
 	}
 }
 
-func assertReconcileResult(t *testing.T, p *v1alpha1.AuthProxyWorkload, clientObjects []client.Object, wantRequeue bool, wantStatus metav1.ConditionStatus, wantReason string) (context.Context, client.WithWatch, *AuthProxyWorkloadReconciler) {
+func runReconcileTestcase(t *testing.T, p *v1alpha1.AuthProxyWorkload, clientObjects []client.Object, wantRequeue bool, wantStatus metav1.ConditionStatus, wantReason string) (context.Context, client.WithWatch, *AuthProxyWorkloadReconciler) {
 	t.Helper()
 	cb, err := clientBuilder()
 	if err != nil {
@@ -333,7 +333,7 @@ func reconciler(p *v1alpha1.AuthProxyWorkload, cb client.Client) (*AuthProxyWork
 	r := &AuthProxyWorkloadReconciler{
 		Client:          cb,
 		recentlyDeleted: &recentlyDeletedCache{},
-		u:               workload.NewUpdater(),
+		updater:         workload.NewUpdater(),
 	}
 	req := ctrl.Request{
 		NamespacedName: types.NamespacedName{
