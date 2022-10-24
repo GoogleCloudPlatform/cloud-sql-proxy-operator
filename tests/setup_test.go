@@ -27,7 +27,7 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/controller"
-	helpers2 "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
 	"github.com/go-logr/logr"
 	"go.uber.org/zap/zapcore"
 	appsv1 "k8s.io/api/apps/v1"
@@ -55,19 +55,15 @@ var (
 	operatorURL   string
 )
 
-func params(t *testing.T, ns string) *helpers2.TestCaseParams {
-	return &helpers2.TestCaseParams{
+func params(t *testing.T, ns string) *testhelpers.TestCaseParams {
+	return &testhelpers.TestCaseParams{
 		T:                t,
 		Client:           c,
-		Namespace:        helpers2.NewNamespaceName(ns),
+		Namespace:        testhelpers.NewNamespaceName(ns),
 		ConnectionString: infra.InstanceConnectionString,
 		ProxyImageURL:    proxyImageURL,
 		Ctx:              testContext(),
 	}
-}
-
-func Infra() testInfra {
-	return infra
 }
 
 var k8sClientSet *kubernetes.Clientset
@@ -168,7 +164,7 @@ func setupTests() (func(), error) {
 
 func waitForCorrectOperatorPods(ctx context.Context, err error) (client.ObjectKey, error) {
 	managerDeploymentKey := client.ObjectKey{Namespace: "cloud-sql-proxy-operator-system", Name: "cloud-sql-proxy-operator-controller-manager"}
-	err = helpers2.RetryUntilSuccess(&testSetupLogger{Logger: logger}, 5, 5*time.Second, func() error {
+	err = testhelpers.RetryUntilSuccess(&testSetupLogger{Logger: logger}, 5, 5*time.Second, func() error {
 		deployment := appsv1.Deployment{}
 		// Fetch the deployment
 		err := c.Get(ctx, managerDeploymentKey, &deployment)
