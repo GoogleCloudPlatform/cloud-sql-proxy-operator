@@ -32,6 +32,11 @@ const (
 	// because fuse is not yet supported.
 	ErrorCodeFUSENotSupported = "FUSENotSupported"
 
+	// ErrorCodeDefaultProxyImageMissing occurs when any the default proxy image
+	// cannot be found due to an error loading or interpreting the available
+	// images in the container registry.
+	ErrorCodeDefaultProxyImageMissing = "DefaultProxyImageMissing"
+
 	// AnnotationPrefix is used as the prefix for all annotations added to a domain object.
 	// to hold metadata related to this operator.
 	AnnotationPrefix = "cloudsql.cloud.google.com"

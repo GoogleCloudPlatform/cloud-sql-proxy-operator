@@ -41,18 +41,42 @@ const (
 	// DefaultHealthCheckPort is the used by the proxy to expose prometheus
 	// and kubernetes health checks.
 	DefaultHealthCheckPort int32 = 9801
+
+	// defaultProxyImage is the well-known image to use for the Cloud SQL Proxy
+	// when no image is specified in the AuthProxyWorkload spec.
+	defaultProxyImage = "gcr.io/cloud-sql-connectors/cloud-sql-proxy"
 )
 
 var l = logf.Log.WithName("internal.workload")
 
+// DefaultImageSupplier retrieves the default proxy image to use right now on
+// all workloads. The value may change over time.
+type DefaultImageSupplier interface {
+	LatestImage() (string, error)
+}
+
+// stubSupplier fills in the image using a static default
+type stubSupplier struct {
+}
+
+func (*stubSupplier) LatestImage() (string, error) {
+	return defaultProxyImage, nil
+}
+
 // Updater holds global state used while reconciling workloads.
 type Updater struct {
+	proxyImage DefaultImageSupplier
+}
+
+// NewUpdaterWithSupplier creates a new instance of Updater with the default image supplier.
+func NewUpdaterWithSupplier(s DefaultImageSupplier) *Updater {
+	return &Updater{proxyImage: s}
 }
 
 // NewUpdater creates a new instance of Updater with a supplier
 // that loads the default proxy impage from the public docker registry
 func NewUpdater() *Updater {
-	return &Updater{}
+	return NewUpdaterWithSupplier(&stubSupplier{})
 }
 
 // ConfigError is an error with extra details about why an AuthProxyWorkload
@@ -780,7 +804,14 @@ func (s *updateState) applyContainerSpec(p *cloudsqlapi.AuthProxyWorkload, c *co
 
 	}
 
-	c.Image = s.defaultProxyImage()
+	var err error
+	c.Image, err = s.updater.proxyImage.LatestImage()
+	if err != nil {
+		s.addError(cloudsqlapi.ErrorCodeDefaultProxyImageMissing,
+			fmt.Sprintf("the default cloud-sql-proxy image could not be retrieved, %v", err), p)
+		c.Image = defaultProxyImage
+	}
+
 	if p.Spec.AuthProxyContainer.Image != "" {
 		c.Image = p.Spec.AuthProxyContainer.Image
 	}
@@ -1072,9 +1103,4 @@ func (s *updateState) applyAuthenticationSpec(proxy *cloudsqlapi.AuthProxyWorklo
 	// that it is implemented correctly.
 	// --credentials-file
 	return args
-}
-
-func (s *updateState) defaultProxyImage() string {
-	// TODO look this up from the public registry
-	return "us-central1-docker.pkg.dev/csql-operator-test/test76e6d646e2caac1c458c/proxy-v2:latest"
 }

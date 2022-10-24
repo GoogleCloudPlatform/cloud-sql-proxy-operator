@@ -72,5 +72,8 @@ webhooks:
           - jobs
           - cronjobs
         scope: "*"
-    timeoutSeconds: 2
+    # timeoutSeconds is set to 15 seconds in case it needs to query the
+    # container registry for the latest proxy image. Normally this returns under
+    # 2 seconds.
+    timeoutSeconds: 15
     sideEffects: None
