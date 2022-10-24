@@ -37,11 +37,23 @@ help: ## Display this help.
 .PHONY: generate
 generate:  ctrl_generate ctrl_manifests reset_image add_copyright_header go_fmt yaml_fmt ## Runs code generation, format, and validation tools
 
+.PHONY: build
+build: build_push_docker ## Builds and pushes the docker image to tag defined in envvar IMG
+
+.PHONY: test
+test: go_test ## Run tests (but not internal/teste2e)
+
 ##
 # Development targets
 
+# Load active version from version.txt
+VERSION=$(shell cat $(PWD)/version.txt | tr -d '\n')
+BUILD_ID:=$(shell $(PWD)/tools/build-identifier.sh | tr -d '\n')
+VERSION_LDFLAGS=-X main.version=$(VERSION) -X main.buildID=$(BUILD_ID)
+
+
 .PHONY: ctrl_generate
-ctrl_generate: controller-gen # use controller-gen to generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+ctrl_generate: controller-gen # Use controller-gen to generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 .PHONY: go_fmt
@@ -57,9 +69,22 @@ yaml_fmt: # Automatically formats all yaml files
 add_copyright_header: # Add the copyright header
 	go run github.com/google/addlicense@latest *
 
+.PHONY: build
+build_push_docker: # Build docker image with the operator. set IMG env var before running: `IMG=example.com/img:1.0 make build`
+	docker buildx build --platform "linux/amd64" \
+	  --build-arg LDFLAGS="$(VERSION_LDFLAGS)" \
+	  -f "Dockerfile-operator" \
+	  --push -t "$(IMG)" "$(PWD)"
+	echo "$(IMG)" > bin/last-pushed-image-url.txt
 ##
 # Kubernetes configuration targets
 
+.PHONY: go_test
+go_test: manifests generate fmt vet envtest # Run tests (but not internal/teste2e)
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" \
+		go test $(shell go list ./... | grep -v 'internal/e2e') -coverprofile cover.out
+
+##@ Kubernetes configuration targets
 .PHONY: ctrl_manifests
 ctrl_manifests: controller-gen # Use controller-gen to generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
