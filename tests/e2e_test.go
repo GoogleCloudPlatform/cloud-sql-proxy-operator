@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package e2e_test
+package tests
 
 import (
 	"fmt"
@@ -20,14 +20,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/e2e"
 	helpers2 "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func TestMain(m *testing.M) {
-	teardown, err := e2e.SetupTests()
+	teardown, err := setupTests()
 	defer teardown()
 
 	if err != nil {
@@ -41,23 +40,23 @@ func TestMain(m *testing.M) {
 }
 
 func TestCreateResource(t *testing.T) {
-	tctx := e2e.Params(t, "create")
+	tctx := params(t, "create")
 	helpers2.TestCreateResource(tctx)
 }
 
 func TestDeleteResource(t *testing.T) {
-	tctx := e2e.Params(t, "delete")
+	tctx := params(t, "delete")
 	helpers2.TestDeleteResource(tctx)
 }
 
 func TestModifiesNewDeployment(t *testing.T) {
-	tctx := e2e.Params(t, "newdeploy")
+	tctx := params(t, "newdeploy")
 	helpers2.TestModifiesNewDeployment(tctx)
 
 	var podList *v1.PodList
 	err := helpers2.RetryUntilSuccess(t, 5, 10*time.Second, func() error {
 		var err error
-		podList, err = e2e.ListDeploymentPods(tctx.Ctx, client.ObjectKey{Namespace: tctx.Namespace, Name: "newdeploy"})
+		podList, err = listDeploymentPods(tctx.Ctx, client.ObjectKey{Namespace: tctx.Namespace, Name: "newdeploy"})
 		return err
 	})
 
@@ -73,6 +72,6 @@ func TestModifiesNewDeployment(t *testing.T) {
 }
 
 func TestModifiesExistingDeployment(t *testing.T) {
-	tctx := e2e.Params(t, "modifydeploy")
+	tctx := params(t, "modifydeploy")
 	helpers2.TestModifiesExistingDeployment(tctx)
 }
