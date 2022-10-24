@@ -45,7 +45,7 @@ const (
 
 var l = logf.Log.WithName("internal.workload")
 
-// Updater holds global used while reconciling workloads.
+// Updater holds global state used while reconciling workloads.
 type Updater struct {
 }
 
