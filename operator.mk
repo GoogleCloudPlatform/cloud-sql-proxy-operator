@@ -74,6 +74,9 @@ deploy:  build_push_docker deploy_with_kubeconfig ## Deploys the operator to the
 .PHONY: e2e_test
 e2e_test: e2e_test_infra e2e_test_run e2e_test_cleanup ## Run end-to-end tests on Google Cloud GKE
 
+.PHONY: lint
+lint: generate go_lint tf_lint  ## Runs generate and then code lint validation tools
+
 ##
 # Development targets
 
@@ -115,6 +118,16 @@ build_push_docker: generate # Build docker image with the operator. set IMG env 
 go_test: envtest # Run tests (but not internal/teste2e)
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" \
 		go test $(shell go list ./... | grep -v 'internal/e2e') -coverprofile cover.out
+
+.PHONY: go_lint
+go_lint: golangci-lint ## Run go lint tools, fail if unchecked errors
+	# Implements golang CI based on settings described here:
+	# See https://betterprogramming.pub/how-to-improve-code-quality-with-an-automatic-check-in-go-d18a5eb85f09
+	$(GOLANGCI_LINT) run --fix --fast ./...
+
+.PHONY: tf_lint
+tf_lint: terraform ## Run go lint tools, fail if unchecked errors
+	$(TERRAFORM) -chdir=testinfra fmt
 
 ##@ Kubernetes configuration targets
 .PHONY: ctrl_manifests
@@ -279,6 +292,7 @@ CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 KUBECTL ?= $(LOCALBIN)/kubectl
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 TERRAFORM ?= $(LOCALBIN)/terraform
+GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
 
 ## Tool Versions
 CONTROLLER_TOOLS_VERSION ?= latest
@@ -325,3 +339,8 @@ $(TERRAFORM): $(LOCALBIN)
 		rm -f $@.zip && \
 		chmod a+x $@ && \
 		touch $@ )
+
+.PHONY: golangci-lint
+golangci-lint: $(GOLANGCI_LINT) ## Download controller-gen locally if necessary.
+$(GOLANGCI_LINT): $(LOCALBIN)
+	test -s $@ || GOBIN=$(LOCALBIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
