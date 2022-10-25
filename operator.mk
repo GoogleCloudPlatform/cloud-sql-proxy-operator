@@ -164,6 +164,7 @@ KUBECONFIG_GCLOUD ?= $(PWD)/bin/gcloud-kubeconfig.yaml
 
 # This is the file where Terraform will write the URL to the e2e container registry
 E2E_DOCKER_URL_FILE :=$(PWD)/bin/gcloud-docker-repo.url
+E2E_DOCKER_URL=$(shell cat $(E2E_DOCKER_URL_FILE))
 
 .PHONY: e2e_project
 e2e_project: gcloud # Check that the Google Cloud project exists
@@ -184,6 +185,27 @@ gcloud:
 		(echo "Google Cloud API command line tools are not available in your path" ;\
 		 echo "Instructions on how to install https://cloud.google.com/sdk/docs/install " ; \
 		 exit 1)
+
+###
+# Build the operator docker image and push it to the
+# google cloud project repo.
+E2E_OPERATOR_URL_FILE=$(PWD)/bin/last-gcloud-operator-url.txt
+E2E_OPERATOR_URL=$(shell cat $(E2E_OPERATOR_URL_FILE) | tr -d "\n")
+
+.PHONY: e2e_operator_image_push
+e2e_operator_image_push: $(E2E_OPERATOR_URL_FILE) ## Build and push a operator image
+
+.PHONY: $(E2E_OPERATOR_URL_FILE)
+$(E2E_OPERATOR_URL_FILE): build
+	PROJECT_DIR=$(PWD) \
+	IMAGE_NAME=cloud-sql-auth-proxy-operator \
+	REPO_URL=$(E2E_DOCKER_URL) \
+	IMAGE_URL_OUT=$@ \
+	PLATFORMS=linux/amd64 \
+	DOCKER_FILE_NAME=Dockerfile \
+	$(PWD)/tools/docker-build.sh
+
+
 ##
 # Build tool dependencies
 
