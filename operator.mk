@@ -162,22 +162,47 @@ deploy_operator: kustomize kubectl # Deploy controller to the K8s cluster using 
 # GKE cluster.
 KUBECONFIG_GCLOUD ?= $(PWD)/bin/gcloud-kubeconfig.yaml
 
+# kubectl command with proper environment vars set
+E2E_KUBECTL_ARGS = USE_GKE_E2E_AUTH_PLUGIN=True KUBECONFIG=$(KUBECONFIG_GCLOUD)
+E2E_KUBECTL = $(E2E_KUBECTL_ARGS) $(KUBECTL)
+
 # This is the file where Terraform will write the URL to the e2e container registry
 E2E_DOCKER_URL_FILE :=$(PWD)/bin/gcloud-docker-repo.url
 E2E_DOCKER_URL=$(shell cat $(E2E_DOCKER_URL_FILE))
 
+
 .PHONY: e2e_project
-e2e_project: gcloud # Check that the Google Cloud project exists
+e2e_project: ## Check that the Google Cloud project exists
 	@gcloud projects describe $(E2E_PROJECT_ID) 2>/dev/null || \
 		( echo "No Google Cloud Project $(E2E_PROJECT_ID) found"; exit 1 )
 
-.PHONY: e2e_cluster
 e2e_cluster: e2e_project terraform ## Build infrastructure for e2e tests
 	PROJECT_DIR=$(PWD) \
   		E2E_PROJECT_ID=$(E2E_PROJECT_ID) \
   		KUBECONFIG_GCLOUD=$(KUBECONFIG_GCLOUD) \
   		E2E_DOCKER_URL_FILE=$(E2E_DOCKER_URL_FILE) \
   		testinfra/run.sh apply
+
+.PHONY: e2e_cert_manager_deploy
+e2e_cert_manager_deploy: kubectl ## Deploy the certificate manager
+	$(E2E_KUBECTL) apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.9.1/cert-manager.yaml
+	# wait for cert manager to become available before continuing
+	$(E2E_KUBECTL) rollout status deployment cert-manager -n cert-manager --timeout=90s
+
+
+.PHONY: e2e_install
+e2e_install: ctrl_manifests kustomize kubectl ## Install CRDs into the GKE cluster
+	$(KUSTOMIZE) build config/crd | $(E2E_KUBECTL) apply -f -
+
+.PHONY: e2e_deploy
+e2e_deploy: ctrl_manifests kustomize kubectl ## Deploy controller to the GKE cluster
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(E2E_OPERATOR_URL)
+	$(KUSTOMIZE) build config/default | USE_GKE_E2E_AUTH_PLUGIN=True  KUBECONFIG=$(KUBECONFIG_GCLOUD) $(KUBECTL) apply -f -
+	$(E2E_KUBECTL) rollout status deployment -n cloud-sql-proxy-operator-system cloud-sql-proxy-operator-controller-manager --timeout=90s
+
+.PHONY: e2e_undeploy
+e2e_undeploy: manifests  kustomize kubectl ## Deploy controller to the GKE cluster
+	$(KUSTOMIZE) build config/default | $(E2E_KUBECTL) delete -f -
 
 .PHONY: gcloud
 gcloud:
@@ -204,6 +229,7 @@ $(E2E_OPERATOR_URL_FILE): build
 	PLATFORMS=linux/amd64 \
 	DOCKER_FILE_NAME=Dockerfile \
 	$(PWD)/tools/docker-build.sh
+
 
 
 ##
