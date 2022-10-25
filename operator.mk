@@ -158,18 +158,20 @@ KUSTOMIZE ?= $(LOCALBIN)/kustomize
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 KUBECTL ?= $(LOCALBIN)/kubectl
 ENVTEST ?= $(LOCALBIN)/setup-envtest
+TERRAFORM ?= $(LOCALBIN)/terraform
 
 ## Tool Versions
 CONTROLLER_TOOLS_VERSION ?= latest
 KUSTOMIZE_VERSION ?= latest
 KUBECTL_VERSION ?= v1.24.0
+TERRAFORM_VERSION ?= 1.2.7
 KUSTOMIZE_VERSION ?= v4.5.2
 ENVTEST_VERSION ?= latest
 
 remove_tools:
 	rm -rf $(LOCALBIN)/*
 
-all_tools: kustomize controller-gen envtest kubectl
+all_tools: kustomize controller-gen envtest kubectl terraform
 
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN) # Download controller-gen locally if necessary.
@@ -192,5 +194,15 @@ kubectl: $(KUBECTL) ## Download kubectl
 $(KUBECTL): $(LOCALBIN)
 	test -s $@ || \
 		( curl -L -o $@ https://dl.k8s.io/release/$(KUBECTL_VERSION)/bin/$(GOOS)/$(GOARCH)/kubectl && \
+		chmod a+x $@ && \
+		touch $@ )
+
+.PHONY: terraform
+terraform: $(TERRAFORM) ## Download terraform
+$(TERRAFORM): $(LOCALBIN)
+	test -s $@ || \
+		( curl -L -o $@.zip https://releases.hashicorp.com/terraform/$(TERRAFORM_VERSION)/terraform_$(TERRAFORM_VERSION)_$(GOOS)_$(GOARCH).zip && \
+		cd $(LOCALBIN) && unzip -o $@.zip && \
+		rm -f $@.zip && \
 		chmod a+x $@ && \
 		touch $@ )
