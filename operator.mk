@@ -18,6 +18,16 @@
 # Image URL to use all building/pushing image targets
 IMG ?= example.com/cloud-sql-proxy-operator:latest
 
+# Import the local build environment file. This holds configuration specific
+# to the local environment. build.sample.env describes the required configuration
+# environment variables.
+include build.env
+
+# if build.env is missing, copy build.sample.env to build.env
+build.env:
+	test -f $@ || cp build.sample.env build.env
+
+
 #
 ###
 
@@ -120,19 +130,41 @@ update_image: kustomize
 deploy_with_kubeconfig: install_certmanager install_crd deploy_operator
 
 .PHONY: install_certmanager
-install_certmanager:  ## Install the certmanager operator
+install_certmanager:  # Install the certmanager operator
 	$(KUBECTL) apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.9.1/cert-manager.yaml
 	$(KUBECTL) rollout status deployment -n cloud-sql-proxy-operator-system cloud-sql-proxy-operator-controller-manager --timeout=90s
 
 .PHONY: install
-install_crd: ctrl_manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
+install_crd: ctrl_manifests kustomize # Install CRDs into the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | $(KUBECTL) apply -f -
 
 .PHONY: deploy_operator
-deploy_operator: ctrl_manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+deploy_operator: ctrl_manifests kustomize # Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | $(KUBECTL) apply -f -
 	$(E2E_KUBECTL) rollout status deployment -n cloud-sql-proxy-operator-system cloud-sql-proxy-operator-controller-manager --timeout=90s
+
+
+##
+# Google Cloud End to End Test
+
+## This is the default location from terraform
+KUBECONFIG_GCLOUD ?= $(PWD)/bin/gcloud-kubeconfig.yaml
+
+# This file contains the URL to the e2e container registry created by terraform
+E2E_DOCKER_URL_FILE :=$(PWD)/bin/gcloud-docker-repo.url
+
+.PHONY: e2e_project
+e2e_project: ## Check that the Google Cloud project exists
+	@gcloud projects describe $(E2E_PROJECT_ID) 2>/dev/null || \
+		( echo "No Google Cloud Project $(E2E_PROJECT_ID) found"; exit 1 )
+
+e2e_cluster: e2e_project terraform ## Build infrastructure for e2e tests
+	PROJECT_DIR=$(PWD) \
+  		E2E_PROJECT_ID=$(E2E_PROJECT_ID) \
+  		KUBECONFIG_GCLOUD=$(KUBECONFIG_GCLOUD) \
+  		E2E_DOCKER_URL_FILE=$(E2E_DOCKER_URL_FILE) \
+  		testinfra/run.sh apply
 
 
 ##

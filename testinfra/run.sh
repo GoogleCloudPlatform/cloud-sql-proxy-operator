@@ -21,9 +21,9 @@ if [[ -z "$PROJECT_DIR" ]]; then
   exit 1
 fi
 
-#expects $GCLOUD_PROJECT_ID
-if [[ -z "$GCLOUD_PROJECT_ID" ]]; then
-  echo "expects GCLOUD_PROJECT_ID to be set to the gcloud project id for testing."
+#expects $E2E_PROJECT_ID
+if [[ -z "$E2E_PROJECT_ID" ]]; then
+  echo "expects E2E_PROJECT_ID to be set to the gcloud project id for testing."
   exit 1
 fi
 
@@ -33,9 +33,9 @@ if [[ -z "$KUBECONFIG_GCLOUD" ]]; then
   exit 1
 fi
 
-#expects $GCLOUD_DOCKER_URL_FILE
-if [[ -z "$GCLOUD_DOCKER_URL_FILE" ]]; then
-  echo "expects GCLOUD_DOCKER_URL_FILE to be set the location where docker url should be written."
+#expects $E2E_DOCKER_URL_FILE
+if [[ -z "$E2E_DOCKER_URL_FILE" ]]; then
+  echo "expects E2E_DOCKER_URL_FILE to be set the location where docker url should be written."
   exit 1
 fi
 
@@ -59,10 +59,10 @@ else
   DESTROY=""
 fi
 
-"$TERRAFORM"  -chdir="$DATA_DIR" apply "$DESTROY" parallelism=5 -auto-approve \
+"$TERRAFORM"  -chdir="$DATA_DIR" apply $DESTROY -parallelism=5 -auto-approve \
   -var "gcloud_bin=$(which gcloud)" \
-  -var "gcloud_docker_url_file=$GCLOUD_DOCKER_URL_FILE" \
-  -var "project_id=$GCLOUD_PROJECT_ID" \
+  -var "gcloud_docker_url_file=$E2E_DOCKER_URL_FILE" \
+  -var "project_id=$E2E_PROJECT_ID" \
   -var "kubeconfig_path=$KUBECONFIG_GCLOUD" \
   -var "testinfra_json_path=$PROJECT_DIR/bin/testinfra.json"
 
