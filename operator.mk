@@ -81,6 +81,9 @@ test: generate go_test ## Run tests (but not internal/teste2e)
 .PHONY: deploy
 deploy:  build deploy_with_kubeconfig ## Deploys the operator to the kubernetes cluster using envvar KUBECONFIG. Set $IMG envvar to the image tag.
 
+.PHONY: e2e_test
+e2e_test: e2e_test_infra e2e_test_run e2e_test_cleanup ## Run end-to-end tests on Google Cloud GKE
+
 ##
 # Development targets
 
