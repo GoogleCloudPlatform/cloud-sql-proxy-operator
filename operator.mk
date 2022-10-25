@@ -69,7 +69,10 @@ build: build_push_docker ## Builds and pushes the docker image to tag defined in
 test: generate go_test ## Run tests (but not internal/teste2e)
 
 .PHONY: deploy
-deploy:  build_push_docker deploy_with_kubeconfig ## Deploys the operator to the kubernetes cluster using envvar KUBECONFIG. Set $IMG envvar to the image tag.
+deploy:  build_push_docker deploy_with_kubeconfig ## Deploys the operator to the kubernetes cluster using envvar KUBECONFIG. Set IMG envvar to the image tag.
+
+.PHONY: e2e_test
+e2e_test: e2e_test_infra e2e_test_run e2e_test_cleanup ## Run end-to-end tests on Google Cloud GKE
 
 ##
 # Development targets
@@ -160,6 +163,16 @@ E2E_DOCKER_URL_FILE :=$(PWD)/bin/gcloud-docker-repo.url
 E2E_DOCKER_URL=$(shell cat $(E2E_DOCKER_URL_FILE))
 
 
+.PHONY: e2e_test_infra
+e2e_test_infra: e2e_project e2e_cluster e2e_cert_manager_deploy e2e_proxy_image_push  ## Build test infrastructure for e2e tests
+
+.PHONY: e2e_test_run
+e2e_test_run: e2e_install e2e_operator_image_push e2e_deploy e2e_test_run_gotest ## Build and run the e2e test code
+
+.PHONY: e2e_test_cleanup
+e2e_test_cleanup: manifests e2e_cleanup_test_namespaces e2e_undeploy ## Remove all operator and testcase configs from the e2e k8s cluster
+
+
 .PHONY: e2e_project
 e2e_project: ## Check that the Google Cloud project exists
 	@gcloud projects describe $(E2E_PROJECT_ID) 2>/dev/null || \
@@ -192,6 +205,25 @@ e2e_deploy: ctrl_manifests kustomize kubectl ## Deploy controller to the GKE clu
 .PHONY: e2e_undeploy
 e2e_undeploy: manifests  kustomize kubectl ## Deploy controller to the GKE cluster
 	$(KUSTOMIZE) build config/default | $(E2E_KUBECTL) delete -f -
+
+
+.PHONY: e2e_cleanup_test_namespaces
+e2e_cleanup_test_namespaces: $(KUSTOMIZE) $(KUBECTL) 	## list all namespaces, delete those named "test*"
+	$(E2E_KUBECTL) get ns -o=name | \
+		grep namespace/test | \
+		$(E2E_KUBECTL_ENV) xargs $(KUBECTL) delete
+
+.PHONY: e2e_test_run_gotest
+e2e_test_run_gotest: ## Run the golang tests
+	USE_GKE_E2E_AUTH_PLUGIN=True \
+		TEST_INFRA_JSON=$(LOCALBIN)/testinfra.json \
+		PROXY_IMAGE_URL=$(E2E_PROXY_URL) \
+		OPERATOR_IMAGE_URL=$(E2E_OPERATOR_URL) \
+		go test --count=1 -v github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/teste2e
+
+.PHONY: e2e_k9s
+e2e_k9s: ## Connect to the gcloud test cluster using the k9s tool
+	USE_GKE_E2E_AUTH_PLUGIN=True KUBECONFIG=$(KUBECONFIG_GCLOUD) k9s
 
 ###
 # Build the cloudsql-proxy v2 docker image and push it to the
