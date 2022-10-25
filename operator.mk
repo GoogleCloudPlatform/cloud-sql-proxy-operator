@@ -153,6 +153,7 @@ KUBECONFIG_GCLOUD ?= $(PWD)/bin/gcloud-kubeconfig.yaml
 
 # This file contains the URL to the e2e container registry created by terraform
 E2E_DOCKER_URL_FILE :=$(PWD)/bin/gcloud-docker-repo.url
+E2E_DOCKER_URL=$(shell cat $(E2E_DOCKER_URL_FILE))
 
 .PHONY: e2e_project
 e2e_project: ## Check that the Google Cloud project exists
@@ -165,6 +166,45 @@ e2e_cluster: e2e_project terraform ## Build infrastructure for e2e tests
   		KUBECONFIG_GCLOUD=$(KUBECONFIG_GCLOUD) \
   		E2E_DOCKER_URL_FILE=$(E2E_DOCKER_URL_FILE) \
   		testinfra/run.sh apply
+
+###
+# Build the cloudsql-proxy v2 docker image and push it to the
+# google cloud project repo.
+E2E_PROXY_URL_FILE=$(PWD)/bin/last-proxy-image-url.txt
+E2E_PROXY_URL=$(shell cat $(E2E_PROXY_URL_FILE) | tr -d "\n")
+
+.PHONY: e2e_proxy_image_push
+e2e_proxy_image_push: $(E2E_PROXY_URL_FILE) ## Build and push a proxy image
+
+.PHONY: $(E2E_PROXY_URL_FILE)
+$(E2E_PROXY_URL_FILE):
+	PROJECT_DIR=$(PROXY_PROJECT_DIR) \
+	IMAGE_NAME=proxy-v2 \
+	REPO_URL=$(E2E_DOCKER_URL) \
+	IMAGE_URL_OUT=$@ \
+	PLATFORMS=linux/amd64 \
+	DOCKER_FILE_NAME=Dockerfile \
+	$(PWD)/tools/docker-build.sh
+
+###
+# Build the operator docker image and push it to the
+# google cloud project repo.
+E2E_OPERATOR_URL_FILE=$(PWD)/bin/last-gcloud-operator-url.txt
+E2E_OPERATOR_URL=$(shell cat $(E2E_OPERATOR_URL_FILE) | tr -d "\n")
+
+.PHONY: e2e_operator_image_push
+e2e_operator_image_push: $(E2E_OPERATOR_URL_FILE) ## Build and push a operator image
+
+.PHONY: $(E2E_OPERATOR_URL_FILE)
+$(E2E_OPERATOR_URL_FILE): build
+	PROJECT_DIR=$(PWD) \
+	IMAGE_NAME=cloud-sql-auth-proxy-operator \
+	REPO_URL=$(E2E_DOCKER_URL) \
+	IMAGE_URL_OUT=$@ \
+	PLATFORMS=linux/amd64 \
+	DOCKER_FILE_NAME=Dockerfile \
+	$(PWD)/tools/docker-build.sh
+
 
 
 ##
