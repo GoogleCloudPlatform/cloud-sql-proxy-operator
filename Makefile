@@ -86,26 +86,9 @@ go_fmt: ## Automatically formats go files
 yaml_fmt: ## Automatically formats all yaml files
 	go run github.com/UltiRequiem/yamlfmt@latest -w $(shell find . -iname '*.yaml' -or -iname '*.yml')
 
-YAML_FILES_MISSING_HEADER = $(shell find . -name '*.yaml' -or -iname '*.yml' | \
-		xargs egrep -L 'Copyright .... Google LLC' | \
-		git check-ignore --stdin --non-matching --verbose | \
-		egrep '^::' | cut -c 4-)
-GO_FILES_MISSING_HEADER := $(shell find . -iname '*.go' | \
-		xargs egrep -L 'Copyright .... Google LLC' | \
-		git check-ignore --stdin --non-matching --verbose | \
-		egrep '^::' | cut -c 4-)
-
-.PHONY: add_copyright_header ## Adds the copyright header to any go or yaml file that is missing the header
-add_copyright_header: $(GO_FILES_MISSING_HEADER) $(YAML_FILES_MISSING_HEADER) ## Add the copyright header
-
-.PHONY: $(YAML_FILES_MISSING_HEADER)
-$(YAML_FILES_MISSING_HEADER):
-	cat hack/boilerplate.yaml.txt $@ > $@.tmp && mv $@.tmp $@
-
-.PHONY: $(GO_FILES_MISSING_HEADER)
-$(GO_FILES_MISSING_HEADER):
-	cat hack/boilerplate.go.txt $@ > $@.tmp && mv $@.tmp $@
-	go fmt $@
+.PHONY: add_copyright_header
+add_copyright_header: # Add the copyright header
+	go run github.com/google/addlicense@latest *
 
 .PHONY: go_lint
 go_lint: golangci-lint ## Run go lint tools, fail if unchecked errors
