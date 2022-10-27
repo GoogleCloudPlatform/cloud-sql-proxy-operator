@@ -35,7 +35,7 @@ help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
 .PHONY: generate
-generate:  ctrl_generate ctrl_manifests fmt vet reset_image add_copyright_header go_fmt yaml_fmt ## Runs code generation, format, and validation tools
+generate:  ctrl_generate ctrl_manifests reset_image add_copyright_header go_fmt yaml_fmt ## Runs code generation, format, and validation tools
 
 ##
 # Development targets
@@ -44,18 +44,12 @@ generate:  ctrl_generate ctrl_manifests fmt vet reset_image add_copyright_header
 ctrl_generate: controller-gen # use controller-gen to generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
-.PHONY: fmt
-fmt: # Run go fmt against code.
-	go fmt ./...
-
-.PHONY: vet
-vet: # Run go vet against code.
-	go vet ./...
-
 .PHONY: go_fmt
 go_fmt: # Automatically formats go files
 	go mod tidy
 	go run golang.org/x/tools/cmd/goimports@latest -w .
+	go fmt ./...
+	go vet ./...
 
 yaml_fmt: # Automatically formats all yaml files
 	go run github.com/UltiRequiem/yamlfmt@latest -w $(shell find . -iname '*.yaml' -or -iname '*.yml')
