@@ -77,6 +77,9 @@ e2e_test: e2e_test_infra e2e_test_run e2e_test_cleanup ## Run end-to-end tests o
 .PHONY: lint
 lint: generate go_lint tf_lint  ## Runs generate and then code lint validation tools
 
+.PHONY: release
+release: release_container_tools release_image_push release_k8s_publish ## Release all artifacts for the current version
+
 ##
 # Development targets
 
@@ -276,6 +279,64 @@ $(E2E_OPERATOR_URL_FILE): build
 	DOCKER_FILE_NAME=Dockerfile \
 	$(PWD)/tools/docker-build.sh
 
+
+##
+# Release Process
+
+RELEASE_REPO_PATH=cloud-sql-connectors/cloud-sql-operator-dev
+RELEASE_IMAGE_URL_PATH=$(PWD)/bin/release-image-url.txt
+RELEASE_IMAGE_NAME=cloud-sql-proxy-operator
+
+RELEASE_IMAGE_BUILD_ID_URL=gcr.io/$(RELEASE_REPO_PATH)/$(RELEASE_IMAGE_NAME):$(OPERATOR_BUILD_ID)
+RELEASE_IMAGE_VERSION_URL=gcr.io/$(RELEASE_REPO_PATH)/$(RELEASE_IMAGE_NAME):$(VERISON)
+
+RELEASE_TAG_PATH=$(RELEASE_REPO_PATH)/$(RELEASE_IMAGE_NAME):$(VERSION)
+RELEASE_IMAGE_TAGS=gcr.io/$(RELEASE_TAG_PATH), \
+				   us.gcr.io/$(RELEASE_TAG_PATH), \
+				   eu.gcr.io/$(RELEASE_TAG_PATH), \
+				   asia.gcr.io/$(RELEASE_TAG_PATH)
+
+
+.PHONY: release_image_push
+release_image_push: generate # Build and push a operator image to the release registry
+	PROJECT_DIR=$(PWD) \
+	IMAGE_NAME=$(RELEASE_IMAGE_NAME) \
+	IMAGE_VERSION=$(OPERATOR_BUILD_ID) \
+	REPO_URL=gcr.io/$(RELEASE_REPO_PATH) \
+	IMAGE_URL_OUT=$(RELEASE_IMAGE_URL_PATH) \
+	EXTRA_TAGS="$(RELEASE_IMAGE_TAGS)" \
+	PLATFORMS=linux/amd64 \
+	DOCKER_FILE_NAME=Dockerfile-operator $(PWD)/tools/docker-build.sh
+
+.PHONY: release_k8s_publish
+release_k8s_publish: bin/cloud-sql-proxy-operator.yaml bin/install.sh # Publish install scripts to the release storage bucket
+	gcloud storage cp bin/install.sh \
+		gs://cloud-sql-connectors/cloud-sql-proxy-operator/$(VERSION)/install.sh
+	gcloud storage cp bin/cloud-sql-proxy-operator.yaml \
+		gs://cloud-sql-connectors/cloud-sql-proxy-operator/$(VERSION)/cloud-sql-proxy-operator.yaml
+
+.PHONY: bin/cloud-sql-proxy-operator.yaml
+bin/cloud-sql-proxy-operator.yaml: kustomize # Build the single yaml file for deploying the operator
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(RELEASE_IMAGE_VERSION_URL)
+	mkdir -p bin/k8s/
+	$(KUSTOMIZE) build config/crd > $@
+	echo "" >> $@
+	echo "---" >> $@
+	echo "" >> $@
+	$(KUSTOMIZE) build config/default >> $@
+
+.PHONY: bin/install.sh
+bin/install.sh: # Build install shell script to deploy the operator
+	sed 's/__VERSION__/$(VERSION)/g' < tools/install.sh > bin/install.sh.tmp
+	sed 's|__IMAGE_URL__|$(RELEASE_IMAGE_VERSION_URL)|g' < bin/install.sh.tmp > bin/install.sh
+
+.PHONY: release_container_tools
+release_container_tools: # Copy cached release tools from the /tools/bin directory
+	@echo "Release Tools:"
+	@echo " Version: $(VERSION)"
+	@echo " Release Image: $(RELEASE_IMAGE_VERSION_URL)"
+	mkdir -p $(PWD)/bin
+	test -d /tools/bin && cp -r /tools/bin/* $(PWD)/bin
 
 
 ##
