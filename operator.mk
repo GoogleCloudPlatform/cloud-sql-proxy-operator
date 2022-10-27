@@ -70,9 +70,10 @@ add_copyright_header: # Add the copyright header
 	go run github.com/google/addlicense@latest *
 
 .PHONY: build
-build_push_docker: # Build docker image with the operator. set IMG env var before running: `IMG=example.com/img:1.0 make build`
+build_push_docker: generate # Build docker image with the operator. set IMG env var before running: `IMG=example.com/img:1.0 make build`
+	@test -n "$(IMG)" || ( echo "IMG environment variable must be set to the public repo where you want to push the image" ; exit 1)
 	docker buildx build --platform "linux/amd64" \
-	  --build-arg LDFLAGS="$(VERSION_LDFLAGS)" \
+	  --build-arg GO_LD_FLAGS="$(VERSION_LDFLAGS)" \
 	  -f "Dockerfile-operator" \
 	  --push -t "$(IMG)" "$(PWD)"
 	echo "$(IMG)" > bin/last-pushed-image-url.txt
@@ -80,7 +81,7 @@ build_push_docker: # Build docker image with the operator. set IMG env var befor
 # Kubernetes configuration targets
 
 .PHONY: go_test
-go_test: manifests generate fmt vet envtest # Run tests (but not internal/teste2e)
+go_test: ctrl_manifests envtest # Run tests (but not internal/teste2e)
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" \
 		go test $(shell go list ./... | grep -v 'internal/e2e') -coverprofile cover.out
 

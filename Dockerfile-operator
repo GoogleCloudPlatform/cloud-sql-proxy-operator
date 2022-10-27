@@ -12,6 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Use the latest stable golang 1.x to compile to a binary
+FROM --platform=$BUILDPLATFORM golang:1 as build
+
+WORKDIR /work
+COPY . .
+
+ARG TARGETOS
+ARG TARGETARCH
+ARG GO_LD_FLAGS
+
+RUN go get ./...
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -ldflags "${GO_LD_FLAGS}" -o bin/manager_${TARGETOS}_${TARGETARCH} main.go
+
+
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
 FROM gcr.io/distroless/static:nonroot
@@ -23,5 +38,5 @@ ARG TARGETARCH
 
 WORKDIR /
 USER 65532:65532
-ADD "bin/manager_${TARGETOS}_${TARGETARCH}" "/manager"
+COPY --from=build --chown=nonroot "/work/bin/manager_${TARGETOS}_${TARGETARCH}" "/manager"
 ENTRYPOINT ["/manager"]
