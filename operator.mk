@@ -41,7 +41,7 @@ generate:  ctrl_generate ctrl_manifests reset_image add_copyright_header go_fmt 
 build: build_push_docker ## Builds and pushes the docker image to tag defined in envvar IMG
 
 .PHONY: test
-test: go_test ## Run tests (but not internal/teste2e)
+test: generate go_test ## Run tests (but not internal/teste2e)
 
 ##
 # Development targets
@@ -107,6 +107,7 @@ $(LOCALBIN):
 ## Tool Binaries
 KUSTOMIZE ?= $(LOCALBIN)/kustomize
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
+ENVTEST ?= $(LOCALBIN)/setup-envtest
 
 ## Tool Versions
 CONTROLLER_TOOLS_VERSION ?= latest
@@ -122,3 +123,8 @@ KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/k
 kustomize: $(KUSTOMIZE) # Download kustomize locally if necessary.
 $(KUSTOMIZE): $(LOCALBIN)
 	test -s $(LOCALBIN)/kustomize || { curl -s $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN); }
+
+.PHONY: envtest
+envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
+$(ENVTEST): $(LOCALBIN)
+       test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
