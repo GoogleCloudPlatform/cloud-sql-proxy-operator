@@ -1,3 +1,17 @@
+# Copyright 2022 Google LLC.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
 SHELL = /usr/bin/env bash -o pipefail
@@ -23,45 +37,48 @@ help: ## Display this help.
 .PHONY: generate
 generate:  ctrl_generate ctrl_manifests fmt vet reset_image add_copyright_header go_fmt yaml_fmt ## Runs code generation, format, and validation tools
 
-##@ Development targets
+##
+# Development targets
 
 .PHONY: ctrl_generate
-ctrl_generate: controller-gen ## use controller-gen to generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+ctrl_generate: controller-gen # use controller-gen to generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 .PHONY: fmt
-fmt: ## Run go fmt against code.
+fmt: # Run go fmt against code.
 	go fmt ./...
 
 .PHONY: vet
-vet: ## Run go vet against code.
+vet: # Run go vet against code.
 	go vet ./...
 
 .PHONY: go_fmt
-go_fmt: ## Automatically formats go files
+go_fmt: # Automatically formats go files
 	go mod tidy
 	go run golang.org/x/tools/cmd/goimports@latest -w .
 
-yaml_fmt: ## Automatically formats all yaml files
+yaml_fmt: # Automatically formats all yaml files
 	go run github.com/UltiRequiem/yamlfmt@latest -w $(shell find . -iname '*.yaml' -or -iname '*.yml')
 
-.PHONY: add_copyright_header ## Adds the copyright header to any go or yaml file that is missing the header
-add_copyright_header: ## Add the copyright header
+.PHONY: add_copyright_header
+add_copyright_header: # Add the copyright header
 	go run github.com/google/addlicense@latest *
 
-##@ Kubernetes configuration build steps
+##
+# Kubernetes configuration targets
 
 .PHONY: ctrl_manifests
-ctrl_manifests: controller-gen ## Use controller-gen to generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+ctrl_manifests: controller-gen # Use controller-gen to generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 .PHONY: reset_image
-reset_image: kustomize
+reset_image: kustomize # Resets the image used in the kubernetes config to a default image.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=cloudsql-proxy-operator:latest
 
 
 
-##@ Build Dependencies
+##
+# Build tool dependencies
 
 ## Location to install dependencies to
 LOCALBIN ?= $(shell pwd)/bin
@@ -73,16 +90,16 @@ KUSTOMIZE ?= $(LOCALBIN)/kustomize
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 
 ## Tool Versions
-CONTROLLER_TOOLS_VERSION ?= v0.9.2
-KUSTOMIZE_VERSION ?= v4.5.2
+CONTROLLER_TOOLS_VERSION ?= latest
+KUSTOMIZE_VERSION ?= latest
 
 .PHONY: controller-gen
-controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.
+controller-gen: $(CONTROLLER_GEN) # Download controller-gen locally if necessary.
 $(CONTROLLER_GEN): $(LOCALBIN)
 	test -s $(LOCALBIN)/controller-gen || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
 
 KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 .PHONY: kustomize
-kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
+kustomize: $(KUSTOMIZE) # Download kustomize locally if necessary.
 $(KUSTOMIZE): $(LOCALBIN)
 	test -s $(LOCALBIN)/kustomize || { curl -s $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN); }
