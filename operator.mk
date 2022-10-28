@@ -84,7 +84,7 @@ CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 
 ## Tool Versions
 CONTROLLER_TOOLS_VERSION ?= latest
-KUSTOMIZE_VERSION ?= latest
+KUSTOMIZE_VERSION ?= v4.5.2
 
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN) # Download controller-gen locally if necessary.
