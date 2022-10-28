@@ -87,7 +87,7 @@ build_push_docker: generate # Build docker image with the operator. set IMG env 
 .PHONY: go_test
 go_test: ctrl_manifests envtest # Run tests (but not internal/teste2e)
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" \
-		go test $(shell go list ./... | grep -v 'internal/e2e') -coverprofile cover.out
+		go test ./internal/.../. -coverprofile cover.out
 
 ##@ Kubernetes configuration targets
 .PHONY: ctrl_manifests
@@ -136,4 +136,4 @@ $(KUSTOMIZE): $(LOCALBIN)
 .PHONY: envtest
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
-       test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
