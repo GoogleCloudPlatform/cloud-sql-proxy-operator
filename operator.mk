@@ -46,10 +46,9 @@ ctrl_generate: controller-gen # use controller-gen to generate code containing D
 
 .PHONY: go_fmt
 go_fmt: # Automatically formats go files
+	go vet ./...
 	go mod tidy
 	go run golang.org/x/tools/cmd/goimports@latest -w .
-	go fmt ./...
-	go vet ./...
 
 yaml_fmt: # Automatically formats all yaml files
 	go run github.com/UltiRequiem/yamlfmt@latest -w $(shell find . -iname '*.yaml' -or -iname '*.yml')
