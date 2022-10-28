@@ -249,9 +249,9 @@ func (u *Updater) Status(p *cloudsqlapi.AuthProxyWorkload, wl Workload) Workload
 
 func (u *Updater) updateAnnNames(p *cloudsqlapi.AuthProxyWorkload) (reqName, resultName string) {
 	reqName = cloudsqlapi.AnnotationPrefix + "/" +
-			SafePrefixedName("req-", p.Namespace+"-"+p.Name)
+		SafePrefixedName("req-", p.Namespace+"-"+p.Name)
 	resultName = cloudsqlapi.AnnotationPrefix + "/" +
-			SafePrefixedName("app-", p.Namespace+"-"+p.Name)
+		SafePrefixedName("app-", p.Namespace+"-"+p.Name)
 	return reqName, resultName
 }
 
@@ -490,8 +490,8 @@ func (s *updateState) initState(pl []*cloudsqlapi.AuthProxyWorkload) {
 		var found bool
 		for _, n := range s.mods.DBInstances {
 			if n.AuthProxyWorkload.Name == o.AuthProxyWorkload.Name &&
-					n.AuthProxyWorkload.Namespace == o.AuthProxyWorkload.Namespace &&
-					n.ConnectionString == o.ConnectionString {
+				n.AuthProxyWorkload.Namespace == o.AuthProxyWorkload.Namespace &&
+				n.ConnectionString == o.ConnectionString {
 				found = true
 				break
 			}
@@ -690,7 +690,7 @@ func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, wl Workl
 
 		// if it is a TCP socket
 		if inst.SocketType == "tcp" ||
-				(inst.SocketType == "" && inst.UnixSocketPath == "") {
+			(inst.SocketType == "" && inst.UnixSocketPath == "") {
 			port := s.useInstancePort(p, inst)
 			params["port"] = fmt.Sprint(port)
 			if inst.HostEnvName != "" {
@@ -794,11 +794,11 @@ func (s *updateState) applyContainerSpec(p *cloudsqlapi.AuthProxyWorkload, c *co
 		cliArgs = append(cliArgs, "--sqladmin-api-endpoint="+p.Spec.AuthProxyContainer.SQLAdminAPIEndpoint)
 	}
 	if p.Spec.AuthProxyContainer.MaxConnections != nil &&
-			*p.Spec.AuthProxyContainer.MaxConnections != 0 {
+		*p.Spec.AuthProxyContainer.MaxConnections != 0 {
 		cliArgs = append(cliArgs, fmt.Sprintf("--max-connections=%d", *p.Spec.AuthProxyContainer.MaxConnections))
 	}
 	if p.Spec.AuthProxyContainer.MaxSigtermDelay != nil &&
-			*p.Spec.AuthProxyContainer.MaxSigtermDelay != 0 {
+		*p.Spec.AuthProxyContainer.MaxSigtermDelay != 0 {
 		cliArgs = append(cliArgs, fmt.Sprintf("--max-sigterm-delay=%d", *p.Spec.AuthProxyContainer.MaxSigtermDelay))
 	}
 
@@ -894,7 +894,7 @@ func (s *updateState) filterOldEnvVar(c *corev1.Container, oldEnvVar *managedEnv
 	for j := 0; j < len(s.mods.EnvVars) && !newEnvVarWithSameName; j++ {
 		mev := s.mods.EnvVars[j]
 		if mev.OperatorManagedValue.Name == oldEnvVar.OperatorManagedValue.Name &&
-				mev.Instance.AuthProxyWorkload != oldEnvVar.Instance.AuthProxyWorkload {
+			mev.Instance.AuthProxyWorkload != oldEnvVar.Instance.AuthProxyWorkload {
 			newEnvVarWithSameName = true
 		}
 	}
@@ -959,10 +959,10 @@ func (s *updateState) applyVolumes(ps *corev1.PodSpec) {
 // applyVolumeThings implements complex reconcile logic that is duplicated for both
 // VolumeMount and Volume on containers.
 func applyVolumeThings[T corev1.VolumeMount | corev1.Volume](
-		s *updateState,
-		items []T,
-		nameAccessor func(T) string,
-		thingAccessor func(*managedVolume) T) []T {
+	s *updateState,
+	items []T,
+	nameAccessor func(T) string,
+	thingAccessor func(*managedVolume) T) []T {
 	// make a list of all removed volume mounts
 	var removedVolumeMounts []*managedVolume
 	for _, oldMount := range s.oldMods.VolumeMounts {
