@@ -1067,14 +1067,12 @@ func (s *updateState) applyAuthenticationSpec(proxy *cloudsqlapi.AuthProxyWorklo
 	if proxy.Spec.Authentication == nil {
 		return args
 	}
-
-	// TODO Authentication needs end-to-end test in place before we can check
+	// Authentication needs end-to-end test in place before we can check
 	// that it is implemented correctly.
 	// --credentials-file
 	return args
 }
 
 func (s *updateState) defaultProxyImage() string {
-	// TODO look this up from the public registry
-	return "us-central1-docker.pkg.dev/csql-operator-test/test76e6d646e2caac1c458c/proxy-v2:latest"
+	return "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.0.0-preview.2"
 }
