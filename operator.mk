@@ -73,7 +73,7 @@ yaml_fmt: # Automatically formats all yaml files
 add_copyright_header: # Add the copyright header
 	go run github.com/google/addlicense@latest *
 
-.PHONY: build
+.PHONY: build_push_docker
 build_push_docker: generate # Build docker image with the operator. set IMG env var before running: `IMG=example.com/img:1.0 make build`
 	@test -n "$(IMG)" || ( echo "IMG environment variable must be set to the public repo where you want to push the image" ; exit 1)
 	docker buildx build --platform "linux/amd64" \
