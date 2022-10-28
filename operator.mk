@@ -34,6 +34,9 @@ SHELL = /usr/bin/env bash -o pipefail
 help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
+.PHONY: install_tools
+install_tools: remove_tools all_tools ## Installs all development tools
+
 .PHONY: generate
 generate:  ctrl_generate ctrl_manifests reset_image add_copyright_header go_fmt yaml_fmt ## Runs code generation, format, and validation tools
 
@@ -42,6 +45,7 @@ build: build_push_docker ## Builds and pushes the docker image to tag defined in
 
 .PHONY: test
 test: generate go_test ## Run tests (but not internal/teste2e)
+
 
 ##
 # Development targets
@@ -112,6 +116,11 @@ ENVTEST ?= $(LOCALBIN)/setup-envtest
 ## Tool Versions
 CONTROLLER_TOOLS_VERSION ?= latest
 KUSTOMIZE_VERSION ?= v4.5.2
+
+remove_tools:
+	rm -rf $(KUSTOMIZE) $(CONTROLLER_GEN) $(ENVTEST)
+
+all_tools: kustomize controller-gen envtest
 
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN) # Download controller-gen locally if necessary.
