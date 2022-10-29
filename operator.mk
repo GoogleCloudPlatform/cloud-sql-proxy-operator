@@ -30,6 +30,14 @@ SHELL = /usr/bin/env bash -o pipefail
 # More info on the awk command:
 # http://linuxcommand.org/lc3_adv_awk.php
 
+# The `help` target prints out special makefile code comments to make it easier
+# for developers to use this file.
+# Help section headings have ##@ at the beginning of the line
+# Target help message is on the same line as the target declaration and begins with ##
+# Only add help messages to permanent makefile targets that we want to maintain forever.
+# Intermediate or temporary build targets should only be documented with code
+# comments, and should not print a help message.
+
 .PHONY: help
 help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
@@ -41,7 +49,7 @@ install_tools: remove_tools all_tools ## Installs all development tools
 generate:  ctrl_generate ctrl_manifests reset_image add_copyright_header go_fmt yaml_fmt ## Runs code generation, format, and validation tools
 
 .PHONY: build
-build: build_push_docker ## Builds and pushes the docker image to tag defined in envvar IMG
+build: generate build_push_docker ## Builds and pushes the docker image to tag defined in envvar IMG
 
 .PHONY: test
 test: generate go_test ## Run tests (but not internal/teste2e)
@@ -74,7 +82,7 @@ add_copyright_header: # Add the copyright header
 	go run github.com/google/addlicense@latest *
 
 .PHONY: build_push_docker
-build_push_docker: generate # Build docker image with the operator. set IMG env var before running: `IMG=example.com/img:1.0 make build`
+build_push_docker: # Build docker image with the operator. set IMG env var before running: `IMG=example.com/img:1.0 make build`
 	@test -n "$(IMG)" || ( echo "IMG environment variable must be set to the public repo where you want to push the image" ; exit 1)
 	docker buildx build --platform "linux/amd64" \
 	  --build-arg GO_LD_FLAGS="$(VERSION_LDFLAGS)" \
@@ -118,7 +126,7 @@ CONTROLLER_TOOLS_VERSION ?= latest
 KUSTOMIZE_VERSION ?= v4.5.2
 
 remove_tools:
-	rm -rf $(KUSTOMIZE) $(CONTROLLER_GEN) $(ENVTEST)
+	rm -rf $(LOCALBIN)/*
 
 all_tools: kustomize controller-gen envtest
 
