@@ -132,7 +132,7 @@ install_certmanager: kubectl # Install the cert-manager operator to manage the c
 	$(KUBECTL) apply -f "https://github.com/cert-manager/cert-manager/releases/download/v1.9.1/cert-manager.yaml"
 	$(KUBECTL) rollout status deployment -n cloud-sql-proxy-operator-system cloud-sql-proxy-operator-controller-manager --timeout=90s
 
-.PHONY: install
+.PHONY: install_crd
 install_crd: kustomize kubectl # Install CRDs into the K8s cluster using the kubectl default behavior
 	$(KUSTOMIZE) build config/crd | $(KUBECTL) apply -f -
 
