@@ -158,17 +158,19 @@ deploy_operator: kustomize kubectl # Deploy controller to the K8s cluster using 
 ##
 # Google Cloud End to End Test
 
-## This is the default location from terraform
+# This is the file where Terraform will write the kubeconfig.yaml for the
+# GKE cluster.
 KUBECONFIG_GCLOUD ?= $(PWD)/bin/gcloud-kubeconfig.yaml
 
-# This file contains the URL to the e2e container registry created by terraform
+# This is the file where Terraform will write the URL to the e2e container registry
 E2E_DOCKER_URL_FILE :=$(PWD)/bin/gcloud-docker-repo.url
 
 .PHONY: e2e_project
-e2e_project: ## Check that the Google Cloud project exists
+e2e_project: gcloud # Check that the Google Cloud project exists
 	@gcloud projects describe $(E2E_PROJECT_ID) 2>/dev/null || \
 		( echo "No Google Cloud Project $(E2E_PROJECT_ID) found"; exit 1 )
 
+.PHONY: e2e_cluster
 e2e_cluster: e2e_project terraform ## Build infrastructure for e2e tests
 	PROJECT_DIR=$(PWD) \
   		E2E_PROJECT_ID=$(E2E_PROJECT_ID) \
@@ -176,7 +178,12 @@ e2e_cluster: e2e_project terraform ## Build infrastructure for e2e tests
   		E2E_DOCKER_URL_FILE=$(E2E_DOCKER_URL_FILE) \
   		testinfra/run.sh apply
 
-
+.PHONY: gcloud
+gcloud:
+	@which gcloud > /dev/null || \
+		(echo "Google Cloud API command line tools are not available in your path" ;\
+		 echo "Instructions on how to install https://cloud.google.com/sdk/docs/install " ; \
+		 exit 1)
 ##
 # Build tool dependencies
 
