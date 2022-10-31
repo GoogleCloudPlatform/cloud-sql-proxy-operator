@@ -24,7 +24,7 @@ ARG GO_LD_FLAGS
 
 RUN go get ./...
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
-    go build -ldflags "${GO_LD_FLAGS}" -o bin/manager_${TARGETOS}_${TARGETARCH} main.go
+    go build -ldflags "${GO_LD_FLAGS}" -o bin/manager main.go
 
 
 # Use distroless as minimal base image to package the manager binary
@@ -38,5 +38,5 @@ ARG TARGETARCH
 
 WORKDIR /
 USER 65532:65532
-COPY --from=build --chown=nonroot "/work/bin/manager_${TARGETOS}_${TARGETARCH}" "/manager"
+COPY --from=build --chown=nonroot "/work/bin/manager" "/manager"
 ENTRYPOINT ["/manager"]

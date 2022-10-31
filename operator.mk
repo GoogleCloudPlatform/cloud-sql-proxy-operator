@@ -12,6 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+###
+# Global settings
+
+# IMG is used by build to determine where to push the docker image for the
+# operator. You must set the IMG environment variable when you run make build
+# or other dependent targets.
+IMG ?= 
+
+#
+###
+
+# Set the build parameter PWD if it was not already set in the shell calling make.
+PWD ?= $(shell pwd)
+
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
 SHELL = /usr/bin/env bash -o pipefail
@@ -54,6 +68,8 @@ build: generate build_push_docker ## Builds and pushes the docker image to tag d
 .PHONY: test
 test: generate go_test ## Run tests (but not internal/teste2e)
 
+.PHONY: deploy
+deploy:  build deploy_with_kubeconfig ## Deploys the operator to the kubernetes cluster using envvar KUBECONFIG. Set $IMG envvar to the image tag.
 
 ##
 # Development targets
@@ -88,7 +104,7 @@ build_push_docker: # Build docker image with the operator. set IMG env var befor
 	  --build-arg GO_LD_FLAGS="$(VERSION_LDFLAGS)" \
 	  -f "Dockerfile-operator" \
 	  --push -t "$(IMG)" "$(PWD)"
-	echo "$(IMG)" > bin/last-pushed-image-url.txt
+
 ##
 # Kubernetes configuration targets
 
@@ -103,9 +119,30 @@ ctrl_manifests: controller-gen # Use controller-gen to generate WebhookConfigura
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 .PHONY: reset_image
-reset_image: kustomize # Resets the image used in the kubernetes config to a default image.
+reset_image: kustomize # Reset the image used in the kubernetes config to a default image.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=cloudsql-proxy-operator:latest
 
+.PHONY: update_image
+update_image: kustomize # Update the image used in the kubernetes config to $(IMG)
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+
+.PHONY: deploy_with_kubeconfig # Deploy the kubernetes configuration to the current default cluster using kubectl
+deploy_with_kubeconfig: install_certmanager install_crd deploy_operator
+
+.PHONY: install_certmanager
+install_certmanager: kubectl # Install the cert-manager operator to manage the certificates for the operator webhooks
+	$(KUBECTL) apply -f "https://github.com/cert-manager/cert-manager/releases/download/v1.9.1/cert-manager.yaml"
+	$(KUBECTL) rollout status deployment -n cloud-sql-proxy-operator-system cloud-sql-proxy-operator-controller-manager --timeout=90s
+
+.PHONY: install_crd
+install_crd: kustomize kubectl # Install CRDs into the K8s cluster using the kubectl default behavior
+	$(KUSTOMIZE) build config/crd | $(KUBECTL) apply -f -
+
+.PHONY: deploy_operator
+deploy_operator: kustomize kubectl # Deploy controller to the K8s cluster using the kubectl default behavior
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+	$(KUSTOMIZE) build config/default | $(KUBECTL) apply -f -
+	$(E2E_KUBECTL) rollout status deployment -n cloud-sql-proxy-operator-system cloud-sql-proxy-operator-controller-manager --timeout=90s
 
 
 ##
@@ -119,16 +156,20 @@ $(LOCALBIN):
 ## Tool Binaries
 KUSTOMIZE ?= $(LOCALBIN)/kustomize
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
+KUBECTL ?= $(LOCALBIN)/kubectl
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 
 ## Tool Versions
 CONTROLLER_TOOLS_VERSION ?= latest
+KUSTOMIZE_VERSION ?= latest
+KUBECTL_VERSION ?= v1.24.0
 KUSTOMIZE_VERSION ?= v4.5.2
+ENVTEST_VERSION ?= latest
 
 remove_tools:
 	rm -rf $(LOCALBIN)/*
 
-all_tools: kustomize controller-gen envtest
+all_tools: kustomize controller-gen envtest kubectl
 
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN) # Download controller-gen locally if necessary.
@@ -144,4 +185,12 @@ $(KUSTOMIZE): $(LOCALBIN)
 .PHONY: envtest
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
-	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@$(ENVTEST_VERSION)
+
+.PHONY: kubectl
+kubectl: $(KUBECTL) ## Download kubectl
+$(KUBECTL): $(LOCALBIN)
+	test -s $@ || \
+		( curl -L -o $@ https://dl.k8s.io/release/$(KUBECTL_VERSION)/bin/$(GOOS)/$(GOARCH)/kubectl && \
+		chmod a+x $@ && \
+		touch $@ )
