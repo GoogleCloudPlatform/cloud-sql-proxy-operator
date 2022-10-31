@@ -15,8 +15,10 @@
 ###
 # Global settings
 
-# Image URL to use all building/pushing image targets
-IMG ?= $(shell cat bin/last-pushed-image-url.txt | tr -d '\n' )
+# IMG is used by build to determine where to push the docker image for the
+# operator. You must set the IMG environment variable when you run make build
+# or other dependent targets.
+IMG ?= 
 
 #
 ###
@@ -102,7 +104,7 @@ build_push_docker: # Build docker image with the operator. set IMG env var befor
 	  --build-arg GO_LD_FLAGS="$(VERSION_LDFLAGS)" \
 	  -f "Dockerfile-operator" \
 	  --push -t "$(IMG)" "$(PWD)"
-	echo "$(IMG)" > bin/last-pushed-image-url.txt
+
 ##
 # Kubernetes configuration targets
 
