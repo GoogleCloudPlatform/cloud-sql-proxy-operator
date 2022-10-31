@@ -16,7 +16,7 @@
 # Global settings
 
 # Image URL to use all building/pushing image targets
-IMG ?= example.com/cloud-sql-proxy-operator:latest
+IMG ?= $(shell cat bin/last-pushed-image-url.txt | tr -d '\n' )
 
 #
 ###
@@ -129,7 +129,7 @@ deploy_with_kubeconfig: install_certmanager install_crd deploy_operator
 
 .PHONY: install_certmanager
 install_certmanager: kubectl # Install the cert-manager operator to manage the certificates for the operator webhooks
-	$(KUBECTL) apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.9.1/cert-manager.yaml
+	$(KUBECTL) apply -f "https://github.com/cert-manager/cert-manager/releases/download/v1.9.1/cert-manager.yaml"
 	$(KUBECTL) rollout status deployment -n cloud-sql-proxy-operator-system cloud-sql-proxy-operator-controller-manager --timeout=90s
 
 .PHONY: install
@@ -138,7 +138,7 @@ install_crd: kustomize kubectl # Install CRDs into the K8s cluster using the kub
 
 .PHONY: deploy_operator
 deploy_operator: kustomize kubectl # Deploy controller to the K8s cluster using the kubectl default behavior
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
 	$(KUSTOMIZE) build config/default | $(KUBECTL) apply -f -
 	$(E2E_KUBECTL) rollout status deployment -n cloud-sql-proxy-operator-system cloud-sql-proxy-operator-controller-manager --timeout=90s
 
@@ -162,6 +162,7 @@ CONTROLLER_TOOLS_VERSION ?= latest
 KUSTOMIZE_VERSION ?= latest
 KUBECTL_VERSION ?= v1.24.0
 KUSTOMIZE_VERSION ?= v4.5.2
+ENVTEST_VERSION ?= latest
 
 remove_tools:
 	rm -rf $(LOCALBIN)/*
@@ -182,7 +183,7 @@ $(KUSTOMIZE): $(LOCALBIN)
 .PHONY: envtest
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
-	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@$(ENVTEST_VERSION)
 
 .PHONY: kubectl
 kubectl: $(KUBECTL) ## Download kubectl
