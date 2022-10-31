@@ -18,7 +18,7 @@
 # IMG is used by build to determine where to push the docker image for the
 # operator. You must set the IMG environment variable when you run make build
 # or other dependent targets.
-IMG ?= 
+IMG ?=
 
 # Import the local build environment file. This holds configuration specific
 # to the local environment. build.sample.env describes the required configuration
@@ -69,6 +69,9 @@ help: ## Display this help.
 .PHONY: install_tools
 install_tools: remove_tools all_tools ## Installs all development tools
 
+.PHONY: lint
+lint: generate go_lint tf_lint  ## Runs generate and then code lint validation tools
+
 .PHONY: generate
 generate:  ctrl_generate ctrl_manifests reset_image add_copyright_header go_fmt yaml_fmt ## Runs code generation, format, and validation tools
 
@@ -117,6 +120,17 @@ build_push_docker: # Build docker image with the operator. set IMG env var befor
 	  --build-arg GO_LD_FLAGS="$(VERSION_LDFLAGS)" \
 	  -f "Dockerfile-operator" \
 	  --push -t "$(IMG)" "$(PWD)"
+	echo "$(IMG)" > bin/last-pushed-image-url.txt
+
+.PHONY: go_lint
+go_lint: golangci-lint ## Run go lint tools, fail if unchecked errors
+	# Implements golang CI based on settings described here:
+	# See https://betterprogramming.pub/how-to-improve-code-quality-with-an-automatic-check-in-go-d18a5eb85f09
+	$(GOLANGCI_LINT) run --fix --fast ./...
+
+.PHONY: tf_lint
+tf_lint: terraform ## Run go lint tools, fail if unchecked errors
+	$(TERRAFORM) -chdir=testinfra fmt
 
 ##
 # Kubernetes configuration targets
