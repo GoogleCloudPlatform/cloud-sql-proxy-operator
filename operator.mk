@@ -30,18 +30,42 @@ SHELL = /usr/bin/env bash -o pipefail
 # More info on the awk command:
 # http://linuxcommand.org/lc3_adv_awk.php
 
+# The `help` target prints out special makefile code comments to make it easier
+# for developers to use this file.
+# Help section headings have ##@ at the beginning of the line
+# Target help message is on the same line as the target declaration and begins with ##
+# Only add help messages to permanent makefile targets that we want to maintain forever.
+# Intermediate or temporary build targets should only be documented with code
+# comments, and should not print a help message.
+
 .PHONY: help
 help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
+.PHONY: install_tools
+install_tools: remove_tools all_tools ## Installs all development tools
+
 .PHONY: generate
 generate:  ctrl_generate ctrl_manifests reset_image add_copyright_header go_fmt yaml_fmt ## Runs code generation, format, and validation tools
+
+.PHONY: build
+build: generate build_push_docker ## Builds and pushes the docker image to tag defined in envvar IMG
+
+.PHONY: test
+test: generate go_test ## Run tests (but not internal/teste2e)
+
 
 ##
 # Development targets
 
+# Load active version from version.txt
+VERSION=$(shell cat $(PWD)/version.txt | tr -d '\n')
+BUILD_ID:=$(shell $(PWD)/tools/build-identifier.sh | tr -d '\n')
+VERSION_LDFLAGS=-X main.version=$(VERSION) -X main.buildID=$(BUILD_ID)
+
+
 .PHONY: ctrl_generate
-ctrl_generate: controller-gen # use controller-gen to generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+ctrl_generate: controller-gen # Use controller-gen to generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 .PHONY: go_fmt
@@ -57,9 +81,23 @@ yaml_fmt: # Automatically formats all yaml files
 add_copyright_header: # Add the copyright header
 	go run github.com/google/addlicense@latest *
 
+.PHONY: build_push_docker
+build_push_docker: # Build docker image with the operator. set IMG env var before running: `IMG=example.com/img:1.0 make build`
+	@test -n "$(IMG)" || ( echo "IMG environment variable must be set to the public repo where you want to push the image" ; exit 1)
+	docker buildx build --platform "linux/amd64" \
+	  --build-arg GO_LD_FLAGS="$(VERSION_LDFLAGS)" \
+	  -f "Dockerfile-operator" \
+	  --push -t "$(IMG)" "$(PWD)"
+	echo "$(IMG)" > bin/last-pushed-image-url.txt
 ##
 # Kubernetes configuration targets
 
+.PHONY: go_test
+go_test: ctrl_manifests envtest # Run tests (but not internal/teste2e)
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" \
+		go test ./internal/.../. -coverprofile cover.out
+
+##@ Kubernetes configuration targets
 .PHONY: ctrl_manifests
 ctrl_manifests: controller-gen # Use controller-gen to generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
@@ -81,10 +119,16 @@ $(LOCALBIN):
 ## Tool Binaries
 KUSTOMIZE ?= $(LOCALBIN)/kustomize
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
+ENVTEST ?= $(LOCALBIN)/setup-envtest
 
 ## Tool Versions
 CONTROLLER_TOOLS_VERSION ?= latest
 KUSTOMIZE_VERSION ?= v4.5.2
+
+remove_tools:
+	rm -rf $(LOCALBIN)/*
+
+all_tools: kustomize controller-gen envtest
 
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN) # Download controller-gen locally if necessary.
@@ -96,3 +140,8 @@ KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/k
 kustomize: $(KUSTOMIZE) # Download kustomize locally if necessary.
 $(KUSTOMIZE): $(LOCALBIN)
 	test -s $(LOCALBIN)/kustomize || { curl -s $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN); }
+
+.PHONY: envtest
+envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
+$(ENVTEST): $(LOCALBIN)
+	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
