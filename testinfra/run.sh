@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -euxo
 
 #expects $PROJECT_DIR
 if [[ -z "$PROJECT_DIR" ]]; then
@@ -39,10 +38,19 @@ if [[ -z "$E2E_DOCKER_URL_FILE" ]]; then
   exit 1
 fi
 
+if [[ "${1:-}" == "destroy" ]] ; then
+  DESTROY="-destroy"
+else
+  DESTROY=""
+fi
+
+
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 TERRAFORM="$PROJECT_DIR/bin/terraform"
 KUBECTL="$PROJECT_DIR/bin/kubectl"
+
+set -euxo
 
 # Begin terraform setup
 
@@ -52,12 +60,6 @@ mkdir -p "$DATA_DIR"
 cp -r $SCRIPT_DIR/* "$DATA_DIR"
 
 "$TERRAFORM" -chdir="$DATA_DIR" init
-
-if [[ "${1:-}" == "destroy" ]] ; then
-  DESTROY="-destroy"
-else
-  DESTROY=""
-fi
 
 "$TERRAFORM"  -chdir="$DATA_DIR" apply $DESTROY -parallelism=5 -auto-approve \
   -var "gcloud_bin=$(which gcloud)" \

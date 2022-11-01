@@ -2,3 +2,9 @@
 # Ignore build and test binaries.
 testbin/
 tmp/
+bin/
+.git/
+.bin/
+.build/
+.github/
+.idea/
