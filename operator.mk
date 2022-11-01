@@ -111,7 +111,7 @@ build_push_docker: # Build docker image with the operator. set IMG env var befor
 .PHONY: go_test
 go_test: ctrl_manifests envtest # Run tests (but not internal/teste2e)
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" \
-		go test ./internal/.../. -coverprofile cover.out
+		go test ./internal/.../. -coverprofile cover.out -race
 
 ##@ Kubernetes configuration targets
 .PHONY: ctrl_manifests
