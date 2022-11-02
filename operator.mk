@@ -245,7 +245,7 @@ e2e_test_run_gotest:  # Run the golang e2e tests
 		TEST_INFRA_JSON=$(LOCALBIN)/testinfra.json \
 		PROXY_IMAGE_URL=$(E2E_PROXY_URL) \
 		OPERATOR_IMAGE_URL=$(E2E_OPERATOR_URL) \
-		go test --count=1 -v ./tests/...
+		go test --count=1 -v -race ./tests/...
 
 .PHONY: e2e_cleanup_test_namespaces
 e2e_cleanup_test_namespaces: e2e_project kustomize kubectl # remove e2e test namespaces named "test*"
