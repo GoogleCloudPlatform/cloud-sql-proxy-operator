@@ -20,6 +20,16 @@
 # or other dependent targets.
 IMG ?= 
 
+# Import the local build environment file. This holds configuration specific
+# to the local environment. build.sample.env describes the required configuration
+# environment variables.
+include build.env
+
+# if build.env is missing, copy build.sample.env to build.env
+build.env:
+	test -f $@ || cp build.sample.env build.env
+
+
 #
 ###
 
@@ -146,6 +156,35 @@ deploy_operator: kustomize kubectl # Deploy controller to the K8s cluster using 
 
 
 ##
+# Google Cloud End to End Test
+
+# This is the file where Terraform will write the kubeconfig.yaml for the
+# GKE cluster.
+KUBECONFIG_GCLOUD ?= $(PWD)/bin/gcloud-kubeconfig.yaml
+
+# This is the file where Terraform will write the URL to the e2e container registry
+E2E_DOCKER_URL_FILE :=$(PWD)/bin/gcloud-docker-repo.url
+
+.PHONY: e2e_project
+e2e_project: gcloud # Check that the Google Cloud project exists
+	@gcloud projects describe $(E2E_PROJECT_ID) 2>/dev/null || \
+		( echo "No Google Cloud Project $(E2E_PROJECT_ID) found"; exit 1 )
+
+.PHONY: e2e_cluster
+e2e_cluster: e2e_project terraform ## Build infrastructure for e2e tests
+	PROJECT_DIR=$(PWD) \
+  		E2E_PROJECT_ID=$(E2E_PROJECT_ID) \
+  		KUBECONFIG_GCLOUD=$(KUBECONFIG_GCLOUD) \
+  		E2E_DOCKER_URL_FILE=$(E2E_DOCKER_URL_FILE) \
+  		testinfra/run.sh apply
+
+.PHONY: gcloud
+gcloud:
+	@which gcloud > /dev/null || \
+		(echo "Google Cloud API command line tools are not available in your path" ;\
+		 echo "Instructions on how to install https://cloud.google.com/sdk/docs/install " ; \
+		 exit 1)
+##
 # Build tool dependencies
 
 ## Location to install dependencies to
@@ -158,18 +197,20 @@ KUSTOMIZE ?= $(LOCALBIN)/kustomize
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 KUBECTL ?= $(LOCALBIN)/kubectl
 ENVTEST ?= $(LOCALBIN)/setup-envtest
+TERRAFORM ?= $(LOCALBIN)/terraform
 
 ## Tool Versions
 CONTROLLER_TOOLS_VERSION ?= latest
 KUSTOMIZE_VERSION ?= latest
 KUBECTL_VERSION ?= v1.24.0
+TERRAFORM_VERSION ?= 1.2.7
 KUSTOMIZE_VERSION ?= v4.5.2
 ENVTEST_VERSION ?= latest
 
 remove_tools:
 	rm -rf $(LOCALBIN)/*
 
-all_tools: kustomize controller-gen envtest kubectl
+all_tools: kustomize controller-gen envtest kubectl terraform
 
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN) # Download controller-gen locally if necessary.
@@ -192,5 +233,15 @@ kubectl: $(KUBECTL) ## Download kubectl
 $(KUBECTL): $(LOCALBIN)
 	test -s $@ || \
 		( curl -L -o $@ https://dl.k8s.io/release/$(KUBECTL_VERSION)/bin/$(GOOS)/$(GOARCH)/kubectl && \
+		chmod a+x $@ && \
+		touch $@ )
+
+.PHONY: terraform
+terraform: $(TERRAFORM) ## Download terraform
+$(TERRAFORM): $(LOCALBIN)
+	test -s $@ || \
+		( curl -L -o $@.zip https://releases.hashicorp.com/terraform/$(TERRAFORM_VERSION)/terraform_$(TERRAFORM_VERSION)_$(GOOS)_$(GOARCH).zip && \
+		cd $(LOCALBIN) && unzip -o $@.zip && \
+		rm -f $@.zip && \
 		chmod a+x $@ && \
 		touch $@ )

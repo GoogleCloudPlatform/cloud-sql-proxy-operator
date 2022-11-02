@@ -1,4 +1,17 @@
 # More info: https://docs.docker.com/engine/reference/builder/#dockerignore-file
+
 # Ignore build and test binaries.
 testbin/
 tmp/
+bin/
+.bin/
+
+# ignore git repo
+.git/
+
+# Ignore CI job definitions
+.build/
+.github/
+
+# Ignore IDE tool data
+.idea/
