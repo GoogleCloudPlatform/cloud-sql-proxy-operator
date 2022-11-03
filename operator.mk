@@ -123,22 +123,32 @@ build_push_docker: # Build docker image with the operator. set IMG env var befor
 	echo "$(IMG)" > bin/last-pushed-image-url.txt
 
 .PHONY: go_lint
-go_lint: golangci-lint ## Run go lint tools, fail if unchecked errors
+go_lint: golangci-lint # Run go lint tools, fail if unchecked errors
 	# Implements golang CI based on settings described here:
 	# See https://betterprogramming.pub/how-to-improve-code-quality-with-an-automatic-check-in-go-d18a5eb85f09
 	$(GOLANGCI_LINT) run --fix --fast ./...
 
 .PHONY: tf_lint
-tf_lint: terraform ## Run go lint tools, fail if unchecked errors
+tf_lint: terraform # Run go lint tools, fail if unchecked errors
 	$(TERRAFORM) -chdir=testinfra fmt
-
-##
-# Kubernetes configuration targets
 
 .PHONY: go_test
 go_test: ctrl_manifests envtest # Run tests (but not internal/teste2e)
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" \
 		go test ./internal/.../. -coverprofile cover.out -race
+
+.PHONY: pr_check_lint
+pr_check_lint: git_workdir_clean lint # Used in the Github Action PR check to ensure that lint passes
+	@echo "Pre commit checks beginning..."
+	@git diff --exit-code --stat HEAD || (echo ; echo ; echo "ERROR: Lint tools caused changes to the working dir. "; echo "       Please review the changes before you commit."; echo ; exit 1)
+	@echo "Pre commit checks OK"
+
+.PHONY: git_workdir_clean
+git_workdir_clean: # Checks if the git working directory is clean. Fails if there are unstaged changes.
+	@git diff --exit-code --stat HEAD || (echo ; echo; echo "ERROR: git working directory has uncommitted changes. "; echo "       Add or stash all changes before you commit."; echo ; exit 1)
+
+##
+# Kubernetes configuration targets
 
 .PHONY: ctrl_manifests
 ctrl_manifests: controller-gen # Use controller-gen to generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
