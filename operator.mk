@@ -313,7 +313,6 @@ TERRAFORM ?= $(LOCALBIN)/terraform
 
 ## Tool Versions
 CONTROLLER_TOOLS_VERSION ?= latest
-KUSTOMIZE_VERSION ?= latest
 KUBECTL_VERSION ?= $(shell curl -L -s https://dl.k8s.io/release/stable.txt | tr -d '\n')
 TERRAFORM_VERSION ?= 1.2.7
 KUSTOMIZE_VERSION ?= v4.5.2
