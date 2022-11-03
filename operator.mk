@@ -139,9 +139,8 @@ go_test: ctrl_manifests envtest # Run tests (but not internal/teste2e)
 
 .PHONY: pr_check_lint
 pr_check_lint: git_workdir_clean lint # Used in the Github Action PR check to ensure that lint passes
-	@echo "Pre commit checks beginning..."
 	@git diff --exit-code --stat HEAD || (echo ; echo ; echo "ERROR: Lint tools caused changes to the working dir. "; echo "       Please review the changes before you commit."; echo ; exit 1)
-	@echo "Pre commit checks OK"
+	@echo "PR lint checks OK"
 
 .PHONY: git_workdir_clean
 git_workdir_clean: # Checks if the git working directory is clean. Fails if there are unstaged changes.
