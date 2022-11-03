@@ -82,7 +82,7 @@ test: generate go_test ## Run tests (but not internal/teste2e)
 deploy:  build deploy_with_kubeconfig ## Deploys the operator to the kubernetes cluster using envvar KUBECONFIG. Set $IMG envvar to the image tag.
 
 .PHONY: e2e_test
-e2e_test: e2e_setup e2e_build e2e_test_run e2e_test_clean ## Run end-to-end tests on Google Cloud GKE
+e2e_test: e2e_setup e2e_build_deploy e2e_test_run e2e_test_clean ## Run end-to-end tests on Google Cloud GKE
 
 ##
 # Development targets
@@ -173,18 +173,22 @@ E2E_DOCKER_URL_FILE :=$(PWD)/bin/gcloud-docker-repo.url
 E2E_DOCKER_URL=$(shell cat $(E2E_DOCKER_URL_FILE) | tr -d '\n')
 E2E_PROXY_URL ?= "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.0.0-preview.2"
 
+E2E_WORK_DIR=$(PWD)/bin/e2e
+$(E2E_WORK_DIR):
+	mkdir -p "$(E2E_WORK_DIR)"
+
 ## Intermediate targets for developers to use when running e2e tests
 .PHONY: e2e_setup
 e2e_setup: e2e_project e2e_cluster e2e_cert_manager_deploy  ## Provision and reconcile test infrastructure for e2e tests
 
-.PHONY: e2e_build
-e2e_build: e2e_install e2e_operator_image_push e2e_deploy ## Build and deploy the operator to e2e cluster
+.PHONY: e2e_build_deploy
+e2e_build_deploy: e2e_install_crd e2e_image_push e2e_deploy ## Build and deploy the operator to e2e cluster
 
 .PHONY: e2e_test_run
-e2e_test_run: e2e_test_run_gotest  ## Run the golang e2e tests
+e2e_test_run: e2e_cleanup_test_namespaces e2e_test_run_gotest  ## Run the golang e2e tests
 
 .PHONY: e2e_test_clean
-e2e_test_clean: ctrl_manifests e2e_cleanup_test_namespaces e2e_undeploy ## Remove all operator and testcase configs from the e2e k8s cluster
+e2e_test_clean: e2e_cleanup_test_namespaces e2e_undeploy ## Remove all operator and testcase configs from the e2e k8s cluster
 
 .PHONY: e2e_teardown
 e2e_teardown: e2e_cluster_destroy ## Remove the test infrastructure for e2e tests from the Google Cloud Project
@@ -217,23 +221,18 @@ e2e_cert_manager_deploy: e2e_project kubectl # Deploy the certificate manager
 	$(E2E_KUBECTL) rollout status deployment cert-manager -n cert-manager --timeout=90s
 
 
-.PHONY: e2e_install
-e2e_install: e2e_project ctrl_manifests kustomize kubectl # Install CRDs into the GKE cluster
-	$(KUSTOMIZE) build config/crd | $(E2E_KUBECTL) apply -f -
+.PHONY: e2e_install_crd
+e2e_install_crd: generate e2e_project kustomize kubectl $(E2E_WORK_DIR) # Install CRDs into the GKE cluster
+	$(KUSTOMIZE) build config/crd > $(E2E_WORK_DIR)/crd.yaml
+	$(E2E_KUBECTL) apply -f $(E2E_WORK_DIR)/crd.yaml
 
 
-.PHONY: e2e_test_infra_cleanup
-e2e_test_infra_cleanup: e2e_project e2e_project # Remove the infrastructure from the Google Cloud project using terraform
-	PROJECT_DIR=$(PWD) \
-  		E2E_PROJECT_ID=$(E2E_PROJECT_ID) \
-  		KUBECONFIG_E2E=$(KUBECONFIG_E2E) \
-  		E2E_DOCKER_URL_FILE=$(E2E_DOCKER_URL_FILE) \
-  		testinfra/run.sh destroy
 
 .PHONY: e2e_deploy
-e2e_deploy: e2e_project kustomize kubectl # Deploy the operator to the GKE cluster
+e2e_deploy: e2e_project kustomize kubectl $(E2E_WORK_DIR) # Deploy the operator to the GKE cluster
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(E2E_OPERATOR_URL)
-	$(KUSTOMIZE) build config/default | $(E2E_KUBECTL) apply -f -
+	$(KUSTOMIZE) build config/default > $(E2E_WORK_DIR)/operator.yaml
+	$(E2E_KUBECTL) apply -f $(E2E_WORK_DIR)/operator.yaml
 	$(E2E_KUBECTL) rollout status deployment -n cloud-sql-proxy-operator-system cloud-sql-proxy-operator-controller-manager --timeout=90s
 
 
@@ -254,8 +253,8 @@ e2e_cleanup_test_namespaces: e2e_project kustomize kubectl # remove e2e test nam
 		$(E2E_KUBECTL_ENV) xargs $(KUBECTL) delete
 
 .PHONY: e2e_undeploy
-e2e_undeploy: e2e_project kustomize kubectl # Remove the operator from the GKE cluster
-	$(KUSTOMIZE) build config/default | $(E2E_KUBECTL) delete -f -
+e2e_undeploy: e2e_project kustomize kubectl $(E2E_WORK_DIR) # Remove the operator from the GKE cluster
+	$(E2E_KUBECTL) delete -f $(E2E_WORK_DIR)/operator.yaml
 
 ###
 # Build the operator docker image and push it to the
@@ -263,8 +262,8 @@ e2e_undeploy: e2e_project kustomize kubectl # Remove the operator from the GKE c
 E2E_OPERATOR_URL_FILE=$(PWD)/bin/last-gcloud-operator-url.txt
 E2E_OPERATOR_URL=$(shell cat $(E2E_OPERATOR_URL_FILE) | tr -d "\n")
 
-.PHONY: e2e_operator_image_push
-e2e_operator_image_push: generate # Build and push a operator image to the e2e artifact repo
+.PHONY: e2e_image_push
+e2e_image_push: generate # Build and push a operator image to the e2e artifact repo
 	PROJECT_DIR=$(PWD) \
 	IMAGE_NAME=cloud-sql-auth-proxy-operator \
 	REPO_URL=$(E2E_DOCKER_URL) \
