@@ -310,6 +310,7 @@ CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 KUBECTL ?= $(LOCALBIN)/kubectl
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 TERRAFORM ?= $(LOCALBIN)/terraform
+GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
 
 ## Tool Versions
 CONTROLLER_TOOLS_VERSION ?= latest
@@ -317,11 +318,12 @@ KUBECTL_VERSION ?= $(shell curl -L -s https://dl.k8s.io/release/stable.txt | tr 
 TERRAFORM_VERSION ?= 1.2.7
 KUSTOMIZE_VERSION ?= v4.5.2
 ENVTEST_VERSION ?= latest
+GOLANGCI_LINT_VERSION ?= latest
 
 remove_tools:
 	rm -rf $(LOCALBIN)/*
 
-all_tools: kustomize controller-gen envtest kubectl terraform
+all_tools: kustomize controller-gen envtest kubectl terraform golangci-lint
 
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN) # Download controller-gen locally if necessary.
@@ -356,6 +358,11 @@ $(TERRAFORM): $(LOCALBIN)
 		rm -f $@.zip && \
 		chmod a+x $@ && \
 		touch $@ )
+
+.PHONY: golangci-lint
+golangci-lint: $(GOLANGCI_LINT) ## Download controller-gen locally if necessary.
+$(GOLANGCI_LINT): $(LOCALBIN)
+	test -s $@ || GOBIN=$(LOCALBIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
 ##
 # Tools that need to be installed on the development machine
