@@ -26,9 +26,9 @@ if [[ -z "$E2E_PROJECT_ID" ]]; then
   exit 1
 fi
 
-#expects $KUBECONFIG_GCLOUD
-if [[ -z "$KUBECONFIG_GCLOUD" ]]; then
-  echo "expects KUBECONFIG_GCLOUD to be set the location where kubeconfig should be written."
+#expects KUBECONFIG_E2E
+if [[ -z "KUBECONFIG_E2E" ]]; then
+  echo "expects KUBECONFIG_E2E to be set the location where kubeconfig should be written."
   exit 1
 fi
 
@@ -65,7 +65,7 @@ cp -r $SCRIPT_DIR/* "$DATA_DIR"
   -var "gcloud_bin=$(which gcloud)" \
   -var "gcloud_docker_url_file=$E2E_DOCKER_URL_FILE" \
   -var "project_id=$E2E_PROJECT_ID" \
-  -var "kubeconfig_path=$KUBECONFIG_GCLOUD" \
+  -var "kubeconfig_path=$KUBECONFIG_E2E" \
   -var "testinfra_json_path=$PROJECT_DIR/bin/testinfra.json"
 
 gcloud auth configure-docker us-central1-docker.pkg.dev
