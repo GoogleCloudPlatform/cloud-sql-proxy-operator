@@ -320,6 +320,9 @@ KUSTOMIZE_VERSION ?= v4.5.2
 ENVTEST_VERSION ?= latest
 GOLANGCI_LINT_VERSION ?= latest
 
+GOOS=$(shell go env GOOS | tr -d '\n')
+GOARCH=$(shell go env GOARCH | tr -d '\n')
+
 remove_tools:
 	rm -rf $(LOCALBIN)/*
 
