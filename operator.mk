@@ -129,7 +129,7 @@ go_lint: golangci-lint # Run go lint tools, fail if unchecked errors
 	$(GOLANGCI_LINT) run --fix --fast ./...
 
 .PHONY: tf_lint
-tf_lint: terraform # Run go lint tools, fail if unchecked errors
+tf_lint: terraform # Run terraform fmt to ensure terraform code is consistent
 	$(TERRAFORM) -chdir=testinfra fmt
 
 .PHONY: go_test
