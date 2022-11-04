@@ -139,6 +139,7 @@ go_test: ctrl_manifests envtest # Run tests (but not internal/teste2e)
 
 .PHONY: pr_check_lint
 pr_check_lint: git_workdir_clean lint # Used in the Github Action PR check to ensure generate does not introduce changes and lint passes
+	git diff --stat HEAD
 	@git diff --exit-code --stat HEAD || (echo ; echo ; echo "ERROR: Lint tools caused changes to the working dir. "; echo "       Please review the changes before you commit."; echo ; exit 1)
 	@echo "PR lint checks OK"
 
