@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
+	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -56,21 +56,21 @@ func TestCreateResource(tctx *TestCaseParams) {
 	CreateOrPatchNamespace(ctx, tctx)
 
 	// Fill in the resource with appropriate details.
-	resource := &v1alpha1.AuthProxyWorkload{
+	resource := &cloudsqlapi.AuthProxyWorkload{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1alpha1.GroupVersion.String(),
+			APIVersion: cloudsqlapi.GroupVersion.String(),
 			Kind:       "AuthProxyWorkload",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      wantName,
 			Namespace: namespace,
 		},
-		Spec: v1alpha1.AuthProxyWorkloadSpec{
-			Workload: v1alpha1.WorkloadSelectorSpec{
+		Spec: cloudsqlapi.AuthProxyWorkloadSpec{
+			Workload: cloudsqlapi.WorkloadSelectorSpec{
 				Kind: "Deployment",
 				Name: "busybox",
 			},
-			Instances: []v1alpha1.InstanceSpec{{
+			Instances: []cloudsqlapi.InstanceSpec{{
 				ConnectionString: tctx.ConnectionString,
 			}},
 		},
@@ -85,7 +85,7 @@ func TestCreateResource(tctx *TestCaseParams) {
 
 	// Wait for kubernetes to finish creating the resource, kubernetes
 	// is eventually-consistent.
-	retrievedResource := &v1alpha1.AuthProxyWorkload{}
+	retrievedResource := &cloudsqlapi.AuthProxyWorkload{}
 	err = RetryUntilSuccess(t, 5, time.Second*5, func() error {
 		return tctx.Client.Get(ctx, resourceKey, retrievedResource)
 	})
@@ -118,7 +118,7 @@ func TestDeleteResource(tctx *TestCaseParams) {
 		return
 	}
 
-	res, err := GetAuthProxyWorkload(ctx, tctx, key)
+	res, err := GetAuthProxyWorkloadAfterReconcile(ctx, tctx, key)
 	if err != nil {
 		t.Errorf("Unable to find entity after create %v", err)
 		return
@@ -131,7 +131,7 @@ func TestDeleteResource(tctx *TestCaseParams) {
 		t.Errorf("was %v, wants %v, spec.cloudSqlInstance", connStr, expectedConnStr)
 	}
 
-	if wlstatus := GetConditionStatus(res.Status.Conditions, v1alpha1.ConditionUpToDate); wlstatus != metav1.ConditionTrue {
+	if wlstatus := GetConditionStatus(res.Status.Conditions, cloudsqlapi.ConditionUpToDate); wlstatus != metav1.ConditionTrue {
 		t.Errorf("was %v, wants %v, status.condition[up-to-date]", wlstatus, metav1.ConditionTrue)
 	}
 
@@ -162,134 +162,4 @@ func TestDeleteResource(tctx *TestCaseParams) {
 		t.Error(err)
 	}
 
-}
-
-func TestModifiesNewDeployment(tp *TestCaseParams) {
-	t := tp.T
-	testContext := tp.Ctx
-
-	CreateOrPatchNamespace(testContext, tp)
-
-	const (
-		pwlName            = "newdeploy"
-		deploymentAppLabel = "busybox"
-	)
-	ctx := testContext
-	key := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
-
-	t.Log("Creating AuthProxyWorkload")
-	err := CreateAuthProxyWorkload(ctx, tp, key,
-		deploymentAppLabel, tp.ConnectionString)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	t.Log("Waiting for AuthProxyWorkload operator to begin the reconcile loop")
-	_, err = GetAuthProxyWorkload(ctx, tp, key)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	t.Log("Creating deployment")
-	deployment, err := CreateBusyboxDeployment(ctx, tp, key, deploymentAppLabel)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	containerLen := len(deployment.Spec.Template.Spec.Containers)
-	if containerLen != 2 {
-		t.Errorf("was %v, wants %v. number of containers. It should be set by the admission controller.", containerLen, 2)
-	}
-
-	t.Log("Waiting for deployment reconcile to complete")
-	err = ExpectContainerCount(ctx, tp, key, 2)
-
-	if err != nil {
-		t.Errorf("number of containers did not resolve to 2 after waiting for reconcile")
-	}
-}
-
-func TestModifiesExistingDeployment(tp *TestCaseParams) func() {
-	const (
-		pwlName            = "db-mod"
-		deploymentName     = "deploy-mod"
-		deploymentAppLabel = "existing-mod"
-	)
-
-	ctx := tp.Ctx
-	CreateOrPatchNamespace(ctx, tp)
-	tp.T.Logf("Creating namespace %v", tp.Namespace)
-
-	pKey := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
-	dKey := types.NamespacedName{Name: deploymentName, Namespace: tp.Namespace}
-
-	tp.T.Log("Creating deployment")
-	deployment, err := CreateBusyboxDeployment(ctx, tp, dKey, deploymentAppLabel)
-	if err != nil {
-		tp.T.Error(err)
-		return func() {}
-	}
-	// expect 1 container... no cloudsql instance yet
-	containerLen := len(deployment.Spec.Template.Spec.Containers)
-	if containerLen != 1 {
-		tp.T.Errorf("was %v, wants %v. number of containers. It should be set by the admission controller.", containerLen, 1)
-	}
-
-	tp.T.Log("Creating cloud sql instance")
-	err = CreateAuthProxyWorkload(ctx, tp, pKey, deploymentAppLabel, tp.ConnectionString)
-	if err != nil {
-		tp.T.Error(err)
-		return func() {}
-
-	}
-
-	tp.T.Log("Waiting for cloud sql instance to begin the reconcile loop ")
-	updatedI, err := GetAuthProxyWorkload(ctx, tp, pKey)
-	if err != nil {
-		tp.T.Error(err)
-		return func() {}
-
-	}
-	status, _ := yaml.Marshal(updatedI.Status)
-
-	tp.T.Logf("status: %v", string(status))
-
-	tp.T.Logf("Waiting for deployment reconcile to complete")
-	err = ExpectContainerCount(ctx, tp, dKey, 2)
-	if err != nil {
-		tp.T.Error(err)
-		return func() {}
-
-	}
-
-	updatedI, err = GetAuthProxyWorkload(ctx, tp, pKey)
-	if err != nil {
-		tp.T.Error(err)
-		return func() {}
-
-	}
-
-	// TODO Add workload status to the CRD
-	// t.Log("status: %{v}", updatedI.Status, len(updatedI.Status.WorkloadStatus))
-	// if wlStatus := GetConditionStatus(updatedI.Status.WorkloadStatus[0].Conditions, cloudsqlv1.ConditionUpToDate); wlStatus != metav1.ConditionTrue {
-	//    t.Errorf("wants %v got %v, up-to-date workload status condition", metav1.ConditionTrue, wlStatus)
-	// }
-
-	return func() {
-		tp.T.Logf("Deleting for cloud sql instance")
-		err = tp.Client.Delete(ctx, updatedI)
-		if err != nil {
-			tp.T.Error(err)
-			return
-		}
-
-		tp.T.Logf("Waiting for deployment reconcile to complete")
-		err = ExpectContainerCount(ctx, tp, dKey, 1)
-		if err != nil {
-			tp.T.Error(err)
-			return
-		}
-	}
 }

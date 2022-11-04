@@ -113,7 +113,6 @@ func (e *ConfigErrorDetail) Error() string {
 		e.WorkloadKind.String(),
 		e.WorkloadNamespace,
 		e.WorkloadName)
-
 }
 
 // defaultContainerResources used when the AuthProxyWorkload resource is not specified.
@@ -122,6 +121,34 @@ var defaultContainerResources = corev1.ResourceRequirements{
 		"cpu":    resource.MustParse("1.0"),
 		"memory": resource.MustParse("1Gi"),
 	},
+}
+
+// ReconcilePod finds all AuthProxyWorkload resources matching this workload and then
+// updates the workload's containers. This does not save the updated workload.
+func (u *Updater) ReconcilePod(pl *cloudsqlapi.AuthProxyWorkloadList, wl Workload, owners []Workload) (bool, []*cloudsqlapi.AuthProxyWorkload, error) {
+
+	// if a wl has an owner, then ignore it.
+	var matchingAuthProxyWorkloads []*cloudsqlapi.AuthProxyWorkload
+	matchingAuthProxyWorkloads = append(matchingAuthProxyWorkloads, u.filterMatchingInstances(pl, wl)...)
+	for _, owner := range owners {
+		matchingAuthProxyWorkloads = append(matchingAuthProxyWorkloads, u.filterMatchingInstances(pl, owner)...)
+	}
+
+	updated, err := u.UpdateWorkloadContainers(wl, matchingAuthProxyWorkloads)
+	// if there was an error updating workloads, return the error
+	if err != nil {
+		return false, nil, err
+	}
+
+	// if this was not updated, then return nil and an empty array because
+	// no DBInstances were applied
+	if !updated {
+		return updated, nil, nil
+	}
+
+	// if this was updated return matching DBInstances
+	return updated, matchingAuthProxyWorkloads, nil
+
 }
 
 // ReconcileWorkload finds all AuthProxyWorkload resources matching this workload and then
@@ -133,8 +160,11 @@ func (u *Updater) ReconcileWorkload(pl *cloudsqlapi.AuthProxyWorkloadList, wl Wo
 	}
 
 	matchingAuthProxyWorkloads := u.filterMatchingInstances(pl, wl)
+	for _, proxyWorkload := range matchingAuthProxyWorkloads {
+		u.MarkWorkloadUpdated(proxyWorkload, wl)
+	}
 
-	updated, err := u.UpdateWorkloadContainers(wl, matchingAuthProxyWorkloads)
+	updated, err := u.annotatePodTemplate(wl, matchingAuthProxyWorkloads)
 	// if there was an error updating workloads, return the error
 	if err != nil {
 		return false, nil, err
@@ -268,6 +298,58 @@ func (u *Updater) UpdateWorkloadContainers(wl Workload, matches []*cloudsqlapi.A
 		},
 	}
 	return state.update(wl, matches)
+}
+
+const expectedProxiesAnnotationName = cloudsqlapi.AnnotationPrefix + "/proxies"
+
+// annotatePodTemplate adds annotations to the podspec indicating that these workloads need to be
+// applied by the pod webhook
+func (u *Updater) annotatePodTemplate(wl Workload, pl []*cloudsqlapi.AuthProxyWorkload) (bool, error) {
+	list := make([]string, 0, len(pl))
+	for _, proxy := range pl {
+		// append AuthProxyWorkload resource generation so that this string changes
+		// when the AuthProxyWorkload resource changes. We don't need the generation
+		// to apply this later.
+		list = append(list, fmt.Sprintf("%s/%s@%d", proxy.Namespace, proxy.Name, proxy.GetGeneration()))
+	}
+	sort.Strings(list)
+	newValue := strings.Join(list, ",")
+	ann := wl.PodTemplateAnnotations()
+	if ann == nil {
+		ann = map[string]string{}
+	}
+
+	oldValue, ok := ann[expectedProxiesAnnotationName]
+	if !ok || oldValue != newValue {
+		ann[expectedProxiesAnnotationName] = newValue
+		wl.SetPodTemplateAnnotations(ann)
+		return true, nil
+	}
+	return false, nil
+}
+
+// loadFromAnnotatedPodSpec adds annotations to the podspec indicating that these workloads need to be
+// applied by the pod webhook
+func (u *Updater) loadFromAnnotatedPodSpec(pl *cloudsqlapi.AuthProxyWorkloadList, wl Workload) []*cloudsqlapi.AuthProxyWorkload {
+	ann := wl.PodTemplateAnnotations()
+	v, ok := ann[expectedProxiesAnnotationName]
+	if !ok {
+		return nil
+	}
+	var filteredProxies []*cloudsqlapi.AuthProxyWorkload
+	for _, s := range strings.Split(v, ",") {
+		nsSepIndex := strings.Index(s, "/")
+		genSepIndex := strings.Index(s, "@")
+		ns := s[0:nsSepIndex]
+		name := s[nsSepIndex+1 : genSepIndex]
+		for i := 0; i < len(pl.Items); i++ {
+			if pl.Items[i].GetName() == name && pl.Items[i].GetNamespace() == ns {
+				filteredProxies = append(filteredProxies, &pl.Items[i])
+			}
+		}
+	}
+
+	return filteredProxies
 }
 
 type managedEnvVar struct {

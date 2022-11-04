@@ -18,11 +18,9 @@ import (
 	"fmt"
 	"os"
 	"testing"
-	"time"
 
-	helpers2 "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
-	v1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func TestMain(m *testing.M) {
@@ -41,37 +39,96 @@ func TestMain(m *testing.M) {
 
 func TestCreateResource(t *testing.T) {
 	tctx := params(t, "create")
-	helpers2.TestCreateResource(tctx)
+	testhelpers.TestCreateResource(tctx)
 }
 
 func TestDeleteResource(t *testing.T) {
 	tctx := params(t, "delete")
-	helpers2.TestDeleteResource(tctx)
+	testhelpers.TestDeleteResource(tctx)
 }
-
 func TestModifiesNewDeployment(t *testing.T) {
-	tctx := params(t, "newdeploy")
-	helpers2.TestModifiesNewDeployment(tctx)
+	tp := params(t, "modifynew")
 
-	var podList *v1.PodList
-	err := helpers2.RetryUntilSuccess(t, 5, 10*time.Second, func() error {
-		var err error
-		podList, err = listDeploymentPods(tctx.Ctx, client.ObjectKey{Namespace: tctx.Namespace, Name: "newdeploy"})
-		return err
-	})
+	testhelpers.CreateOrPatchNamespace(tp.Ctx, tp)
 
+	const (
+		pwlName            = "newdeploy"
+		deploymentAppLabel = "busybox"
+	)
+	ctx := tp.Ctx
+	key := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
+
+	t.Log("Creating AuthProxyWorkload")
+	err := testhelpers.CreateAuthProxyWorkload(ctx, tp, key,
+		deploymentAppLabel, tp.ConnectionString)
 	if err != nil {
-		t.Fatalf("Error while listing pods for deployment %v", err)
+		t.Error(err)
+		return
 	}
-	if podCount := len(podList.Items); podCount == 0 {
-		t.Fatalf("got %v pods, wants more than 0", podCount)
+
+	t.Log("Waiting for AuthProxyWorkload operator to begin the reconcile loop")
+	_, err = testhelpers.GetAuthProxyWorkloadAfterReconcile(ctx, tp, key)
+	if err != nil {
+		t.Error("unable to create AuthProxyWorkload", err)
+		return
 	}
-	if containerCount := len(podList.Items[0].Spec.Containers); containerCount != 2 {
-		t.Errorf("got %v containers, wants 2", containerCount)
+
+	t.Log("Creating deployment")
+	d, err := testhelpers.CreateBusyboxDeployment(ctx, tp, key, deploymentAppLabel)
+	if err != nil {
+		t.Error("unable to create deployment", err)
+		return
 	}
+
+	testhelpers.ExpectContainerCount(tp, d, 2)
+
 }
 
 func TestModifiesExistingDeployment(t *testing.T) {
-	tctx := params(t, "modifydeploy")
-	helpers2.TestModifiesExistingDeployment(tctx)
+	const (
+		pwlName            = "db-mod"
+		deploymentName     = "deploy-mod"
+		deploymentAppLabel = "existing-mod"
+	)
+	var (
+		tp  = params(t, "modifyexisting")
+		ctx = tp.Ctx
+	)
+
+	testhelpers.CreateOrPatchNamespace(ctx, tp)
+	t.Logf("Creating namespace %v", tp.Namespace)
+
+	pKey := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
+	dKey := types.NamespacedName{Name: deploymentName, Namespace: tp.Namespace}
+
+	t.Log("Creating deployment")
+	deployment, err := testhelpers.CreateBusyboxDeployment(ctx, tp, dKey, deploymentAppLabel)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	// expect 1 container... no cloudsql instance yet
+	containerLen := len(deployment.Spec.Template.Spec.Containers)
+	if containerLen != 1 {
+		t.Errorf("was %v, wants %v. number of containers. It should be set by the admission controller.", containerLen, 1)
+		return
+	}
+
+	t.Log("Creating cloud sql instance")
+	err = testhelpers.CreateAuthProxyWorkload(ctx, tp, pKey, deploymentAppLabel, tp.ConnectionString)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	t.Log("Waiting for cloud sql instance to begin the reconcile loop ")
+	_, err = testhelpers.GetAuthProxyWorkloadAfterReconcile(ctx, tp, pKey)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	testhelpers.ExpectContainerCount(tp, deployment, 2)
+
 }

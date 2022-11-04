@@ -21,6 +21,7 @@ import (
 
 	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/json"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -69,10 +70,12 @@ func (a *WorkloadAdmissionWebhook) Handle(ctx context.Context, req admission.Req
 	}
 
 	var (
-		updated  bool
-		instList = &cloudsqlapi.AuthProxyWorkloadList{}
+		updated           bool
+		instList          = &cloudsqlapi.AuthProxyWorkloadList{}
+		matchingInstances []*cloudsqlapi.AuthProxyWorkload
+		wlConfigErr       error
 	)
-	err = a.Client.List(ctx, instList, client.InNamespace(wl.Object().GetNamespace()))
+	err = a.Client.List(ctx, instList) // list all the AuthProxyWorkloads
 	if err != nil {
 		l.Error(err, "Unable to list CloudSqlClient resources in webhook",
 			"kind", req.Kind.Kind, "ns", req.Namespace, "name", req.Name)
@@ -81,7 +84,19 @@ func (a *WorkloadAdmissionWebhook) Handle(ctx context.Context, req admission.Req
 	}
 
 	l.Info("Workload before modification", "len(containers)", len(wl.PodSpec().Containers))
-	updated, matchingInstances, wlConfigErr := a.updater.ReconcileWorkload(instList, wl)
+
+	switch {
+	case wl.Object().GetObjectKind().GroupVersionKind().Kind == "Pod":
+		owners, err := a.listOwners(ctx, wl.Object())
+		if err != nil {
+			return admission.Errored(http.StatusInternalServerError,
+				fmt.Errorf("there is an AuthProxyWorkloadConfiguration error reconciling this workload %v", err))
+		}
+		updated, matchingInstances, wlConfigErr = a.updater.ReconcilePod(instList, wl, owners)
+	default:
+		updated, matchingInstances, wlConfigErr = a.updater.ReconcileWorkload(instList, wl)
+	}
+
 	if wlConfigErr != nil {
 		l.Error(wlConfigErr, "Unable to reconcile workload result in webhook: "+wlConfigErr.Error(),
 			"kind", req.Kind.Kind, "ns", req.Namespace, "name", req.Name)
@@ -131,4 +146,43 @@ func (a *WorkloadAdmissionWebhook) makeWorkload(req admission.Request) (workload
 	}
 
 	return wl, nil
+}
+
+// listOwners returns the list of this object's owners and its extended owners
+func (a *WorkloadAdmissionWebhook) listOwners(ctx context.Context, object client.Object) ([]workload.Workload, error) {
+	l := logf.FromContext(ctx)
+	var owners []workload.Workload
+
+	for _, r := range object.GetOwnerReferences() {
+		key := client.ObjectKey{Namespace: object.GetNamespace(), Name: r.Name}
+		var owner client.Object
+
+		owl, err := workload.WorkloadForKind(r.Kind)
+		switch {
+		case err != nil:
+			owner = &v1.PartialObjectMetadata{
+				TypeMeta: v1.TypeMeta{Kind: r.Kind, APIVersion: r.APIVersion},
+			}
+		default:
+			owner = owl.Object()
+			owners = append(owners, owl)
+		}
+
+		err = a.Client.Get(ctx, key, owner)
+		if err != nil {
+			l.Info("could not get owner ",
+				"owner", r.String(),
+				"err", err)
+			return nil, err
+		}
+
+		// recursively call for the owners of the owner, and append those.
+		// So that we reach Pod --> ReplicaSet --> Deployment
+		ownerOwners, err := a.listOwners(ctx, owner)
+		if err != nil {
+			return nil, err
+		}
+		owners = append(owners, ownerOwners...)
+	}
+	return owners, nil
 }

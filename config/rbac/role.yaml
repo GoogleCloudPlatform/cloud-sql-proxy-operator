@@ -20,6 +20,14 @@ rules:
   - apiGroups:
       - ""
     resources:
+      - '*'
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
       - pods
     verbs:
       - create
@@ -43,6 +51,14 @@ rules:
       - get
       - patch
       - update
+  - apiGroups:
+      - apps
+    resources:
+      - '*'
+    verbs:
+      - get
+      - list
+      - watch
   - apiGroups:
       - apps
     resources:
@@ -121,6 +137,14 @@ rules:
       - get
       - patch
       - update
+  - apiGroups:
+      - batch
+    resources:
+      - '*'
+    verbs:
+      - get
+      - list
+      - watch
   - apiGroups:
       - batch
     resources:

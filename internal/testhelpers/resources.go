@@ -22,9 +22,11 @@ import (
 
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	yaml2 "k8s.io/apimachinery/pkg/util/yaml"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const busyboxDeployYaml = `apiVersion: apps/appsv1
@@ -87,10 +89,10 @@ func CreateBusyboxDeployment(ctx context.Context, tctx *TestCaseParams,
 	return cd, nil
 }
 
-// GetAuthProxyWorkload finds an AuthProxyWorkload resource named key, waits for its
+// GetAuthProxyWorkloadAfterReconcile finds an AuthProxyWorkload resource named key, waits for its
 // "UpToDate" condition to be "True", and the returns it. Fails after 30 seconds
 // if the containers does not match.
-func GetAuthProxyWorkload(ctx context.Context, tctx *TestCaseParams,
+func GetAuthProxyWorkloadAfterReconcile(ctx context.Context, tctx *TestCaseParams,
 	key types.NamespacedName) (*v1alpha1.AuthProxyWorkload, error) {
 	tctx.T.Helper()
 	createdPodmod := &v1alpha1.AuthProxyWorkload{}
@@ -111,35 +113,64 @@ func GetAuthProxyWorkload(ctx context.Context, tctx *TestCaseParams,
 	return createdPodmod, err
 }
 
+// ListDeploymentPods lists all the pods in a particular deployment.
+func ListDeploymentPods(ctx context.Context, c client.Client, deploymentKey client.ObjectKey) (*corev1.PodList, error) {
+	dep := &appsv1.Deployment{}
+	err := c.Get(ctx, deploymentKey, dep)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get deployment %v", err)
+	}
+	podList := &corev1.PodList{}
+	sel, err := metav1.LabelSelectorAsSelector(dep.Spec.Selector)
+	if err != nil {
+		return nil, fmt.Errorf("unable to make pod selector for deployment %v", err)
+	}
+
+	err = c.List(ctx, podList, client.InNamespace(dep.Namespace), client.MatchingLabelsSelector{Selector: sel})
+	if err != nil {
+		return nil, fmt.Errorf("unable to list pods for deployment %v", err)
+	}
+
+	return podList, nil
+}
+
 // ExpectContainerCount finds a deployment and keeps checking until the number of
 // containers on the deployment's PodSpec.Containers == count. Returns error after 30 seconds
 // if the containers do not match.
-func ExpectContainerCount(ctx context.Context, tctx *TestCaseParams, key types.NamespacedName, count int) error {
+func ExpectContainerCount(tp *TestCaseParams, d *appsv1.Deployment, count int) error {
 
-	tctx.T.Helper()
+	tp.T.Helper()
 
 	var (
-		got        int
-		deployment = &appsv1.Deployment{}
+		got int
 	)
-	err := RetryUntilSuccess(tctx.T, 6, 5*time.Second, func() error {
-		err := tctx.Client.Get(ctx, key, deployment)
+	var wrongContainerLen int
+	var countBadPods int
+
+	err := RetryUntilSuccess(tp.T, 6, 5*time.Second, func() error {
+		pods, err := ListDeploymentPods(tp.Ctx, tp.Client, client.ObjectKeyFromObject(d))
 		if err != nil {
 			return err
 		}
-		got = len(deployment.Spec.Template.Spec.Containers)
-		if got != count {
-			return fmt.Errorf("deployment found, got %v, want %v containers", got, count)
+		for _, p := range pods.Items {
+			got = len(p.Spec.Containers)
+			if got != count {
+				countBadPods++
+				wrongContainerLen = got
+			}
+		}
+		if countBadPods > 0 {
+			return fmt.Errorf("got %v, want %v containers", got, count)
 		}
 		return nil
 	})
 
 	if err != nil {
-		tctx.T.Errorf("want %v containers, got %v number of containers did not resolve after waiting for reconcile", count, got)
+		tp.T.Errorf("want %v containers, got %v number of containers did not on %d pods", count, wrongContainerLen, countBadPods)
 		return err
 	}
 
-	tctx.T.Logf("Container len is now %v", got)
+	tp.T.Logf("Container len is now %v", got)
 	return nil
 }
 

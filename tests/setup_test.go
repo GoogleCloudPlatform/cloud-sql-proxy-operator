@@ -32,7 +32,6 @@ import (
 	"go.uber.org/zap/zapcore"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -151,7 +150,7 @@ func setupTests() (func(), error) {
 	// Start the goroutines to tail the logs from the operator deployment. This
 	// prints the operator output in line with the test output so it's easier
 	// for the developer to follow.
-	podList, err := listDeploymentPods(ctx, managerDeploymentKey)
+	podList, err := testhelpers.ListDeploymentPods(ctx, c, managerDeploymentKey)
 	if err != nil {
 		return teardownFunc, fmt.Errorf("unable to find manager deployment %v", err)
 	}
@@ -180,7 +179,7 @@ func waitForCorrectOperatorPods(ctx context.Context, err error) (client.ObjectKe
 		// Check that pods are running the right version
 		// of the image. Sometimes deployments can take some time to roll out, and pods
 		// will be running a different version.
-		pods, err := listDeploymentPods(ctx, managerDeploymentKey)
+		pods, err := testhelpers.ListDeploymentPods(ctx, c, managerDeploymentKey)
 		if err != nil {
 			return fmt.Errorf("can't list manager deployment pods, %v", err)
 		}
@@ -207,23 +206,6 @@ func waitForCorrectOperatorPods(ctx context.Context, err error) (client.ObjectKe
 		return nil // OK to continue.
 	})
 	return managerDeploymentKey, err
-}
-
-// listDeploymentPods lists all the pods in a particular deployment.
-func listDeploymentPods(ctx context.Context, deploymentKey client.ObjectKey) (*corev1.PodList, error) {
-	dep, err := k8sClientSet.AppsV1().Deployments(deploymentKey.Namespace).Get(ctx, deploymentKey.Name, metav1.GetOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("unable to find manager deployment %v", err)
-	}
-	podList, err := k8sClientSet.CoreV1().Pods(deploymentKey.Namespace).List(ctx, metav1.ListOptions{
-		LabelSelector: metav1.FormatLabelSelector(dep.Spec.Selector),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("unable to find manager deployment %v", err)
-	}
-
-	return podList, nil
-
 }
 
 func tailPods(ctx context.Context, podlist *corev1.PodList) {

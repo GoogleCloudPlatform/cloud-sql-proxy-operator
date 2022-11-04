@@ -33,6 +33,8 @@ import (
 // necessary configuration and other details before it starts, or if the
 // configuration changes.
 type Workload interface {
+	PodTemplateAnnotations() map[string]string
+	SetPodTemplateAnnotations(map[string]string)
 	PodSpec() corev1.PodSpec
 	SetPodSpec(spec corev1.PodSpec)
 	Object() client.Object
@@ -176,6 +178,12 @@ type DeploymentWorkload struct {
 func (d *DeploymentWorkload) PodSpec() corev1.PodSpec {
 	return d.Deployment.Spec.Template.Spec
 }
+func (d *DeploymentWorkload) PodTemplateAnnotations() map[string]string {
+	return d.Deployment.Spec.Template.Annotations
+}
+func (d *DeploymentWorkload) SetPodTemplateAnnotations(v map[string]string) {
+	d.Deployment.Spec.Template.Annotations = v
+}
 
 func (d *DeploymentWorkload) SetPodSpec(spec corev1.PodSpec) {
 	d.Deployment.Spec.Template.Spec = spec
@@ -191,6 +199,12 @@ type StatefulSetWorkload struct {
 
 func (d *StatefulSetWorkload) PodSpec() corev1.PodSpec {
 	return d.StatefulSet.Spec.Template.Spec
+}
+func (d *StatefulSetWorkload) PodTemplateAnnotations() map[string]string {
+	return d.StatefulSet.Spec.Template.Annotations
+}
+func (d *StatefulSetWorkload) SetPodTemplateAnnotations(v map[string]string) {
+	d.StatefulSet.Spec.Template.Annotations = v
 }
 
 func (d *StatefulSetWorkload) SetPodSpec(spec corev1.PodSpec) {
@@ -208,6 +222,12 @@ type PodWorkload struct {
 func (d *PodWorkload) PodSpec() corev1.PodSpec {
 	return d.Pod.Spec
 }
+func (d *PodWorkload) PodTemplateAnnotations() map[string]string {
+	return d.Pod.Annotations
+}
+func (d *PodWorkload) SetPodTemplateAnnotations(v map[string]string) {
+	d.Pod.Annotations = v
+}
 
 func (d *PodWorkload) SetPodSpec(spec corev1.PodSpec) {
 	d.Pod.Spec = spec
@@ -223,6 +243,12 @@ type JobWorkload struct {
 
 func (d *JobWorkload) PodSpec() corev1.PodSpec {
 	return d.Job.Spec.Template.Spec
+}
+func (d *JobWorkload) PodTemplateAnnotations() map[string]string {
+	return d.Job.Spec.Template.Annotations
+}
+func (d *JobWorkload) SetPodTemplateAnnotations(v map[string]string) {
+	d.Job.Spec.Template.Annotations = v
 }
 
 func (d *JobWorkload) SetPodSpec(spec corev1.PodSpec) {
@@ -240,6 +266,12 @@ type CronJobWorkload struct {
 func (d *CronJobWorkload) PodSpec() corev1.PodSpec {
 	return d.CronJob.Spec.JobTemplate.Spec.Template.Spec
 }
+func (d *CronJobWorkload) PodTemplateAnnotations() map[string]string {
+	return d.CronJob.Spec.JobTemplate.Spec.Template.Annotations
+}
+func (d *CronJobWorkload) SetPodTemplateAnnotations(v map[string]string) {
+	d.CronJob.Spec.JobTemplate.Spec.Template.Annotations = v
+}
 
 func (d *CronJobWorkload) SetPodSpec(spec corev1.PodSpec) {
 	d.CronJob.Spec.JobTemplate.Spec.Template.Spec = spec
@@ -255,6 +287,12 @@ type DaemonSetWorkload struct {
 
 func (d *DaemonSetWorkload) PodSpec() corev1.PodSpec {
 	return d.DaemonSet.Spec.Template.Spec
+}
+func (d *DaemonSetWorkload) PodTemplateAnnotations() map[string]string {
+	return d.DaemonSet.Spec.Template.Annotations
+}
+func (d *DaemonSetWorkload) SetPodTemplateAnnotations(v map[string]string) {
+	d.DaemonSet.Spec.Template.Annotations = v
 }
 
 func (d *DaemonSetWorkload) SetPodSpec(spec corev1.PodSpec) {

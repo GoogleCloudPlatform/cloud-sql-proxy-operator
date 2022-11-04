@@ -93,6 +93,10 @@ func (r *AuthProxyWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
+//+kubebuilder:rbac:groups=apps,resources=*,verbs=get;list;watch
+//+kubebuilder:rbac:groups=batch,resources=*,verbs=get;list;watch
+//+kubebuilder:rbac:groups="",resources=*,verbs=get;list;watch
+
 //+kubebuilder:rbac:groups=cloudsql.cloud.google.com,resources=authproxyworkloads,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=cloudsql.cloud.google.com,resources=authproxyworkloads/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=cloudsql.cloud.google.com,resources=authproxyworkloads/finalizers,verbs=update
@@ -100,6 +104,8 @@ func (r *AuthProxyWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=apps,resources=deployments/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=apps,resources=deployments/finalizers,verbs=update
+
+//+kubebuilder:rbac:groups=apps,resources=*,verbs=get;list;watch
 
 //+kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=apps,resources=statefulsets/status,verbs=get;update;patch
@@ -249,6 +255,7 @@ func (r *AuthProxyWorkloadReconciler) doCreateUpdate(ctx context.Context, l logr
 	if !controllerutil.ContainsFinalizer(resource, finalizerName) {
 		// State 1.1: This is a brand new thing that doesn't have a finalizer.
 		// Add the finalizer and requeue for another run through the reconcile loop
+		l.Info("Reconcile state: needs finalizer")
 		return r.applyFinalizer(ctx, l, resource)
 	}
 
@@ -256,6 +263,7 @@ func (r *AuthProxyWorkloadReconciler) doCreateUpdate(ctx context.Context, l logr
 	allWorkloads, needsUpdateWorkloads, err := r.markWorkloadsForUpdate(ctx, l, resource)
 	if err != nil {
 		// State 1.2 - unable to read workloads, abort and try again after a delay.
+		l.Info("Reconcile state: error listing workloads for update")
 		return requeueWithDelay, err
 	}
 
@@ -265,11 +273,13 @@ func (r *AuthProxyWorkloadReconciler) doCreateUpdate(ctx context.Context, l logr
 		// State 2.1: When there are no workloads, then mark this as "UpToDate" true,
 		// do not requeue.
 		if len(needsUpdateWorkloads) == 0 {
+			l.Info("Reconcile state: no updates needed")
 			return r.noUpdatesNeeded(ctx, l, resource, orig)
 		}
 
 		// State 2.2: When there are workloads, then mark this as "UpToDate" false
 		// with the reason "StartedReconcile" and requeue after a delay.
+		l.Info("Reconcile state: start workload reconcile")
 		return r.startWorkloadReconcile(ctx, l, resource, orig, needsUpdateWorkloads)
 	}
 
@@ -282,6 +292,7 @@ func (r *AuthProxyWorkloadReconciler) doCreateUpdate(ctx context.Context, l logr
 	//   State 3.2: If workloads are still up to date, mark the condition
 	//   "UpToDate" false and requeue for another run after a delay.
 	//
+	l.Info("Reconcile state: check reconcile complete")
 	return r.checkReconcileComplete(ctx, l, resource, orig, allWorkloads)
 }
 
