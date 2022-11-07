@@ -69,11 +69,8 @@ help: ## Display this help.
 .PHONY: install_tools
 install_tools: remove_tools all_tools ## Installs all development tools
 
-.PHONY: lint
-lint: generate go_lint tf_lint  ## Runs generate and then code lint validation tools
-
 .PHONY: generate
-generate:  ctrl_generate ctrl_manifests reset_image add_copyright_header go_fmt yaml_fmt ## Runs code generation, format, and validation tools
+generate:  ctrl_generate ctrl_manifests go_lint tf_lint reset_image add_copyright_header go_fmt yaml_fmt ## Runs code generation, format, and validation tools
 
 .PHONY: build
 build: generate build_push_docker ## Builds and pushes the docker image to tag defined in envvar IMG
@@ -126,7 +123,7 @@ build_push_docker: # Build docker image with the operator. set IMG env var befor
 go_lint: golangci-lint # Run go lint tools, fail if unchecked errors
 	# Implements golang CI based on settings described here:
 	# See https://betterprogramming.pub/how-to-improve-code-quality-with-an-automatic-check-in-go-d18a5eb85f09
-	$(GOLANGCI_LINT) run --fix --fast ./...
+	$(GOLANGCI_LINT) 	run --fix --fast ./...
 
 .PHONY: tf_lint
 tf_lint: terraform # Run terraform fmt to ensure terraform code is consistent
@@ -136,16 +133,6 @@ tf_lint: terraform # Run terraform fmt to ensure terraform code is consistent
 go_test: ctrl_manifests envtest # Run tests (but not internal/teste2e)
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" \
 		go test ./internal/.../. -coverprofile cover.out -race
-
-.PHONY: pr_check_lint
-pr_check_lint: git_workdir_clean lint # Used in the Github Action PR check to ensure generate does not introduce changes and lint passes
-	git diff --stat HEAD
-	@git diff --exit-code --stat HEAD || (echo ; echo ; echo "ERROR: Lint tools caused changes to the working dir. "; echo "       Please review the changes before you commit."; echo ; exit 1)
-	@echo "PR lint checks OK"
-
-.PHONY: git_workdir_clean
-git_workdir_clean: # Checks if the git working directory is clean. Fails if there are unstaged changes.
-	@git diff --exit-code --stat HEAD || (echo ; echo; echo "ERROR: git working directory has uncommitted changes. "; echo "       Add or stash all changes before you commit."; echo ; exit 1)
 
 ##
 # Kubernetes configuration targets
