@@ -168,6 +168,21 @@ deploy_operator: kustomize kubectl # Deploy controller to the K8s cluster using 
 	$(E2E_KUBECTL) rollout status deployment -n cloud-sql-proxy-operator-system cloud-sql-proxy-operator-controller-manager --timeout=90s
 
 
+.PHONY: bin/cloud-sql-proxy-operator.yaml
+bin/cloud-sql-proxy-operator.yaml: kustomize # Build the single yaml file for deploying the operator
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+	mkdir -p bin/k8s/
+	$(KUSTOMIZE) build config/crd > $@
+	echo "" >> $@
+	echo "---" >> $@
+	echo "" >> $@
+	$(KUSTOMIZE) build config/default >> $@
+
+.PHONY: bin/install.sh
+bin/install.sh: ## Build install shell script to deploy the operator
+	sed 's/__VERSION__/$(VERSION)/g' < tools/install.sh > bin/install.sh.tmp
+	sed 's|__IMAGE_URL__|$(IMG)|g' < bin/install.sh.tmp > bin/install.sh
+
 ##
 ##@ Google Cloud End to End Test
 
