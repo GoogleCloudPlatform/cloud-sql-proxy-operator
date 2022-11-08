@@ -49,3 +49,5 @@ linters-settings:
       - name: range-val-in-closure
       - name: range-val-address
       - name: import-shadowing
+run:
+  timeout: 5m
