@@ -34,10 +34,8 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
       - name: Set up build.env with phony secrets.
         run: cp build.sample.env build.env
-      - name: make build
-        run: make build
       - name: make test
-        run: make test
+        run: make -f operator.mk test
       - name: Remove PR Label
         if: "${{ github.event.action == 'labeled' && github.event.label.name == 'tests: run' }}"
         uses: actions/github-script@v6

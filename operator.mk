@@ -18,7 +18,7 @@
 # IMG is used by build to determine where to push the docker image for the
 # operator. You must set the IMG environment variable when you run make build
 # or other dependent targets.
-IMG ?= 
+IMG ?=
 
 # Import the local build environment file. This holds configuration specific
 # to the local environment. build.sample.env describes the required configuration
@@ -70,7 +70,7 @@ help: ## Display this help.
 install_tools: remove_tools all_tools ## Installs all development tools
 
 .PHONY: generate
-generate:  ctrl_generate ctrl_manifests reset_image add_copyright_header go_fmt yaml_fmt ## Runs code generation, format, and validation tools
+generate:  ctrl_generate ctrl_manifests go_lint tf_lint reset_image add_copyright_header go_fmt yaml_fmt ## Runs code generation, format, and validation tools
 
 .PHONY: build
 build: generate build_push_docker ## Builds and pushes the docker image to tag defined in envvar IMG
@@ -117,14 +117,25 @@ build_push_docker: # Build docker image with the operator. set IMG env var befor
 	  --build-arg GO_LD_FLAGS="$(VERSION_LDFLAGS)" \
 	  -f "Dockerfile-operator" \
 	  --push -t "$(IMG)" "$(PWD)"
+	echo "$(IMG)" > bin/last-pushed-image-url.txt
 
-##
-# Kubernetes configuration targets
+.PHONY: go_lint
+go_lint: golangci-lint # Run go lint tools, fail if unchecked errors
+	# Implements golang CI based on settings described here:
+	# See https://betterprogramming.pub/how-to-improve-code-quality-with-an-automatic-check-in-go-d18a5eb85f09
+	$(GOLANGCI_LINT) 	run --fix --fast ./...
+
+.PHONY: tf_lint
+tf_lint: terraform # Run terraform fmt to ensure terraform code is consistent
+	$(TERRAFORM) -chdir=testinfra fmt
 
 .PHONY: go_test
 go_test: ctrl_manifests envtest # Run tests (but not internal/teste2e)
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" \
 		go test ./internal/.../. -coverprofile cover.out -race
+
+##
+# Kubernetes configuration targets
 
 .PHONY: ctrl_manifests
 ctrl_manifests: controller-gen # Use controller-gen to generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
@@ -287,19 +298,23 @@ CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 KUBECTL ?= $(LOCALBIN)/kubectl
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 TERRAFORM ?= $(LOCALBIN)/terraform
+GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
 
 ## Tool Versions
 CONTROLLER_TOOLS_VERSION ?= latest
-KUSTOMIZE_VERSION ?= latest
 KUBECTL_VERSION ?= $(shell curl -L -s https://dl.k8s.io/release/stable.txt | tr -d '\n')
 TERRAFORM_VERSION ?= 1.2.7
 KUSTOMIZE_VERSION ?= v4.5.2
 ENVTEST_VERSION ?= latest
+GOLANGCI_LINT_VERSION ?= latest
+
+GOOS=$(shell go env GOOS | tr -d '\n')
+GOARCH=$(shell go env GOARCH | tr -d '\n')
 
 remove_tools:
 	rm -rf $(LOCALBIN)/*
 
-all_tools: kustomize controller-gen envtest kubectl terraform
+all_tools: kustomize controller-gen envtest kubectl terraform golangci-lint
 
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN) # Download controller-gen locally if necessary.
@@ -334,6 +349,11 @@ $(TERRAFORM): $(LOCALBIN)
 		rm -f $@.zip && \
 		chmod a+x $@ && \
 		touch $@ )
+
+.PHONY: golangci-lint
+golangci-lint: $(GOLANGCI_LINT) ## Download controller-gen locally if necessary.
+$(GOLANGCI_LINT): $(LOCALBIN)
+	test -s $@ || GOBIN=$(LOCALBIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
 ##
 # Tools that need to be installed on the development machine
