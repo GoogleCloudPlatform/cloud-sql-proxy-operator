@@ -84,6 +84,9 @@ deploy:  build deploy_with_kubeconfig ## Deploys the operator to the kubernetes 
 .PHONY: e2e_test
 e2e_test: e2e_setup e2e_build_deploy e2e_test_run e2e_test_clean ## Run end-to-end tests on Google Cloud GKE
 
+.PHONY: release
+release: release_image_push release_k8s_publish ## Release all artifacts for the current version
+
 ##
 # Development targets
 
@@ -111,19 +114,19 @@ add_copyright_header: # Add the copyright header
 	go run github.com/google/addlicense@latest *
 
 .PHONY: build_push_docker
-build_push_docker: # Build docker image with the operator. set IMG env var before running: `IMG=example.com/img:1.0 make build`
+build_push_docker: bin/cloud-sql-proxy-operator.yaml bin/install.sh # Build docker image with the operator. set IMG env var before running: `IMG=example.com/img:1.0 make build`
 	@test -n "$(IMG)" || ( echo "IMG environment variable must be set to the public repo where you want to push the image" ; exit 1)
 	docker buildx build --platform "linux/amd64" \
 	  --build-arg GO_LD_FLAGS="$(VERSION_LDFLAGS)" \
 	  -f "Dockerfile-operator" \
-	  --push -t "$(IMG)" "$(PWD)"
+	  --push -t "$(IMG)" $(EXTRA_IMAGE_TAGS) "$(PWD)"
 	echo "$(IMG)" > bin/last-pushed-image-url.txt
 
 .PHONY: go_lint
 go_lint: golangci-lint # Run go lint tools, fail if unchecked errors
 	# Implements golang CI based on settings described here:
 	# See https://betterprogramming.pub/how-to-improve-code-quality-with-an-automatic-check-in-go-d18a5eb85f09
-	$(GOLANGCI_LINT) 	run --fix --fast ./...
+	$(GOLANGCI_LINT) 	run --verbose --fix --fast ./...
 
 .PHONY: tf_lint
 tf_lint: terraform # Run terraform fmt to ensure terraform code is consistent
@@ -133,6 +136,7 @@ tf_lint: terraform # Run terraform fmt to ensure terraform code is consistent
 go_test: ctrl_manifests envtest # Run tests (but not internal/teste2e)
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" \
 		go test ./internal/.../. -coverprofile cover.out -race
+
 
 ##
 # Kubernetes configuration targets
