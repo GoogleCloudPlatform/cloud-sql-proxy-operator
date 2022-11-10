@@ -1,4 +1,4 @@
-## TODO add the license header
+## Copyright needed here.
 
 FROM gcr.io/cloud-builders/docker
 
