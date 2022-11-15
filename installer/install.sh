@@ -16,16 +16,9 @@
 
 set -euxo # exit 1 from the script when command fails
 
-VERSION="0.0.2-dev"
+VERSION="v0.0.2-dev"
+CERT_MANAGER_VERSION="v1.9.1"
 
-echo "Placeholder. Install logic for Cloud SQL Operator v 0.0.2-dev will go here"
-
-if ! which gcloud ; then
-  echo "gcloud, the Google Cloud CLI, was not found in the PATH."
-  echo "See https://cloud.google.com/sdk/docs/install for instructions on how to"
-  echo "install the Google Cloud CLI."
-  exit 1
-fi
 if ! which kubectl ; then
   echo "kubectl, the kubernetes command line client, was not found in the PATH."
   echo "See https://kubernetes.io/docs/tasks/tools/ for instructions on how to"
@@ -33,21 +26,14 @@ if ! which kubectl ; then
   exit 1
 fi
 
-# Enable GKE auth plugin
-if ! which gke-gcloud-auth-plugin ; then
-  gcloud components install gke-gcloud-auth-plugin
-fi
-
-export USE_GKE_GCLOUD_AUTH_PLUGIN=True
-
 # Install cert-manager
-kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.9.1/cert-manager.yaml
+kubectl apply -f "https://github.com/cert-manager/cert-manager/releases/download/$CERT_MANAGER_VERSION/cert-manager.yaml"
 
 # Wait for cert-manager to become available before continuing
 kubectl rollout status deployment cert-manager -n cert-manager --timeout=90s
 
 # Install the cloud-sql-proxy-operator
-kubectl apply -f https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/releases/$VERSION/cloud-sql-proxy-operator.yaml
+kubectl apply -f "https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/releases/$VERSION/cloud-sql-proxy-operator.yaml"
 
 # Wait for cloud-sql-proxy-operator to become available
 kubectl rollout status deployment -n cloud-sql-proxy-operator-system cloud-sql-proxy-operator-controller-manager --timeout=90s

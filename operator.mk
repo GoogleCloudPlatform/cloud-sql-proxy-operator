@@ -53,6 +53,9 @@ PWD ?= $(shell pwd)
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
+## The version to use for the cert-manager operator
+CERT_MANAGER_VERSION=v1.9.1
+
 ##@ General
 
 # The help target prints out all targets with their descriptions organized
@@ -148,7 +151,7 @@ go_test: ctrl_manifests envtest # Run tests (but not internal/teste2e)
 
 ##
 # Kubernetes configuration targets
-SOURCE_CODE_IMAGE=cloudsql-proxy-operator:latest
+SOURCE_CODE_IMAGE=cloud-sql-proxy-operator:latest
 
 .PHONY: ctrl_manifests
 ctrl_manifests: controller-gen # Use controller-gen to generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
@@ -167,7 +170,7 @@ deploy_with_kubeconfig: install_certmanager install_crd deploy_operator
 
 .PHONY: install_certmanager
 install_certmanager: kubectl # Install the cert-manager operator to manage the certificates for the operator webhooks
-	$(KUBECTL) apply -f "https://github.com/cert-manager/cert-manager/releases/download/v1.9.1/cert-manager.yaml"
+	$(KUBECTL) apply -f "https://github.com/cert-manager/cert-manager/releases/download/$(CERT_MANAGER_VERSION)/cert-manager.yaml"
 	$(KUBECTL) rollout status deployment -n cloud-sql-proxy-operator-system cloud-sql-proxy-operator-controller-manager --timeout=90s
 
 .PHONY: install_crd
@@ -193,7 +196,9 @@ installer/cloud-sql-proxy-operator.yaml: kustomize # Build the single yaml file 
 
 .PHONY: installer/install.sh
 installer/install.sh: ## Build install shell script to deploy the operator
-	sed 's/__VERSION__/$(VERSION)/g' < tools/install.sh > $@
+	cat tools/install.sh | \
+	sed 's/__VERSION__/v$(VERSION)/g' | \
+	sed 's/__CERT_MANAGER_VERSION__/$(CERT_MANAGER_VERSION)/g' > $@
 
 
 ##
@@ -255,7 +260,7 @@ e2e_cluster_destroy: e2e_project terraform # Destroy the infrastructure for e2e 
 
 .PHONY: e2e_cert_manager_deploy
 e2e_cert_manager_deploy: e2e_project kubectl # Deploy the certificate manager
-	$(E2E_KUBECTL) apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.9.1/cert-manager.yaml
+	$(E2E_KUBECTL) apply -f https://github.com/cert-manager/cert-manager/releases/download/$(CERT_MANAGER_VERSION)/cert-manager.yaml
 	# wait for cert manager to become available before continuing
 	$(E2E_KUBECTL) rollout status deployment cert-manager -n cert-manager --timeout=90s
 
