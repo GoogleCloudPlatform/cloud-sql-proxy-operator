@@ -15,6 +15,18 @@
 ###
 # Global settings
 
+## RELEASE_TAG is the public image tag for the operator
+RELEASE_TAG_PATH=cloud-sql-connectors/cloud-sql-operator-dev/cloud-sql-proxy-operator:$(VERSION)
+RELEASE_TAG=gcr.io/$(RELEASE_TAG_PATH)
+
+# When the environment variable IS_RELEASE_BUILD is set, the IMG will be set
+# to the RELEASE_TAG, overriding the IMG environment variable. This is intended
+# to be used only in a release job to publish artifacts.
+ifdef IS_RELEASE_BUILD
+IMG=$(RELEASE_TAG)
+endif
+
+
 # IMG is used by build to determine where to push the docker image for the
 # operator. You must set the IMG environment variable when you run make build
 # or other dependent targets.
@@ -40,6 +52,9 @@ PWD ?= $(shell pwd)
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
+
+## The version to use for the cert-manager operator
+CERT_MANAGER_VERSION=v1.9.1
 
 ##@ General
 
@@ -70,7 +85,7 @@ help: ## Display this help.
 install_tools: remove_tools all_tools ## Installs all development tools
 
 .PHONY: generate
-generate:  ctrl_generate ctrl_manifests go_lint tf_lint reset_image add_copyright_header go_fmt yaml_fmt ## Runs code generation, format, and validation tools
+generate:  ctrl_generate ctrl_manifests go_lint tf_lint installer reset_image add_copyright_header go_fmt yaml_fmt ## Runs code generation, format, and validation tools
 
 .PHONY: build
 build: generate build_push_docker ## Builds and pushes the docker image to tag defined in envvar IMG
@@ -136,6 +151,7 @@ go_test: ctrl_manifests envtest # Run tests (but not internal/teste2e)
 
 ##
 # Kubernetes configuration targets
+SOURCE_CODE_IMAGE=cloud-sql-proxy-operator:latest
 
 .PHONY: ctrl_manifests
 ctrl_manifests: controller-gen # Use controller-gen to generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
@@ -143,7 +159,7 @@ ctrl_manifests: controller-gen # Use controller-gen to generate WebhookConfigura
 
 .PHONY: reset_image
 reset_image: kustomize # Reset the image used in the kubernetes config to a default image.
-	cd config/manager && $(KUSTOMIZE) edit set image controller=cloudsql-proxy-operator:latest
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(SOURCE_CODE_IMAGE)
 
 .PHONY: update_image
 update_image: kustomize # Update the image used in the kubernetes config to $(IMG)
@@ -154,7 +170,7 @@ deploy_with_kubeconfig: install_certmanager install_crd deploy_operator
 
 .PHONY: install_certmanager
 install_certmanager: kubectl # Install the cert-manager operator to manage the certificates for the operator webhooks
-	$(KUBECTL) apply -f "https://github.com/cert-manager/cert-manager/releases/download/v1.9.1/cert-manager.yaml"
+	$(KUBECTL) apply -f "https://github.com/cert-manager/cert-manager/releases/download/$(CERT_MANAGER_VERSION)/cert-manager.yaml"
 	$(KUBECTL) rollout status deployment -n cloud-sql-proxy-operator-system cloud-sql-proxy-operator-controller-manager --timeout=90s
 
 .PHONY: install_crd
@@ -166,6 +182,23 @@ deploy_operator: kustomize kubectl # Deploy controller to the K8s cluster using 
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
 	$(KUSTOMIZE) build config/default | $(KUBECTL) apply -f -
 	$(E2E_KUBECTL) rollout status deployment -n cloud-sql-proxy-operator-system cloud-sql-proxy-operator-controller-manager --timeout=90s
+
+##
+# Update installer
+.PHONY: installer
+installer: installer/cloud-sql-proxy-operator.yaml installer/install.sh
+
+.PHONY: installer/cloud-sql-proxy-operator.yaml
+installer/cloud-sql-proxy-operator.yaml: kustomize # Build the single yaml file for deploying the operator
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(RELEASE_TAG)
+	$(KUSTOMIZE) build config/default > $@
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(SOURCE_CODE_IMAGE)
+
+.PHONY: installer/install.sh
+installer/install.sh: ## Build install shell script to deploy the operator
+	cat tools/install.sh | \
+	sed 's/__VERSION__/v$(VERSION)/g' | \
+	sed 's/__CERT_MANAGER_VERSION__/$(CERT_MANAGER_VERSION)/g' > $@
 
 
 ##
@@ -227,7 +260,7 @@ e2e_cluster_destroy: e2e_project terraform # Destroy the infrastructure for e2e 
 
 .PHONY: e2e_cert_manager_deploy
 e2e_cert_manager_deploy: e2e_project kubectl # Deploy the certificate manager
-	$(E2E_KUBECTL) apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.9.1/cert-manager.yaml
+	$(E2E_KUBECTL) apply -f https://github.com/cert-manager/cert-manager/releases/download/$(CERT_MANAGER_VERSION)/cert-manager.yaml
 	# wait for cert manager to become available before continuing
 	$(E2E_KUBECTL) rollout status deployment cert-manager -n cert-manager --timeout=90s
 
