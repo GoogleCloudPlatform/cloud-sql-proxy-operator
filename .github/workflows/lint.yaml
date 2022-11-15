@@ -55,7 +55,7 @@ jobs:
       - name: Verify no changes from lint tools. If you're reading this and the check has failed, run `make -f operator.mk generate`.
         run: |
           make -f operator.mk generate 
-          if git diff --exit-code --quiet ; then 
+          if ! git diff --exit-code --quiet ; then 
             echo
             echo
             git diff --stat HEAD
