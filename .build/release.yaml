@@ -24,9 +24,9 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     entrypoint: make
     args:
-    - '-f'
-    - 'operator.mk'
-    - build_push_docker
+      - '-f'
+      - 'operator.mk'
+      - build_push_docker
     id: 'publish_container'
 options:
   env:
