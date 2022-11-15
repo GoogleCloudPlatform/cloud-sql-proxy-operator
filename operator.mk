@@ -132,6 +132,7 @@ build_push_docker: # Build docker image with the operator. set IMG env var befor
 	  --build-arg GO_LD_FLAGS="$(VERSION_LDFLAGS)" \
 	  -f "Dockerfile-operator" \
 	  --push -t "$(IMG)" "$(PWD)"
+	test -d 'bin' || mkdir -p bin
 	echo "$(IMG)" > bin/last-pushed-image-url.txt
 
 .PHONY: go_lint
