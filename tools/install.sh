@@ -17,7 +17,6 @@
 set -euxo # exit 1 from the script when command fails
 
 VERSION="__VERSION__"
-IMAGE_URL="__IMAGE_URL__"
 
 echo "Placeholder. Install logic for Cloud SQL Operator v __VERSION__ will go here"
 
