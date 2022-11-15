@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+RELEASE_PROJECT_ID="cloud-sql-connectors"
+BUCKET_PATH="gs://cloud-sql-connectors/cloud-sql-proxy-operator-dev"
 
 set -euxo
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
@@ -29,6 +31,6 @@ else
 fi
 
 # Upload the installer files to the storage bucket
-gcloud storage --project cloud-sql-connectors cp installer/install.sh "gs://cloud-sql-connectors/cloud-sql-proxy-operator-dev/${VERSION}/install.sh"
-gcloud storage --project cloud-sql-connectors cp installer/cloud-sql-proxy-operator.yaml "gs://cloud-sql-connectors/cloud-sql-proxy-operator-dev/${VERSION}/cloud-sql-proxy-operator.yaml"
+gcloud storage --project "$RELEASE_PROJECT_ID" cp installer/install.sh "${BUCKET_PATH}/${VERSION}/install.sh"
+gcloud storage --project "$RELEASE_PROJECT_ID" cp installer/cloud-sql-proxy-operator.yaml "${BUCKET_PATH}/${VERSION}/cloud-sql-proxy-operator.yaml"
 
