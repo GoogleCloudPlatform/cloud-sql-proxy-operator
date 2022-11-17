@@ -25,8 +25,8 @@ if git diff --exit-code ; then
   echo "Generate did not cause any changes to the code. OK to proceed with the release"
 else
   echo "Generate updated the code. Committing the changes..."
-  git config --global user.email "$GITHUB_ACTION+github-actions[bot]@users.noreply.github.com"
-  git config --global user.name "Release PR Generate Bot action $GITHUB_ACTION"
+  git config --global user.email "$GITHUB_ACTOR@users.noreply.github.com"
+  git config --global user.name "Release PR Generate Bot action $GITHUB_ACTOR"
   git add .
   git commit -m "chore: ensure that code is consistent using make generate"
   git push
