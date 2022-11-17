@@ -52,5 +52,5 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
       - name: Set up build.env with phony secrets.
         run: cp build.sample.env build.env
-      - name: Verify no changes from lint tools. If you're reading this and the check has failed, run `make -f operator.mk generate`.
-        run: "make -f operator.mk generate \nif ! git diff --exit-code --quiet ; then \n  echo\n  echo\n  git diff --stat \"HEAD\"\n  echo\n  echo\n  echo 'ERROR: Lint tools caused changes to the working dir. '\n  exit 1\nfi\n"
+      - name: Verify no changes from lint tools. If you're reading this and the check has failed, run `make generate`.
+        run: "make generate \nif ! git diff --exit-code --quiet ; then \n  echo\n  echo\n  git diff --stat \"HEAD\"\n  echo\n  echo\n  echo 'ERROR: Lint tools caused changes to the working dir. '\n  exit 1\nfi\n"
