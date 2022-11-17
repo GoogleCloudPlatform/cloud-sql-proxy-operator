@@ -17,11 +17,10 @@ on:
   pull_request:
   pull_request_target:
     types: [labeled]
-    # possible alternative, trigger on label  'autorelease: pending' instead
 jobs:
   build:
     runs-on: ubuntu-latest
-    #    if: "${{ github.actor == 'release-please' || (github.event.action == 'labeled' && github.event.label.name == 'generate: run')  }}"
+    if: "${{ github.actor == 'release-please' || (github.event.action == 'labeled' && github.event.label.name == 'generate: run')  }}"
     steps:
       - name: Remove PR Label
         if: "${{ github.event.action == 'labeled' && github.event.label.name == 'generate: run' }}"
