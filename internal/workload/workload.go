@@ -26,16 +26,23 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// Workload is a standard way to access the pod definition for the
-// 6 major kinds of interfaces: Deployment, Pod, StatefulSet, DaemonSet, Job, and Cronjob.
+// Workload is a standard interface to access the pod definition for the
+// 6 major kinds of interfaces: Deployment, Pod, StatefulSet, ReplicaSet, Job, and Cronjob.
 // These methods are used by the ModifierStore to update the contents of the
 // workload's pod template (or the pod itself) so that it will contain
 // necessary configuration and other details before it starts, or if the
 // configuration changes.
 type Workload interface {
 	PodSpec() corev1.PodSpec
-	SetPodSpec(spec corev1.PodSpec)
+	PodTemplateAnnotations() map[string]string
 	Object() client.Object
+}
+
+// WithMutablePodTemplate interface applies only to workload types where the pod
+// template can be changed.
+type WithMutablePodTemplate interface {
+	SetPodSpec(spec corev1.PodSpec)
+	SetPodTemplateAnnotations(map[string]string)
 }
 
 // WorkloadList is a standard way to access the lists of the
@@ -102,6 +109,14 @@ func WorkloadListForKind(kind string) (WorkloadList, error) {
 			},
 			wlCreator: func(v *appsv1.StatefulSet) Workload { return &StatefulSetWorkload{StatefulSet: v} },
 		}, nil
+	case "ReplicaSet":
+		return &realWorkloadList[*appsv1.ReplicaSetList, *appsv1.ReplicaSet]{
+			objectList: &appsv1.ReplicaSetList{},
+			itemsAccessor: func(list *appsv1.ReplicaSetList) []*appsv1.ReplicaSet {
+				return ptrSlice[appsv1.ReplicaSet](list.Items)
+			},
+			wlCreator: func(v *appsv1.ReplicaSet) Workload { return &ReplicaSetWorkload{ReplicaSet: v} },
+		}, nil
 	case "Job":
 		return &realWorkloadList[*batchv1.JobList, *batchv1.Job]{
 			objectList:    &batchv1.JobList{},
@@ -141,20 +156,22 @@ func WorkloadForKind(kind string) (Workload, error) {
 		return &CronJobWorkload{CronJob: &batchv1.CronJob{}}, nil
 	case "DaemonSet":
 		return &DaemonSetWorkload{DaemonSet: &appsv1.DaemonSet{}}, nil
+	case "ReplicaSet":
+		return &ReplicaSetWorkload{ReplicaSet: &appsv1.ReplicaSet{}}, nil
 	default:
 		return nil, fmt.Errorf("unknown kind %s", kind)
 	}
 }
 
 // workloadMatches tests if a workload matches a modifier based on its name, kind, and selectors.
-func workloadMatches(wl Workload, workloadSelector cloudsqlapi.WorkloadSelectorSpec, ns string) bool {
-	if workloadSelector.Kind != "" && wl.Object().GetObjectKind().GroupVersionKind().Kind != workloadSelector.Kind {
+func workloadMatches(wl client.Object, workloadSelector cloudsqlapi.WorkloadSelectorSpec, ns string) bool {
+	if workloadSelector.Kind != "" && wl.GetObjectKind().GroupVersionKind().Kind != workloadSelector.Kind {
 		return false
 	}
-	if workloadSelector.Name != "" && wl.Object().GetName() != workloadSelector.Name {
+	if workloadSelector.Name != "" && wl.GetName() != workloadSelector.Name {
 		return false
 	}
-	if ns != "" && wl.Object().GetNamespace() != ns {
+	if ns != "" && wl.GetNamespace() != ns {
 		return false
 	}
 
@@ -162,7 +179,7 @@ func workloadMatches(wl Workload, workloadSelector cloudsqlapi.WorkloadSelectorS
 	if err != nil {
 		return false
 	}
-	if !sel.Empty() && !sel.Matches(labels.Set(wl.Object().GetLabels())) {
+	if !sel.Empty() && !sel.Matches(labels.Set(wl.GetLabels())) {
 		return false
 	}
 
@@ -175,6 +192,12 @@ type DeploymentWorkload struct {
 
 func (d *DeploymentWorkload) PodSpec() corev1.PodSpec {
 	return d.Deployment.Spec.Template.Spec
+}
+func (d *DeploymentWorkload) PodTemplateAnnotations() map[string]string {
+	return d.Deployment.Spec.Template.Annotations
+}
+func (d *DeploymentWorkload) SetPodTemplateAnnotations(v map[string]string) {
+	d.Deployment.Spec.Template.Annotations = v
 }
 
 func (d *DeploymentWorkload) SetPodSpec(spec corev1.PodSpec) {
@@ -192,6 +215,12 @@ type StatefulSetWorkload struct {
 func (d *StatefulSetWorkload) PodSpec() corev1.PodSpec {
 	return d.StatefulSet.Spec.Template.Spec
 }
+func (d *StatefulSetWorkload) PodTemplateAnnotations() map[string]string {
+	return d.StatefulSet.Spec.Template.Annotations
+}
+func (d *StatefulSetWorkload) SetPodTemplateAnnotations(v map[string]string) {
+	d.StatefulSet.Spec.Template.Annotations = v
+}
 
 func (d *StatefulSetWorkload) SetPodSpec(spec corev1.PodSpec) {
 	d.StatefulSet.Spec.Template.Spec = spec
@@ -207,6 +236,12 @@ type PodWorkload struct {
 
 func (d *PodWorkload) PodSpec() corev1.PodSpec {
 	return d.Pod.Spec
+}
+func (d *PodWorkload) PodTemplateAnnotations() map[string]string {
+	return d.Pod.Annotations
+}
+func (d *PodWorkload) SetPodTemplateAnnotations(v map[string]string) {
+	d.Pod.Annotations = v
 }
 
 func (d *PodWorkload) SetPodSpec(spec corev1.PodSpec) {
@@ -224,11 +259,9 @@ type JobWorkload struct {
 func (d *JobWorkload) PodSpec() corev1.PodSpec {
 	return d.Job.Spec.Template.Spec
 }
-
-func (d *JobWorkload) SetPodSpec(spec corev1.PodSpec) {
-	d.Job.Spec.Template.Spec = spec
+func (d *JobWorkload) PodTemplateAnnotations() map[string]string {
+	return d.Job.Spec.Template.Annotations
 }
-
 func (d *JobWorkload) Object() client.Object {
 	return d.Job
 }
@@ -240,11 +273,9 @@ type CronJobWorkload struct {
 func (d *CronJobWorkload) PodSpec() corev1.PodSpec {
 	return d.CronJob.Spec.JobTemplate.Spec.Template.Spec
 }
-
-func (d *CronJobWorkload) SetPodSpec(spec corev1.PodSpec) {
-	d.CronJob.Spec.JobTemplate.Spec.Template.Spec = spec
+func (d *CronJobWorkload) PodTemplateAnnotations() map[string]string {
+	return d.CronJob.Spec.JobTemplate.Spec.Template.Annotations
 }
-
 func (d *CronJobWorkload) Object() client.Object {
 	return d.CronJob
 }
@@ -256,6 +287,12 @@ type DaemonSetWorkload struct {
 func (d *DaemonSetWorkload) PodSpec() corev1.PodSpec {
 	return d.DaemonSet.Spec.Template.Spec
 }
+func (d *DaemonSetWorkload) PodTemplateAnnotations() map[string]string {
+	return d.DaemonSet.Spec.Template.Annotations
+}
+func (d *DaemonSetWorkload) SetPodTemplateAnnotations(v map[string]string) {
+	d.DaemonSet.Spec.Template.Annotations = v
+}
 
 func (d *DaemonSetWorkload) SetPodSpec(spec corev1.PodSpec) {
 	d.DaemonSet.Spec.Template.Spec = spec
@@ -263,4 +300,25 @@ func (d *DaemonSetWorkload) SetPodSpec(spec corev1.PodSpec) {
 
 func (d *DaemonSetWorkload) Object() client.Object {
 	return d.DaemonSet
+}
+
+type ReplicaSetWorkload struct {
+	ReplicaSet *appsv1.ReplicaSet
+}
+
+func (d *ReplicaSetWorkload) PodSpec() corev1.PodSpec {
+	return d.ReplicaSet.Spec.Template.Spec
+}
+func (d *ReplicaSetWorkload) PodTemplateAnnotations() map[string]string {
+	return d.ReplicaSet.Spec.Template.Annotations
+}
+func (d *ReplicaSetWorkload) SetPodTemplateAnnotations(v map[string]string) {
+	d.ReplicaSet.Spec.Template.Annotations = v
+}
+func (d *ReplicaSetWorkload) SetPodSpec(spec corev1.PodSpec) {
+	d.ReplicaSet.Spec.Template.Spec = spec
+}
+
+func (d *ReplicaSetWorkload) Object() client.Object {
+	return d.ReplicaSet
 }

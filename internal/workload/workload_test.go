@@ -201,7 +201,7 @@ func TestWorkloadMatches(t *testing.T) {
 	for _, sel := range cases {
 		for _, tc := range sel.tc {
 			t.Run(sel.desc+" "+tc.desc, func(t *testing.T) {
-				gotMatch := workloadMatches(tc.wl, sel.sel, "default")
+				gotMatch := workloadMatches(tc.wl.Object(), sel.sel, "default")
 				if tc.match != gotMatch {
 					t.Errorf("got %v, wants %v. selector %s test %s", gotMatch, tc.match, sel.desc, tc.desc)
 				}
