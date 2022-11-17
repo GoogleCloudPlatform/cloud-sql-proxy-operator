@@ -22,6 +22,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 var setupLog = ctrl.Log.WithName("setup")
@@ -72,5 +73,22 @@ func SetupManagers(mgr manager.Manager) error {
 	}
 
 	setupLog.Info("Configuring reconcilers complete.")
+	return nil
+}
+
+// SetupWorkloadControllers Watch changes for Istio resources managed by the operator
+func SetupWorkloadControllers(mgr ctrl.Manager, u *workload.Updater) error {
+	mgr.GetWebhookServer().Register("/mutate-pods", &webhook.Admission{
+		Handler: &PodAdmissionWebhook{
+			Client:  mgr.GetClient(),
+			updater: u,
+		}})
+
+	mgr.GetWebhookServer().Register("/mutate-workloads", &webhook.Admission{
+		Handler: &WorkloadAdmissionWebhook{
+			Client:  mgr.GetClient(),
+			updater: u,
+		}})
+
 	return nil
 }

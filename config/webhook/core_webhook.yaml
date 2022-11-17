@@ -30,13 +30,14 @@ webhooks:
       service:
         name: webhook-service
         namespace: system
-        path: /mutate-workloads # This matches the path in controller/setup.go for pod controller
-    # Note: if you have a webhook for Pod and set failurePolicy to fail, then
-    # in the likely case where your webhook has a bug, it will prevent all pods
-    # from being created or started, completely stopping the entire cluster from
-    # doing any work or recovering from failure.
+        path: /mutate-pods
+        # This matches the path in controller/setup.go for pod controller
+        # Note: if you have a webhook for Pod and set failurePolicy to fail, then
+        # in the likely case where your webhook has a bug, it will prevent all pods
+        # from being created or started, completely stopping the entire cluster from
+        # doing any work or recovering from failure.
     failurePolicy: Ignore
-    name: mpod.kb.io
+    name: pods.proxy.cloudsql.google.com
     matchPolicy: Equivalent
     rules:
       - apiGroups:
@@ -45,17 +46,33 @@ webhooks:
           - v1
         operations:
           - CREATE
-          - UPDATE
         resources:
           - pods
         scope: "*"
+    timeoutSeconds: 2
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: webhook-service
+        namespace: system
+        path: /mutate-workloads
+        # This matches the path in controller/setup.go for pod controller
+        # Note: if you have a webhook for Pod and set failurePolicy to fail, then
+        # in the likely case where your webhook has a bug, it will prevent all pods
+        # from being created or started, completely stopping the entire cluster from
+        # doing any work or recovering from failure.
+    failurePolicy: Ignore
+    name: workloads.proxy.cloudsql.google.com
+    matchPolicy: Equivalent
+    rules:
       - apiGroups:
           - "apps"
         apiVersions:
           - v1
         operations:
           - CREATE
-          - UPDATE
         resources:
           - deployments
           - daemonsets
@@ -67,7 +84,6 @@ webhooks:
           - v1
         operations:
           - CREATE
-          - UPDATE
         resources:
           - jobs
           - cronjobs
