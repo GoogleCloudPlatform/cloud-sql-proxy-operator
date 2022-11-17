@@ -33,7 +33,7 @@ kubectl apply -f "https://github.com/cert-manager/cert-manager/releases/download
 kubectl rollout status deployment cert-manager -n cert-manager --timeout=90s
 
 # Install the cloud-sql-proxy-operator
-kubectl apply -f "https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/releases/$VERSION/cloud-sql-proxy-operator.yaml"
+kubectl apply -f "https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/$VERSION/cloud-sql-proxy-operator.yaml"
 
 # Wait for cloud-sql-proxy-operator to become available
 kubectl rollout status deployment -n cloud-sql-proxy-operator-system cloud-sql-proxy-operator-controller-manager --timeout=90s
