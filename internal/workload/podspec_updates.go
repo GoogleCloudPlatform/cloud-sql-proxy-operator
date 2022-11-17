@@ -157,7 +157,7 @@ func (u *Updater) filterMatchingInstances(pl *cloudsqlapi.AuthProxyWorkloadList,
 	matchingAuthProxyWorkloads := make([]*cloudsqlapi.AuthProxyWorkload, 0, len(pl.Items))
 	for i := range pl.Items {
 		p := &pl.Items[i]
-		if workloadMatches(wl, p.Spec.Workload, p.Namespace) {
+		if workloadMatches(wl.Object(), p.Spec.Workload, p.Namespace) {
 			// if this is pending deletion, exclude it.
 			if !p.ObjectMeta.DeletionTimestamp.IsZero() {
 				continue
@@ -635,8 +635,14 @@ func (s *updateState) update(wl Workload, matches []*cloudsqlapi.AuthProxyWorklo
 		return updated, &s.err
 	}
 
+	// if this workload does not have a mutable pod template, do nothing.
+	mwl, ok := wl.(WithMutablePodTemplate)
+	if !ok {
+		return false, nil
+	}
+
 	if updated {
-		wl.SetPodSpec(podSpec)
+		mwl.SetPodSpec(podSpec)
 		s.saveEnvVarState(wl)
 	}
 
