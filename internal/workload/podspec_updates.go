@@ -15,8 +15,10 @@
 package workload
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
@@ -25,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/apimachinery/pkg/util/json"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -124,17 +126,31 @@ var defaultContainerResources = corev1.ResourceRequirements{
 	},
 }
 
-// ReconcileWorkload finds all AuthProxyWorkload resources matching this workload and then
+// ConfigurePodProxies finds all AuthProxyWorkload resources matching this workload and then
 // updates the workload's containers. This does not save the updated workload.
-func (u *Updater) ReconcileWorkload(pl *cloudsqlapi.AuthProxyWorkloadList, wl Workload) (bool, []*cloudsqlapi.AuthProxyWorkload, error) {
+func (u *Updater) ConfigurePodProxies(pl *cloudsqlapi.AuthProxyWorkloadList, wl *PodWorkload, owners []Workload) (bool, []*cloudsqlapi.AuthProxyWorkload, error) {
+
 	// if a wl has an owner, then ignore it.
-	if len(wl.Object().GetOwnerReferences()) > 0 {
-		return false, nil, nil
+	var matchingAuthProxyWorkloads []*cloudsqlapi.AuthProxyWorkload
+	matchingAuthProxyWorkloads = append(matchingAuthProxyWorkloads, u.filterMatchingInstances(pl, wl.Object())...)
+	for _, owner := range owners {
+		matchingAuthProxyWorkloads = append(matchingAuthProxyWorkloads, u.filterMatchingInstances(pl, owner.Object())...)
+	}
+	dedupedWorkloads := make([]*cloudsqlapi.AuthProxyWorkload, 0, len(matchingAuthProxyWorkloads))
+	for i := 0; i < len(matchingAuthProxyWorkloads); i++ {
+		var dup bool
+		for j := 0; j < i; j++ {
+			if matchingAuthProxyWorkloads[i].Name == matchingAuthProxyWorkloads[j].Name {
+				dup = true
+				break
+			}
+		}
+		if !dup {
+			dedupedWorkloads = append(dedupedWorkloads, matchingAuthProxyWorkloads[i])
+		}
 	}
 
-	matchingAuthProxyWorkloads := u.filterMatchingInstances(pl, wl)
-
-	updated, err := u.UpdateWorkloadContainers(wl, matchingAuthProxyWorkloads)
+	updated, err := u.UpdateWorkloadContainers(wl, dedupedWorkloads)
 	// if there was an error updating workloads, return the error
 	if err != nil {
 		return false, nil, err
@@ -147,17 +163,17 @@ func (u *Updater) ReconcileWorkload(pl *cloudsqlapi.AuthProxyWorkloadList, wl Wo
 	}
 
 	// if this was updated return matching DBInstances
-	return updated, matchingAuthProxyWorkloads, nil
+	return updated, dedupedWorkloads, nil
 
 }
 
 // filterMatchingInstances returns a list of AuthProxyWorkload whose selectors match
 // the workload.
-func (u *Updater) filterMatchingInstances(pl *cloudsqlapi.AuthProxyWorkloadList, wl Workload) []*cloudsqlapi.AuthProxyWorkload {
+func (u *Updater) filterMatchingInstances(pl *cloudsqlapi.AuthProxyWorkloadList, wl client.Object) []*cloudsqlapi.AuthProxyWorkload {
 	matchingAuthProxyWorkloads := make([]*cloudsqlapi.AuthProxyWorkload, 0, len(pl.Items))
 	for i := range pl.Items {
 		p := &pl.Items[i]
-		if workloadMatches(wl.Object(), p.Spec.Workload, p.Namespace) {
+		if workloadMatches(wl, p.Spec.Workload, p.Namespace) {
 			// if this is pending deletion, exclude it.
 			if !p.ObjectMeta.DeletionTimestamp.IsZero() {
 				continue
@@ -166,7 +182,7 @@ func (u *Updater) filterMatchingInstances(pl *cloudsqlapi.AuthProxyWorkloadList,
 			matchingAuthProxyWorkloads = append(matchingAuthProxyWorkloads, p)
 			// need to update wl
 			l.Info("Found matching wl",
-				"wl", wl.Object().GetNamespace()+"/"+wl.Object().GetName(),
+				"wl", wl.GetNamespace()+"/"+wl.GetName(),
 				"wlSelector", p.Spec.Workload,
 				"AuthProxyWorkload", p.Namespace+"/"+p.Name)
 		}
@@ -177,54 +193,60 @@ func (u *Updater) filterMatchingInstances(pl *cloudsqlapi.AuthProxyWorkloadList,
 // WorkloadUpdateStatus describes when a workload was last updated, mostly
 // used to log errors
 type WorkloadUpdateStatus struct {
-	InstanceGeneration    string
-	LastRequstGeneration  string
-	RequestGeneration     string
-	LastUpdatedGeneration string
-	UpdatedGeneration     string
+	LastGeneration string
+	ThisGeneration string
 }
 
-// MarkWorkloadNeedsUpdate Updates annotations on the workload indicating that it may need an update.
+// UpdateWorkloadAnnotations Updates annotations on the workload indicating that it may need an update.
 // returns true if the workload actually needs an update.
-func (u *Updater) MarkWorkloadNeedsUpdate(p *cloudsqlapi.AuthProxyWorkload, wl Workload) (bool, WorkloadUpdateStatus) {
-	return u.updateWorkloadAnnotations(p, wl, false)
-}
+func (u *Updater) UpdateWorkloadAnnotations(p *cloudsqlapi.AuthProxyWorkload, wl Workload) (bool, WorkloadUpdateStatus) {
+	mpt, ok := wl.(WithMutablePodTemplate)
+	if !ok {
+		return false, WorkloadUpdateStatus{}
+	}
 
-// MarkWorkloadUpdated Updates annotations on the workload indicating that it
-// has been updated, returns true of any modifications were made to the workload.
-// for the AuthProxyWorkload.
-func (u *Updater) MarkWorkloadUpdated(p *cloudsqlapi.AuthProxyWorkload, wl Workload) (bool, WorkloadUpdateStatus) {
-	return u.updateWorkloadAnnotations(p, wl, true)
-}
+	annName := u.workloadAnnotationName(p)
 
-// updateWorkloadAnnotations adds annotations to the workload
-// to track which generation of a AuthProxyWorkload needs to be applied, and which
-// generation has been applied. The AuthProxyWorkload controller is responsible for
-// tracking which version should be applied, The workload admission webhook is
-// responsible for applying the DBInstances that apply to a workload
-// when the workload is created or modified.
-func (u *Updater) updateWorkloadAnnotations(p *cloudsqlapi.AuthProxyWorkload, wl Workload, doingUpdate bool) (bool, WorkloadUpdateStatus) {
-	s := u.Status(p, wl)
+	pta := wl.PodTemplateAnnotations()
+	if pta == nil {
+		pta = make(map[string]string)
+	}
 
-	if s.LastUpdatedGeneration == s.InstanceGeneration {
+	g := strconv.FormatInt(p.GetGeneration(), 10)
+	lastG := pta[annName]
+	s := WorkloadUpdateStatus{LastGeneration: lastG, ThisGeneration: g}
+
+	if lastG == g {
 		return false, s
 	}
+	pta[annName] = g
+	mpt.SetPodTemplateAnnotations(pta)
+	return true, s
+}
 
-	reqName, resultName := u.updateAnnNames(p)
-	ann := wl.Object().GetAnnotations()
-	if ann == nil {
-		ann = map[string]string{}
+// RemoveWorkloadAnnotations Updates annotations on the workload indicating that it may need an update.
+// returns true if the workload actually needs an update.
+func (u *Updater) RemoveWorkloadAnnotations(p *cloudsqlapi.AuthProxyWorkload, wl Workload) (bool, WorkloadUpdateStatus) {
+	mpt, ok := wl.(WithMutablePodTemplate)
+	if !ok {
+		return false, WorkloadUpdateStatus{}
+	}
+	annName := u.workloadAnnotationName(p)
+
+	pta := wl.PodTemplateAnnotations()
+	if pta == nil {
+		return false, WorkloadUpdateStatus{}
 	}
 
-	if doingUpdate {
-		ann[resultName] = s.InstanceGeneration
-	} else {
-		ann[reqName] = s.InstanceGeneration
-	}
-	wl.Object().SetAnnotations(ann)
-	s.RequestGeneration = ann[reqName]
-	s.UpdatedGeneration = ann[resultName]
+	lastG, ok := pta[annName]
+	s := WorkloadUpdateStatus{lastG, ""}
 
+	if !ok {
+		return false, WorkloadUpdateStatus{}
+	}
+
+	delete(pta, annName)
+	mpt.SetPodTemplateAnnotations(pta)
 	return true, s
 }
 
@@ -232,27 +254,20 @@ func (u *Updater) updateWorkloadAnnotations(p *cloudsqlapi.AuthProxyWorkload, wl
 // AuthProxyWorkload resource, returning what generation of the AuthProxyWorkload
 // resource was last requested, and applied to the workload.
 func (u *Updater) Status(p *cloudsqlapi.AuthProxyWorkload, wl Workload) WorkloadUpdateStatus {
-	var s WorkloadUpdateStatus
-	reqName, resultName := u.updateAnnNames(p)
-	s.InstanceGeneration = fmt.Sprintf("%d", p.GetGeneration())
-
-	ann := wl.Object().GetAnnotations()
-	if ann == nil {
-		return s
+	g := strconv.FormatInt(p.GetGeneration(), 10)
+	annName := u.workloadAnnotationName(p)
+	pta := wl.PodTemplateAnnotations()
+	if pta == nil {
+		return WorkloadUpdateStatus{ThisGeneration: g}
 	}
 
-	s.LastRequstGeneration = ann[reqName]
-	s.LastUpdatedGeneration = ann[resultName]
-	return s
-
+	lastG := pta[annName]
+	return WorkloadUpdateStatus{lastG, g}
 }
 
-func (u *Updater) updateAnnNames(p *cloudsqlapi.AuthProxyWorkload) (reqName, resultName string) {
-	reqName = cloudsqlapi.AnnotationPrefix + "/" +
+func (u *Updater) workloadAnnotationName(p *cloudsqlapi.AuthProxyWorkload) string {
+	return cloudsqlapi.AnnotationPrefix + "/" +
 		SafePrefixedName("req-", p.Namespace+"-"+p.Name)
-	resultName = cloudsqlapi.AnnotationPrefix + "/" +
-		SafePrefixedName("app-", p.Namespace+"-"+p.Name)
-	return reqName, resultName
 }
 
 // UpdateWorkloadContainers applies the proxy containers from all of the
@@ -586,12 +601,12 @@ func (s *updateState) update(wl Workload, matches []*cloudsqlapi.AuthProxyWorklo
 		}
 		if instContainer == nil {
 			newContainer := corev1.Container{}
-			s.updateContainer(inst, wl, &newContainer)
+			s.updateContainer(inst, &newContainer)
 			containers = append(containers, newContainer)
-			updated = true
 		} else {
-			updated = s.updateContainer(inst, wl, instContainer)
+			s.updateContainer(inst, instContainer)
 		}
+		updated = true
 	}
 
 	// remove all csql containers that don't relate to one of the matches
@@ -650,25 +665,12 @@ func (s *updateState) update(wl Workload, matches []*cloudsqlapi.AuthProxyWorklo
 }
 
 // updateContainer Creates or updates the proxy container in the workload's PodSpec
-func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, wl Workload, c *corev1.Container) bool {
-	doUpdate, status := s.updater.MarkWorkloadUpdated(p, wl)
-
-	if !doUpdate {
-		l.Info("Skipping wl {{wl}}, no update needed.", "name", wl.Object().GetName(),
-			"doUpdate", doUpdate,
-			"status", status)
-		return false
-	}
-
-	l.Info("Updating wl {{wl}}, no update needed.", "name", wl.Object().GetName(),
-		"doUpdate", doUpdate,
-		"status", status)
-
+func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, c *corev1.Container) {
 	// if the c was fully overridden, just use that c.
 	if p.Spec.AuthProxyContainer != nil && p.Spec.AuthProxyContainer.Container != nil {
 		p.Spec.AuthProxyContainer.Container.DeepCopyInto(c)
 		c.Name = ContainerName(p)
-		return doUpdate
+		return
 	}
 
 	// Build the c
@@ -766,8 +768,6 @@ func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, wl Workl
 
 	}
 	c.Args = cliArgs
-
-	return doUpdate
 }
 
 // applyContainerSpec applies settings from cloudsqlapi.AuthProxyContainerSpec
