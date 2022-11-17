@@ -978,7 +978,7 @@ spec:
                   description: Workload selects the workload to
                   properties:
                     kind:
-                      description: 'Kind specifies what kind of workload Supported kinds: Deployment, StatefulSet, Pod, DaemonSet, Job, CronJob Example: "Deployment" "Deployment.v1" or "Deployment.v1.apps".'
+                      description: 'Kind specifies what kind of workload Supported kinds: Deployment, StatefulSet, Pod, ReplicaSet,DaemonSet, Job, CronJob Example: "Deployment" "Deployment.v1" or "Deployment.v1.apps".'
                       pattern: \w+(\.\w+)*
                       type: string
                     name:
@@ -1083,6 +1083,7 @@ spec:
                           - Pod
                           - Deployment
                           - StatefulSet
+                          - ReplicaSet
                           - DaemonSet
                           - Job
                           - CronJob
@@ -1201,6 +1202,14 @@ rules:
   - apiGroups:
       - ""
     resources:
+      - '*'
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
       - pods
     verbs:
       - create
@@ -1224,6 +1233,14 @@ rules:
       - get
       - patch
       - update
+  - apiGroups:
+      - apps
+    resources:
+      - '*'
+    verbs:
+      - get
+      - list
+      - watch
   - apiGroups:
       - apps
     resources:
@@ -1302,6 +1319,14 @@ rules:
       - get
       - patch
       - update
+  - apiGroups:
+      - batch
+    resources:
+      - '*'
+    verbs:
+      - get
+      - list
+      - watch
   - apiGroups:
       - batch
     resources:
@@ -1648,10 +1673,10 @@ webhooks:
       service:
         name: cloud-sql-proxy-operator-webhook-service
         namespace: cloud-sql-proxy-operator-system
-        path: /mutate-workloads
+        path: /mutate-pods
     failurePolicy: Ignore
     matchPolicy: Equivalent
-    name: mpod.kb.io
+    name: pods.proxy.cloudsql.google.com
     rules:
       - apiGroups:
           - ""
@@ -1659,17 +1684,28 @@ webhooks:
           - v1
         operations:
           - CREATE
-          - UPDATE
         resources:
           - pods
         scope: '*'
+    sideEffects: None
+    timeoutSeconds: 2
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: cloud-sql-proxy-operator-webhook-service
+        namespace: cloud-sql-proxy-operator-system
+        path: /mutate-workloads
+    failurePolicy: Ignore
+    matchPolicy: Equivalent
+    name: workloads.proxy.cloudsql.google.com
+    rules:
       - apiGroups:
           - apps
         apiVersions:
           - v1
         operations:
           - CREATE
-          - UPDATE
         resources:
           - deployments
           - daemonsets
@@ -1681,7 +1717,6 @@ webhooks:
           - v1
         operations:
           - CREATE
-          - UPDATE
         resources:
           - jobs
           - cronjobs

@@ -122,6 +122,7 @@ func TestModifiesNewDeployment(t *testing.T) {
 }
 
 func TestModifiesExistingDeployment(t *testing.T) {
+	t.Skip("Reenable after new reconcile implementation is complete")
 	const (
 		pwlName            = "db-mod"
 		deploymentName     = "deploy-mod"

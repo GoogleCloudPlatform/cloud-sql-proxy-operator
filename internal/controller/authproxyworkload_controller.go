@@ -93,6 +93,10 @@ func (r *AuthProxyWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
+//+kubebuilder:rbac:groups=apps,resources=*,verbs=get;list;watch
+//+kubebuilder:rbac:groups=batch,resources=*,verbs=get;list;watch
+//+kubebuilder:rbac:groups="",resources=*,verbs=get;list;watch
+
 //+kubebuilder:rbac:groups=cloudsql.cloud.google.com,resources=authproxyworkloads,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=cloudsql.cloud.google.com,resources=authproxyworkloads/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=cloudsql.cloud.google.com,resources=authproxyworkloads/finalizers,verbs=update

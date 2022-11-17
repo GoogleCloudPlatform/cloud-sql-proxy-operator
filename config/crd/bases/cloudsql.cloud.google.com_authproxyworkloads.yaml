@@ -960,7 +960,7 @@ spec:
                   description: Workload selects the workload to
                   properties:
                     kind:
-                      description: 'Kind specifies what kind of workload Supported kinds: Deployment, StatefulSet, Pod, DaemonSet, Job, CronJob Example: "Deployment" "Deployment.v1" or "Deployment.v1.apps".'
+                      description: 'Kind specifies what kind of workload Supported kinds: Deployment, StatefulSet, Pod, ReplicaSet,DaemonSet, Job, CronJob Example: "Deployment" "Deployment.v1" or "Deployment.v1.apps".'
                       pattern: \w+(\.\w+)*
                       type: string
                     name:
@@ -1065,6 +1065,7 @@ spec:
                           - Pod
                           - Deployment
                           - StatefulSet
+                          - ReplicaSet
                           - DaemonSet
                           - Job
                           - CronJob

@@ -96,7 +96,7 @@ type WorkloadSelectorSpec struct {
 	Selector *metav1.LabelSelector `json:"selector,omitempty"`
 
 	// Kind specifies what kind of workload
-	// Supported kinds: Deployment, StatefulSet, Pod, DaemonSet, Job, CronJob
+	// Supported kinds: Deployment, StatefulSet, Pod, ReplicaSet,DaemonSet, Job, CronJob
 	// Example: "Deployment" "Deployment.v1" or "Deployment.v1.apps".
 	//+kubebuilder:validation:Required
 	//+kubebuilder:validation:Pattern=\w+(\.\w+)*
@@ -358,7 +358,7 @@ type AuthProxyWorkloadStatus struct {
 type WorkloadStatus struct {
 
 	// Kind Version Namespace Name identify the specific workload.
-	//+kubebuilder:validation:Enum=Pod;Deployment;StatefulSet;DaemonSet;Job;CronJob
+	//+kubebuilder:validation:Enum=Pod;Deployment;StatefulSet;ReplicaSet;DaemonSet;Job;CronJob
 	Kind      string `json:"kind,omitempty,"`
 	Version   string `json:"version,omitempty,"`
 	Namespace string `json:"namespace,omitempty,"`
