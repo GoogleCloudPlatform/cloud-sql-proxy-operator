@@ -1,0 +1,38 @@
+name: Automatic Release Code Cleanup
+on:
+  pull_request:
+  pull_request_target:
+    types: [labeled]
+  # possible alternative, trigger on label  'autorelease: pending' instead
+jobs:
+  build:
+    if: "${{ github.actor == 'release-please' || (github.event.action == 'labeled' && github.event.label.name == 'generate: run')  }}"
+    steps:
+    - name: Remove PR Label
+      if: "${{ github.event.action == 'labeled' && github.event.label.name == 'generate: run' }}"
+      uses: actions/github-script@v6
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          try {
+            await github.rest.issues.removeLabel({
+              name: 'tests: run',
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number
+            });
+          } catch (e) {
+            console.log('Failed to remove label. Another job may have already removed it!');
+          }
+    - name: Setup Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: '1.19'
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        repository: ${{ github.event.pull_request.head.repo.full_name }}
+    - name: Generate code and commit differences
+      run: 'make generate && git add . && git commit --allow-empty -n -m "chore: ensure that code is consistent using make generate" && git push'
+
