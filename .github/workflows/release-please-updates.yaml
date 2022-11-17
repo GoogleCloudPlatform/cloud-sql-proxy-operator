@@ -34,5 +34,5 @@ jobs:
         ref: ${{ github.event.pull_request.head.sha }}
         repository: ${{ github.event.pull_request.head.repo.full_name }}
     - name: Generate code and commit differences
-      run: 'make generate && git add . && git commit --allow-empty -n -m "chore: ensure that code is consistent using make generate" && git push'
+      run: 'make generate && git diff --exit-code || ( git add . && git commit -m "chore: ensure that code is consistent using make generate" && git push )'
 
