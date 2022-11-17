@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: Code Generation for Release PRs
+name: Release PRs
 on:
   pull_request:
     types: [opened, synchronize, reopened, labeled]
 jobs:
   build:
+    name: "Code Generation"
     runs-on: ubuntu-latest
     if: "${{ github.actor == 'release-please' }}"
     steps:
