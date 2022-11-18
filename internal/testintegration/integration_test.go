@@ -139,7 +139,54 @@ func TestModifiesNewDeployment(t *testing.T) {
 }
 
 func TestModifiesExistingDeployment(t *testing.T) {
-	tctx := newTestCaseClient("modifyexisting")
-	testRemove := testhelpers.TestModifiesExistingDeployment(tctx, t)
-	testRemove()
+	const (
+		pwlName            = "db-mod"
+		deploymentName     = "deploy-mod"
+		deploymentAppLabel = "existing-mod"
+	)
+	tp := newTestCaseClient("modifyexisting")
+
+	err := tp.CreateOrPatchNamespace()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("Creating namespace %v", tp.Namespace)
+
+	pKey := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
+	dKey := types.NamespacedName{Name: deploymentName, Namespace: tp.Namespace}
+
+	t.Log("Creating deployment")
+	d := testhelpers.BuildDeployment(dKey, deploymentAppLabel)
+	err = tp.CreateWorkload(d)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, _, err = createDeploymentReplicaSetAndPods(tp, d)
+	if err != nil {
+		t.Errorf("Unable to create pods and replicaset for deployment, %v", err)
+		return
+	}
+
+	// expect 1 container... no cloudsql instance yet
+	tp.ExpectPodContainerCount(d.Spec.Selector, 1, "all")
+
+	t.Log("Creating cloud sql instance")
+	err = tp.CreateAuthProxyWorkload(pKey, deploymentAppLabel, tp.ConnectionString, "Deployment")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	t.Log("Waiting for cloud sql instance to begin the reconcile loop ")
+	_, err = tp.GetAuthProxyWorkloadAfterReconcile(pKey)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	//TODO implement the new reconcile algorithm before finishing this test.
+	// Then, we should assert 2 containers on all pods.
+
 }
