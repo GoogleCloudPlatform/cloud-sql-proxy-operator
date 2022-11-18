@@ -17,10 +17,12 @@ package tests
 import (
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
-	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -55,29 +57,204 @@ func TestCreateAndDeleteResource(t *testing.T) {
 
 }
 
-func TestModifiesNewDeployment(t *testing.T) {
-	tcc := newTestCaseClient("newdeploy")
-	testhelpers.TestModifiesNewDeployment(tcc, t)
-
-	var podList *v1.PodList
-	err := testhelpers.RetryUntilSuccess(5, testhelpers.DefaultRetryInterval, func() error {
-		var err error
-		podList, err = listDeploymentPods(tcc.Ctx, client.ObjectKey{Namespace: tcc.Namespace, Name: "newdeploy"})
-		return err
-	})
-
-	if err != nil {
-		t.Fatalf("Error while listing pods for deployment %v", err)
+func TestProxyAppliedOnNewWorkload(t *testing.T) {
+	tests := []struct {
+		name string
+		o    client.Object
+	}{
+		{
+			name: "deployment",
+			o:    testhelpers.BuildDeployment(types.NamespacedName{}, "busybox"),
+		},
+		{
+			name: "statefulset",
+			o:    testhelpers.BuildStatefulSet(types.NamespacedName{}, "busybox"),
+		},
+		{
+			name: "daemonset",
+			o:    testhelpers.BuildDaemonSet(types.NamespacedName{}, "busybox"),
+		},
+		{
+			name: "job",
+			o:    testhelpers.BuildJob(types.NamespacedName{}, "busybox"),
+		},
+		{
+			name: "cronjob",
+			o:    testhelpers.BuildCronJob(types.NamespacedName{}, "busybox"),
+		},
 	}
-	if podCount := len(podList.Items); podCount == 0 {
-		t.Fatalf("got %v pods, wants more than 0", podCount)
-	}
-	if containerCount := len(podList.Items[0].Spec.Containers); containerCount != 2 {
-		t.Errorf("got %v containers, wants 2", containerCount)
+	for i := range tests {
+		test := tests[i]
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			kind := test.o.GetObjectKind().GroupVersionKind().Kind
+			tp := newTestCaseClient("new" + strings.ToLower(kind))
+
+			err := tp.CreateOrPatchNamespace()
+			if err != nil {
+				t.Error(err)
+			}
+
+			const (
+				pwlName  = "newss"
+				appLabel = "busybox"
+			)
+			key := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
+
+			t.Log("Creating AuthProxyWorkload")
+			err = tp.CreateAuthProxyWorkload(key, appLabel, tp.ConnectionString, kind)
+			if err != nil {
+				t.Error(err)
+				err = tp.DeleteNamespace()
+				if err != nil {
+					t.Error(err)
+				}
+				return
+			}
+
+			t.Log("Waiting for AuthProxyWorkload operator to begin the reconcile loop")
+			_, err = tp.GetAuthProxyWorkloadAfterReconcile(key)
+			if err != nil {
+				t.Error("unable to create AuthProxyWorkload", err)
+				err = tp.DeleteNamespace()
+				if err != nil {
+					t.Error(err)
+				}
+				return
+			}
+
+			t.Log("Creating ", kind)
+			test.o.SetNamespace(tp.Namespace)
+			test.o.SetName(test.name)
+			err = tp.CreateWorkload(test.o)
+			if err != nil {
+				t.Error("unable to create ", kind, err)
+				err = tp.DeleteNamespace()
+				if err != nil {
+					t.Error(err)
+				}
+				return
+			}
+			selector := &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": "busyboxon"},
+			}
+			err = tp.ExpectPodContainerCount(selector, 2, "all")
+			if err != nil {
+				t.Error(err)
+			}
+
+			err = tp.DeleteNamespace()
+			if err != nil {
+				t.Error(err)
+			}
+		})
 	}
 }
 
-func TestModifiesExistingDeployment(t *testing.T) {
-	tcc := newTestCaseClient("modifydeploy")
-	testhelpers.TestModifiesExistingDeployment(tcc, t)
+func TestProxyAppliedOnExistingWorkload(t *testing.T) {
+	tests := []struct {
+		name     string
+		o        client.Object
+		allOrAny string
+	}{
+		{
+			name:     "deployment",
+			o:        testhelpers.BuildDeployment(types.NamespacedName{}, "busybox"),
+			allOrAny: "all",
+		},
+		{
+			name:     "statefulset",
+			o:        testhelpers.BuildStatefulSet(types.NamespacedName{}, "busybox"),
+			allOrAny: "all",
+		},
+		{
+			name:     "daemonset",
+			o:        testhelpers.BuildDaemonSet(types.NamespacedName{}, "busybox"),
+			allOrAny: "all",
+		},
+		{
+			name:     "job",
+			o:        testhelpers.BuildJob(types.NamespacedName{}, "busybox"),
+			allOrAny: "any",
+		},
+		{
+			name:     "cronjob",
+			o:        testhelpers.BuildCronJob(types.NamespacedName{}, "busybox"),
+			allOrAny: "any",
+		},
+	}
+	for i := range tests {
+		test := tests[i]
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			kind := test.o.GetObjectKind().GroupVersionKind().Kind
+
+			tp := newTestCaseClient("modify" + strings.ToLower(kind))
+
+			tp.CreateOrPatchNamespace()
+
+			const (
+				pwlName  = "newss"
+				appLabel = "busybox"
+			)
+			key := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
+
+			t.Log("Creating ", kind)
+			test.o.SetNamespace(tp.Namespace)
+			test.o.SetName(test.name)
+			err := tp.CreateWorkload(test.o)
+			if err != nil {
+				t.Error("unable to create ", kind, err)
+				err = tp.DeleteNamespace()
+				if err != nil {
+					t.Error(err)
+				}
+				return
+			}
+			selector := &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": "busyboxon"},
+			}
+			err = tp.ExpectPodContainerCount(selector, 1, test.allOrAny)
+			if err != nil {
+				t.Error(err)
+			}
+
+			if err != nil {
+				err = tp.DeleteNamespace()
+				if err != nil {
+					t.Error(err)
+				}
+				return
+			}
+
+			t.Log("Creating AuthProxyWorkload")
+			err = tp.CreateAuthProxyWorkload(key, appLabel, tp.ConnectionString, kind)
+			if err != nil {
+				t.Error(err)
+				err = tp.DeleteNamespace()
+				if err != nil {
+					t.Error(err)
+				}
+				return
+			}
+
+			t.Log("Waiting for AuthProxyWorkload operator to begin the reconcile loop")
+			_, err = tp.GetAuthProxyWorkloadAfterReconcile(key)
+			if err != nil {
+				t.Error("unable to create AuthProxyWorkload", err)
+				return
+			}
+
+			err = tp.ExpectPodContainerCount(selector, 2, test.allOrAny)
+			if err != nil {
+				t.Error(err)
+			}
+
+			err = tp.DeleteNamespace()
+			if err != nil {
+				t.Error(err)
+			}
+
+		})
+	}
 }

@@ -52,6 +52,14 @@ func (cc *TestCaseClient) CreateOrPatchNamespace() error {
 	return nil
 
 }
+func (cc *TestCaseClient) DeleteNamespace() error {
+	ns := &corev1.Namespace{
+		TypeMeta:   metav1.TypeMeta{Kind: "Namespace", APIVersion: "v1"},
+		ObjectMeta: metav1.ObjectMeta{Name: cc.Namespace},
+	}
+
+	return cc.Client.Delete(cc.Ctx, ns)
+}
 
 // RetryUntilSuccess runs `f` until it no longer returns an error, or it has
 // returned an error `attempts` number of times. It sleeps duration `d`

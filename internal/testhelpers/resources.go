@@ -24,38 +24,13 @@ import (
 
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
-
-const busyboxDeployYaml = `apiVersion: apps/appsv1
-kind: Deployment
-metadata:
-  name: busybox-deployment-
-  labels:
-    app: busyboxon
-spec:
-  replicas: 2
-  strategy:
-    type: RollingUpdate
-  selector:
-    matchLabels:
-      app: busyboxon
-  template:
-    metadata:
-      labels:
-        app: busyboxon
-        enableawait: "yes"
-    spec:
-      containers:
-      - name: busybox
-        image: busybox
-        imagePullPolicy: IfNotPresent
-        command: ['sh', '-c', 'echo Container 1 is Running ; sleep 3600']
-`
 
 func BuildDeployment(name types.NamespacedName, appLabel string) *appsv1.Deployment {
 	var two int32 = 2
@@ -83,6 +58,126 @@ func BuildDeployment(name types.NamespacedName, appLabel string) *appsv1.Deploym
 						ImagePullPolicy: "IfNotPresent",
 						Command:         []string{"sh", "-c", "echo Container 1 is Running ; sleep 30"},
 					}},
+				},
+			},
+		},
+	}
+}
+
+func BuildStatefulSet(name types.NamespacedName, appLabel string) *appsv1.StatefulSet {
+	var two int32 = 2
+	return &appsv1.StatefulSet{
+		TypeMeta: metav1.TypeMeta{Kind: "Deployment", APIVersion: "apps/v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name.Name,
+			Namespace: name.Namespace,
+			Labels:    map[string]string{"app": appLabel},
+		},
+		Spec: appsv1.StatefulSetSpec{
+			Replicas:       &two,
+			UpdateStrategy: appsv1.StatefulSetUpdateStrategy{Type: "RollingUpdate"},
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": "busyboxon"},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app": "busyboxon"},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:            "busybox",
+						Image:           "busybox",
+						ImagePullPolicy: "IfNotPresent",
+						Command:         []string{"sh", "-c", "echo Container 1 is Running ; sleep 30"},
+					}},
+				},
+			},
+		},
+	}
+}
+
+func BuildDaemonSet(name types.NamespacedName, appLabel string) *appsv1.DaemonSet {
+	return &appsv1.DaemonSet{
+		TypeMeta: metav1.TypeMeta{Kind: "Deployment", APIVersion: "apps/v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name.Name,
+			Namespace: name.Namespace,
+			Labels:    map[string]string{"app": appLabel},
+		},
+		Spec: appsv1.DaemonSetSpec{
+			UpdateStrategy: appsv1.DaemonSetUpdateStrategy{Type: "RollingUpdate"},
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": "busyboxon"},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app": "busyboxon"},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:            "busybox",
+						Image:           "busybox",
+						ImagePullPolicy: "IfNotPresent",
+						Command:         []string{"sh", "-c", "echo Container 1 is Running ; sleep 30"},
+					}},
+				},
+			},
+		},
+	}
+}
+
+func BuildJob(name types.NamespacedName, appLabel string) *batchv1.Job {
+	return &batchv1.Job{
+		TypeMeta: metav1.TypeMeta{Kind: "Deployment", APIVersion: "apps/v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name.Name,
+			Namespace: name.Namespace,
+			Labels:    map[string]string{"app": appLabel},
+		},
+		Spec: batchv1.JobSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app": "busyboxon"},
+				},
+				Spec: corev1.PodSpec{
+					RestartPolicy: corev1.RestartPolicyNever,
+					Containers: []corev1.Container{{
+						Name:            "busybox",
+						Image:           "busybox",
+						ImagePullPolicy: "IfNotPresent",
+						Command:         []string{"sh", "-c", "echo Container 1 is Running ; sleep 30"},
+					}},
+				},
+			},
+		},
+	}
+}
+
+func BuildCronJob(name types.NamespacedName, appLabel string) *batchv1.CronJob {
+	return &batchv1.CronJob{
+		TypeMeta: metav1.TypeMeta{Kind: "Deployment", APIVersion: "apps/v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name.Name,
+			Namespace: name.Namespace,
+			Labels:    map[string]string{"app": appLabel},
+		},
+		Spec: batchv1.CronJobSpec{
+			JobTemplate: batchv1.JobTemplateSpec{
+				Spec: batchv1.JobSpec{
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"app": "busyboxon"},
+						},
+						Spec: corev1.PodSpec{
+							RestartPolicy: corev1.RestartPolicyNever,
+							Containers: []corev1.Container{{
+								Name:            "busybox",
+								Image:           "busybox",
+								ImagePullPolicy: "IfNotPresent",
+								Command:         []string{"sh", "-c", "echo Container 1 is Running ; sleep 30"},
+							}},
+						},
+					},
 				},
 			},
 		},

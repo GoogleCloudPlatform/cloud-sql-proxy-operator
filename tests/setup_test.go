@@ -30,7 +30,6 @@ import (
 	"go.uber.org/zap/zapcore"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -98,12 +97,12 @@ func setupTests() (func(), error) {
 	}
 
 	// Read e2e test configuration
-	proxyImageURL = loadValue("PROXY_IMAGE_URL", "../../bin/last-proxy-image-url.txt", "cloudsql-proxy:latest")
-	operatorURL = loadValue("OPERATOR_IMAGE_URL", "../../bin/last-gcloud-operator-url.txt", "operator:latest")
-	testInfraPath := loadValue("TEST_INFRA_JSON", "", "../../bin/testinfra.json")
+	proxyImageURL = loadValue("PROXY_IMAGE_URL", "../bin/last-proxy-image-url.txt", "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.0.0-preview.2")
+	operatorURL = loadValue("OPERATOR_IMAGE_URL", "../bin/last-gcloud-operator-url.txt", "operator:latest")
+	testInfraPath := loadValue("TEST_INFRA_JSON", "", "../bin/testinfra.json")
 	ti, err := loadTestInfra(testInfraPath)
 	if err != nil {
-		kubeconfig := "../../bin/gcloud-kubeconfig.yaml"
+		kubeconfig := "../../bin/e2e-kubeconfig.yaml"
 		if envKubeConfig, isset := os.LookupEnv("KUBECONFIG"); isset {
 			kubeconfig = envKubeConfig
 		}
@@ -139,7 +138,7 @@ func setupTests() (func(), error) {
 
 	// Check that the e2e k8s cluster is the operator that was last built from
 	// this working directory.
-	managerDeploymentKey, err := waitForCorrectOperatorPods(ctx, err)
+	d, err := waitForCorrectOperatorPods(ctx, err)
 
 	if err != nil {
 		return teardownFunc, fmt.Errorf("unable to find manager deployment %v", err)
@@ -148,7 +147,7 @@ func setupTests() (func(), error) {
 	// Start the goroutines to tail the logs from the operator deployment. This
 	// prints the operator output in line with the test output so it's easier
 	// for the developer to follow.
-	podList, err := listDeploymentPods(ctx, managerDeploymentKey)
+	podList, err := testhelpers.ListPods(ctx, c, d.GetNamespace(), d.Spec.Selector)
 	if err != nil {
 		return teardownFunc, fmt.Errorf("unable to find manager deployment %v", err)
 	}
@@ -159,12 +158,12 @@ func setupTests() (func(), error) {
 	return teardownFunc, nil
 }
 
-func waitForCorrectOperatorPods(ctx context.Context, err error) (client.ObjectKey, error) {
+func waitForCorrectOperatorPods(ctx context.Context, err error) (*appsv1.Deployment, error) {
+	deployment := &appsv1.Deployment{}
 	managerDeploymentKey := client.ObjectKey{Namespace: "cloud-sql-proxy-operator-system", Name: "cloud-sql-proxy-operator-controller-manager"}
 	err = testhelpers.RetryUntilSuccess(5, testhelpers.DefaultRetryInterval, func() error {
-		deployment := appsv1.Deployment{}
 		// Fetch the deployment
-		err := c.Get(ctx, managerDeploymentKey, &deployment)
+		err := c.Get(ctx, managerDeploymentKey, deployment)
 		if err != nil {
 			return err
 		}
@@ -177,7 +176,7 @@ func waitForCorrectOperatorPods(ctx context.Context, err error) (client.ObjectKe
 		// Check that pods are running the right version
 		// of the image. Sometimes deployments can take some time to roll out, and pods
 		// will be running a different version.
-		pods, err := listDeploymentPods(ctx, managerDeploymentKey)
+		pods, err := testhelpers.ListPods(ctx, c, deployment.GetNamespace(), deployment.Spec.Selector)
 		if err != nil {
 			return fmt.Errorf("can't list manager deployment pods, %v", err)
 		}
@@ -203,24 +202,7 @@ func waitForCorrectOperatorPods(ctx context.Context, err error) (client.ObjectKe
 
 		return nil // OK to continue.
 	})
-	return managerDeploymentKey, err
-}
-
-// listDeploymentPods lists all the pods in a particular deployment.
-func listDeploymentPods(ctx context.Context, deploymentKey client.ObjectKey) (*corev1.PodList, error) {
-	dep, err := k8sClientSet.AppsV1().Deployments(deploymentKey.Namespace).Get(ctx, deploymentKey.Name, metav1.GetOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("unable to find manager deployment %v", err)
-	}
-	podList, err := k8sClientSet.CoreV1().Pods(deploymentKey.Namespace).List(ctx, metav1.ListOptions{
-		LabelSelector: metav1.FormatLabelSelector(dep.Spec.Selector),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("unable to find manager deployment %v", err)
-	}
-
-	return podList, nil
-
+	return deployment, err
 }
 
 func tailPods(ctx context.Context, podlist *corev1.PodList) {
