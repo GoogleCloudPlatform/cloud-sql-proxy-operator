@@ -111,7 +111,7 @@ func (r *AuthProxyWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // need to be updated.
 //
 // As this controller's Reconcile() function patches the annotations on workloads,
-// the WorkloadAdmissionWebhook.Handle() method is called by k8s api, which is
+// the PodAdmissionWebhook.Handle() method is called by k8s api, which is
 // where the PodSpec is modified to match the AuthProxyWorkload configuration.
 //
 // This function can only make one update to the AuthProxyWorkload per loop, so it
