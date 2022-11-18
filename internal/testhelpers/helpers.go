@@ -51,6 +51,30 @@ func CreateOrPatchNamespace(ctx context.Context, tctx *TestCaseParams) {
 	}
 
 }
+func DeleteNamespace(tp *TestCaseParams, wait bool) {
+	tp.T.Helper()
+	ns := &corev1.Namespace{
+		TypeMeta:   metav1.TypeMeta{Kind: "Namespace", APIVersion: "v1"},
+		ObjectMeta: metav1.ObjectMeta{Name: tp.Namespace},
+	}
+
+	err := tp.Client.Delete(tp.Ctx, ns)
+	if err != nil {
+		tp.T.Fatalf("unable to remove namespace %v, %v", tp.Namespace, err)
+	}
+
+	if wait {
+		var gotNS corev1.Namespace
+		err = RetryUntilSuccess(tp.T, 5, time.Second*5, func() error {
+			err := tp.Client.Get(tp.Ctx, client.ObjectKey{Name: tp.Namespace}, &gotNS)
+			if err == nil { // namespace still exists
+				return fmt.Errorf("namespace should not exist")
+			}
+			return nil
+		})
+	}
+
+}
 
 // RetryUntilSuccess runs `f` until it no longer returns an error, or it has
 // returned an error `attempts` number of times. It waits `sleep` duration

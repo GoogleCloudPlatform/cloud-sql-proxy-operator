@@ -17,11 +17,14 @@ package tests
 import (
 	"fmt"
 	"os"
+	"strings"
 	"testing"
-	"time"
 
-	helpers2 "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
-	v1 "k8s.io/api/core/v1"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -41,37 +44,193 @@ func TestMain(m *testing.M) {
 
 func TestCreateResource(t *testing.T) {
 	tctx := params(t, "create")
-	helpers2.TestCreateResource(tctx)
+	testhelpers.TestCreateResource(tctx)
 }
 
 func TestDeleteResource(t *testing.T) {
 	tctx := params(t, "delete")
-	helpers2.TestDeleteResource(tctx)
+	testhelpers.TestDeleteResource(tctx)
 }
 
-func TestModifiesNewDeployment(t *testing.T) {
-	tctx := params(t, "newdeploy")
-	helpers2.TestModifiesNewDeployment(tctx)
-
-	var podList *v1.PodList
-	err := helpers2.RetryUntilSuccess(t, 5, 10*time.Second, func() error {
-		var err error
-		podList, err = listDeploymentPods(tctx.Ctx, client.ObjectKey{Namespace: tctx.Namespace, Name: "newdeploy"})
-		return err
-	})
-
-	if err != nil {
-		t.Fatalf("Error while listing pods for deployment %v", err)
+func TestProxyAppliedOnNewWorkload(t *testing.T) {
+	tests := []struct {
+		name string
+		o    client.Object
+		kind string
+		yaml string
+	}{
+		{
+			name: "deployment",
+			o:    &appsv1.Deployment{},
+			kind: "Deployment",
+			yaml: testhelpers.BusyboxDeployYaml,
+		},
+		{
+			name: "statefulset",
+			o:    &appsv1.StatefulSet{},
+			kind: "StatefulSet",
+			yaml: testhelpers.BusyboxStatefulSetYaml,
+		},
+		{
+			name: "daemonset",
+			o:    &appsv1.DaemonSet{},
+			kind: "DaemonSet",
+			yaml: testhelpers.BusyboxDaemonSetYaml,
+		},
+		{
+			name: "job",
+			o:    &batchv1.Job{},
+			kind: "Job",
+			yaml: testhelpers.BusyboxJob,
+		},
+		{
+			name: "cronjob",
+			o:    &batchv1.CronJob{},
+			kind: "CronJob",
+			yaml: testhelpers.BusyboxCronJob,
+		},
 	}
-	if podCount := len(podList.Items); podCount == 0 {
-		t.Fatalf("got %v pods, wants more than 0", podCount)
-	}
-	if containerCount := len(podList.Items[0].Spec.Containers); containerCount != 2 {
-		t.Errorf("got %v containers, wants 2", containerCount)
+	for i := range tests {
+		test := tests[i]
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			tp := params(t, "new"+strings.ToLower(test.kind))
+
+			testhelpers.CreateOrPatchNamespace(tp.Ctx, tp)
+
+			const (
+				pwlName  = "newss"
+				appLabel = "busybox"
+			)
+			ctx := tp.Ctx
+			key := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
+
+			t.Log("Creating AuthProxyWorkload")
+			err := testhelpers.CreateAuthProxyWorkload(ctx, tp, key, appLabel, tp.ConnectionString, test.kind)
+			if err != nil {
+				t.Error(err)
+				testhelpers.DeleteNamespace(tp, false)
+				return
+			}
+
+			t.Log("Waiting for AuthProxyWorkload operator to begin the reconcile loop")
+			_, err = testhelpers.GetAuthProxyWorkloadAfterReconcile(ctx, tp, key)
+			if err != nil {
+				t.Error("unable to create AuthProxyWorkload", err)
+				testhelpers.DeleteNamespace(tp, false)
+				return
+			}
+
+			t.Log("Creating ", test.kind)
+			err = testhelpers.CreateWorkload(ctx, tp, key, appLabel, test.yaml, test.o)
+			if err != nil {
+				t.Error("unable to create ", test.kind, err)
+				testhelpers.DeleteNamespace(tp, false)
+				return
+			}
+			selector := &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": "busyboxon"},
+			}
+			testhelpers.ExpectPodContainerCount(tp, test.o.GetNamespace(), selector, 2, "all")
+			testhelpers.DeleteNamespace(tp, false)
+		})
 	}
 }
 
-func TestModifiesExistingDeployment(t *testing.T) {
-	tctx := params(t, "modifydeploy")
-	helpers2.TestModifiesExistingDeployment(tctx)
+func TestProxyAppliedOnExistingWorkload(t *testing.T) {
+	tests := []struct {
+		name     string
+		o        client.Object
+		kind     string
+		yaml     string
+		allOrAny string
+	}{
+		{
+			name:     "deployment",
+			o:        &appsv1.Deployment{},
+			kind:     "Deployment",
+			yaml:     testhelpers.BusyboxDeployYaml,
+			allOrAny: "all",
+		},
+		{
+			name:     "statefulset",
+			o:        &appsv1.StatefulSet{},
+			kind:     "StatefulSet",
+			yaml:     testhelpers.BusyboxStatefulSetYaml,
+			allOrAny: "all",
+		},
+		{
+			name:     "daemonset",
+			o:        &appsv1.DaemonSet{},
+			kind:     "DaemonSet",
+			yaml:     testhelpers.BusyboxDaemonSetYaml,
+			allOrAny: "all",
+		},
+		{
+			name:     "job",
+			o:        &batchv1.Job{},
+			kind:     "Job",
+			yaml:     testhelpers.BusyboxJob,
+			allOrAny: "any",
+		},
+		{
+			name:     "cronjob",
+			o:        &batchv1.CronJob{},
+			kind:     "CronJob",
+			yaml:     testhelpers.BusyboxCronJob,
+			allOrAny: "any",
+		},
+	}
+	for i := range tests {
+		test := tests[i]
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			tp := params(t, "modify"+strings.ToLower(test.kind))
+
+			testhelpers.CreateOrPatchNamespace(tp.Ctx, tp)
+
+			const (
+				pwlName  = "newss"
+				appLabel = "busybox"
+			)
+			ctx := tp.Ctx
+			key := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
+
+			t.Log("Creating ", test.kind)
+			err := testhelpers.CreateWorkload(ctx, tp, key, appLabel, test.yaml, test.o)
+			if err != nil {
+				t.Error("unable to create ", test.kind, err)
+				testhelpers.DeleteNamespace(tp, false)
+				return
+			}
+			selector := &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": "busyboxon"},
+			}
+			err = testhelpers.ExpectPodContainerCount(tp, test.o.GetNamespace(), selector, 1, test.allOrAny)
+			if err != nil {
+				testhelpers.DeleteNamespace(tp, false)
+				return
+			}
+
+			t.Log("Creating AuthProxyWorkload")
+			err = testhelpers.CreateAuthProxyWorkload(ctx, tp, key, appLabel, tp.ConnectionString, test.kind)
+			if err != nil {
+				t.Error(err)
+				testhelpers.DeleteNamespace(tp, false)
+				return
+			}
+
+			t.Log("Waiting for AuthProxyWorkload operator to begin the reconcile loop")
+			_, err = testhelpers.GetAuthProxyWorkloadAfterReconcile(ctx, tp, key)
+			if err != nil {
+				t.Error("unable to create AuthProxyWorkload", err)
+				return
+			}
+
+			testhelpers.ExpectPodContainerCount(tp, test.o.GetNamespace(), selector, 2, test.allOrAny)
+
+			testhelpers.DeleteNamespace(tp, false)
+
+		})
+	}
 }
