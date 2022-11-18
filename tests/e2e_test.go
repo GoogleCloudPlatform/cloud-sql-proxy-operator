@@ -131,7 +131,7 @@ func TestProxyAppliedOnNewWorkload(t *testing.T) {
 			selector := &metav1.LabelSelector{
 				MatchLabels: map[string]string{"app": "busyboxon"},
 			}
-			testhelpers.ExpectPodContainerCount(tp, test.o.GetNamespace(), selector, 2, "all")
+			testhelpers.ExpectContainerCount(tp, test.o.GetNamespace(), selector, 2, "all")
 			testhelpers.DeleteNamespace(tp, false)
 		})
 	}
@@ -206,7 +206,7 @@ func TestProxyAppliedOnExistingWorkload(t *testing.T) {
 			selector := &metav1.LabelSelector{
 				MatchLabels: map[string]string{"app": "busyboxon"},
 			}
-			err = testhelpers.ExpectPodContainerCount(tp, test.o.GetNamespace(), selector, 1, test.allOrAny)
+			err = testhelpers.ExpectContainerCount(tp, test.o.GetNamespace(), selector, 1, test.allOrAny)
 			if err != nil {
 				testhelpers.DeleteNamespace(tp, false)
 				return
@@ -227,7 +227,7 @@ func TestProxyAppliedOnExistingWorkload(t *testing.T) {
 				return
 			}
 
-			testhelpers.ExpectPodContainerCount(tp, test.o.GetNamespace(), selector, 2, test.allOrAny)
+			testhelpers.ExpectContainerCount(tp, test.o.GetNamespace(), selector, 2, test.allOrAny)
 
 			testhelpers.DeleteNamespace(tp, false)
 

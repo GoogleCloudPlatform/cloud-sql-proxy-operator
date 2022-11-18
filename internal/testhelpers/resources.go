@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -207,64 +206,6 @@ func GetAuthProxyWorkloadAfterReconcile(ctx context.Context, tctx *TestCaseParam
 	return createdPodmod, err
 }
 
-// CreateBusyboxDeployment creates a simple busybox deployment, using the
-// key as its namespace and name. It also sets the label "app"= appLabel.
-func CreateBusyboxDeployment(ctx context.Context, tctx *TestCaseParams,
-	name types.NamespacedName, appLabel string) (*appsv1.Deployment, error) {
-	tctx.T.Helper()
-
-	d := &appsv1.Deployment{}
-
-	err := yaml2.Unmarshal([]byte(BusyboxDeployYaml), &d)
-	if err != nil {
-		return nil, err
-	}
-	d.Name = name.Name
-	d.Namespace = name.Namespace
-	d.Labels = map[string]string{"app": appLabel}
-
-	err = tctx.Client.Create(ctx, d)
-	if err != nil {
-		return nil, err
-	}
-
-	cd := &appsv1.Deployment{}
-	err = RetryUntilSuccess(tctx.T, 5, 1*time.Second, func() error {
-		return tctx.Client.Get(ctx, types.NamespacedName{
-			Namespace: name.Namespace,
-			Name:      name.Name,
-		}, cd)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return cd, nil
-}
-
-// GetAuthProxyWorkload finds an AuthProxyWorkload resource named key, waits for its
-// "UpToDate" condition to be "True", and the returns it. Fails after 30 seconds
-// if the containers does not match.
-func GetAuthProxyWorkload(ctx context.Context, tctx *TestCaseParams,
-	key types.NamespacedName) (*v1alpha1.AuthProxyWorkload, error) {
-	tctx.T.Helper()
-	createdPodmod := &v1alpha1.AuthProxyWorkload{}
-	// We'll need to retry getting this newly created resource, given that creation may not immediately happen.
-	err := RetryUntilSuccess(tctx.T, 6, 5*time.Second, func() error {
-		err := tctx.Client.Get(ctx, key, createdPodmod)
-		if err != nil {
-			return err
-		}
-		if GetConditionStatus(createdPodmod.Status.Conditions, v1alpha1.ConditionUpToDate) != metav1.ConditionTrue {
-			return errors.New("AuthProxyWorkload found, but reconcile not complete yet")
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return createdPodmod, err
-}
-
 // ListPods lists all the pods in a particular deployment.
 func ListPods(ctx context.Context, c client.Client, ns string, selector *metav1.LabelSelector) (*corev1.PodList, error) {
 
@@ -282,10 +223,10 @@ func ListPods(ctx context.Context, c client.Client, ns string, selector *metav1.
 	return podList, nil
 }
 
-// ExpectPodContainerCount finds a deployment and keeps checking until the number of
+// ExpectContainerCount finds a deployment and keeps checking until the number of
 // containers on the deployment's PodSpec.Containers == count. Returns error after 30 seconds
 // if the containers do not match.
-func ExpectPodContainerCount(tp *TestCaseParams, ns string, podSelector *metav1.LabelSelector, count int, allOrAny string) error {
+func ExpectContainerCount(tp *TestCaseParams, ns string, podSelector *metav1.LabelSelector, count int, allOrAny string) error {
 
 	tp.T.Helper()
 
@@ -325,38 +266,6 @@ func ExpectPodContainerCount(tp *TestCaseParams, ns string, podSelector *metav1.
 		return err
 	}
 
-	return nil
-}
-
-// ExpectContainerCount finds a deployment and keeps checking until the number of
-// containers on the deployment's PodSpec.Containers == count. Returns error after 30 seconds
-// if the containers do not match.
-func ExpectContainerCount(ctx context.Context, tctx *TestCaseParams, key types.NamespacedName, count int) error {
-
-	tctx.T.Helper()
-
-	var (
-		got        int
-		deployment = &appsv1.Deployment{}
-	)
-	err := RetryUntilSuccess(tctx.T, 6, 5*time.Second, func() error {
-		err := tctx.Client.Get(ctx, key, deployment)
-		if err != nil {
-			return err
-		}
-		got = len(deployment.Spec.Template.Spec.Containers)
-		if got != count {
-			return fmt.Errorf("deployment found, got %v, want %v containers", got, count)
-		}
-		return nil
-	})
-
-	if err != nil {
-		tctx.T.Errorf("want %v containers, got %v number of containers did not resolve after waiting for reconcile", count, got)
-		return err
-	}
-
-	tctx.T.Logf("Container len is now %v", got)
 	return nil
 }
 
