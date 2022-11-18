@@ -175,7 +175,7 @@ func TestUpdatePodWorkload(t *testing.T) {
 	proxy.Spec.Instances[0].Port = ptr(wantsPort)
 
 	// Update the container with new markWorkloadNeedsUpdate
-	_, err = u.UpdateWorkloadContainers(wl, []*v1alpha1.AuthProxyWorkload{proxy})
+	_, err = u.ApplyProxyConfiguration(wl, []*v1alpha1.AuthProxyWorkload{proxy})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,7 +236,7 @@ func TestUpdateWorkloadFixedPort(t *testing.T) {
 	}
 
 	// update the containers
-	_, err := u.UpdateWorkloadContainers(wl, csqls)
+	_, err := u.ApplyProxyConfiguration(wl, csqls)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -302,7 +302,7 @@ func TestWorkloadNoPortSet(t *testing.T) {
 	}
 
 	// update the containers
-	_, err := u.UpdateWorkloadContainers(wl, csqls)
+	_, err := u.ApplyProxyConfiguration(wl, csqls)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -362,7 +362,7 @@ func TestWorkloadUnixVolume(t *testing.T) {
 	}
 
 	// update the containers
-	_, err := u.UpdateWorkloadContainers(wl, csqls)
+	_, err := u.ApplyProxyConfiguration(wl, csqls)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -434,7 +434,7 @@ func TestContainerImageChanged(t *testing.T) {
 	csqls[0].Spec.AuthProxyContainer = &v1alpha1.AuthProxyContainerSpec{Image: wantImage}
 
 	// update the containers
-	_, err := u.UpdateWorkloadContainers(wl, csqls)
+	_, err := u.ApplyProxyConfiguration(wl, csqls)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -476,7 +476,7 @@ func TestContainerReplaced(t *testing.T) {
 	csqls[0].Spec.AuthProxyContainer = &v1alpha1.AuthProxyContainerSpec{Container: wantContainer}
 
 	// update the containers
-	_, err := u.UpdateWorkloadContainers(wl, csqls)
+	_, err := u.ApplyProxyConfiguration(wl, csqls)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -721,7 +721,7 @@ func TestProxyCLIArgs(t *testing.T) {
 			csqls := []*v1alpha1.AuthProxyWorkload{authProxyWorkloadFromSpec("instance1", tc.proxySpec)}
 
 			// update the containers
-			_, updateErr := u.UpdateWorkloadContainers(wl, csqls)
+			_, updateErr := u.ApplyProxyConfiguration(wl, csqls)
 
 			if len(tc.wantErrorCodes) > 0 {
 				assertErrorCodeContains(t, updateErr, tc.wantErrorCodes)
