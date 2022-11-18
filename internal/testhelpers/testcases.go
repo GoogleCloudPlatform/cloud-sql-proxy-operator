@@ -112,7 +112,7 @@ func TestDeleteResource(tctx *TestCaseParams) {
 	)
 	CreateOrPatchNamespace(ctx, tctx)
 	key := types.NamespacedName{Name: name, Namespace: ns}
-	err := CreateAuthProxyWorkload(ctx, tctx, key, "app", expectedConnStr)
+	err := CreateAuthProxyWorkload(ctx, tctx, key, "app", expectedConnStr, "Deployment")
 	if err != nil {
 		t.Errorf("Unable to create auth proxy workload %v", err)
 		return
@@ -179,7 +179,7 @@ func TestModifiesNewDeployment(tp *TestCaseParams) {
 
 	t.Log("Creating AuthProxyWorkload")
 	err := CreateAuthProxyWorkload(ctx, tp, key,
-		deploymentAppLabel, tp.ConnectionString)
+		deploymentAppLabel, tp.ConnectionString, "Deployment")
 	if err != nil {
 		t.Error(err)
 		return
@@ -238,7 +238,7 @@ func TestModifiesExistingDeployment(tp *TestCaseParams) func() {
 	}
 
 	tp.T.Log("Creating cloud sql instance")
-	err = CreateAuthProxyWorkload(ctx, tp, pKey, deploymentAppLabel, tp.ConnectionString)
+	err = CreateAuthProxyWorkload(ctx, tp, pKey, deploymentAppLabel, tp.ConnectionString, "Deployment")
 	if err != nil {
 		tp.T.Error(err)
 		return func() {}
