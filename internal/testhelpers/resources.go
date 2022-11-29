@@ -25,7 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	yaml2 "k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -154,11 +154,10 @@ spec:
       backoffLimit: 2
 `
 
-func CreateWorkload(ctx context.Context, tctx *TestCaseParams,
-	name types.NamespacedName, appLabel string, yaml string, o client.Object) error {
+func CreateWorkload(ctx context.Context, tctx *TestCaseParams, name types.NamespacedName, appLabel string, inputYaml string, o client.Object) error {
 	tctx.T.Helper()
 
-	err := yaml2.Unmarshal([]byte(yaml), &o)
+	err := yaml.Unmarshal([]byte(inputYaml), &o)
 	if err != nil {
 		return err
 	}
@@ -215,7 +214,7 @@ func CreateBusyboxDeployment(ctx context.Context, tctx *TestCaseParams,
 
 	d := &appsv1.Deployment{}
 
-	err := yaml2.Unmarshal([]byte(BusyboxDeployYaml), &d)
+	err := yaml.Unmarshal([]byte(BusyboxDeployYaml), &d)
 	if err != nil {
 		return nil, err
 	}
