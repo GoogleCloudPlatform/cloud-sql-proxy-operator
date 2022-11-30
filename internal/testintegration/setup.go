@@ -143,7 +143,7 @@ func EnvTestSetup() (func(), error) {
 		return teardownFunc, fmt.Errorf("unable to start kuberenetes envtest %v", err)
 	}
 
-	err = controller.SetupManagers(mgr)
+	err = controller.SetupManagers(mgr, "cloud-sql-proxy-operator/dev")
 	if err != nil {
 		return teardownFunc, fmt.Errorf("unable to start kuberenetes envtest %v", err)
 	}

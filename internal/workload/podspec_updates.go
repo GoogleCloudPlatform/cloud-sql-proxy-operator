@@ -49,12 +49,14 @@ var l = logf.Log.WithName("internal.workload")
 
 // Updater holds global state used while reconciling workloads.
 type Updater struct {
+	// userAgent is the userAgent of the operator
+	userAgent string
 }
 
 // NewUpdater creates a new instance of Updater with a supplier
 // that loads the default proxy impage from the public docker registry
-func NewUpdater() *Updater {
-	return &Updater{}
+func NewUpdater(userAgent string) *Updater {
+	return &Updater{userAgent: userAgent}
 }
 
 // ConfigError is an error with extra details about why an AuthProxyWorkload
@@ -456,7 +458,9 @@ func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, wl Workl
 		fmt.Sprintf("--http-port=%d", healthcheckPort),
 		"--http-address=0.0.0.0",
 		"--health-check",
-		"--structured-logs")
+		"--structured-logs",
+		fmt.Sprintf("--user-agent=%v", s.updater.userAgent),
+	)
 
 	c.Name = ContainerName(p)
 	c.ImagePullPolicy = "IfNotPresent"
