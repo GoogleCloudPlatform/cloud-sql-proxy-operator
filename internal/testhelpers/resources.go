@@ -125,7 +125,7 @@ func GetAuthProxyWorkloadAfterReconcile(ctx context.Context, tctx *TestCaseParam
 	if err != nil {
 		return nil, err
 	}
-	return createdPodmod, err
+	return createdPodmod, nil
 }
 
 // CreateBusyboxDeployment creates a simple busybox deployment, using the

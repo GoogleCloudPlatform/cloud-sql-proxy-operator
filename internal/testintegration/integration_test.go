@@ -23,7 +23,6 @@ import (
 	"os"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testintegration"
@@ -107,14 +106,13 @@ func TestModifiesNewDeployment(t *testing.T) {
 		t.Error("unable to create deployment", err)
 		return
 	}
-	time.Sleep(time.Second * 5)
+
 	t.Log("Creating deployment replicas")
 	_, _, err = createDeploymentReplicaSetAndPods(tp, d)
 	if err != nil {
 		t.Error("unable to create pods", err)
 		return
 	}
-	time.Sleep(time.Second * 5)
 
 	testhelpers.RetryUntilSuccess(t, 5, 5, func() error {
 		dep := &appsv1.Deployment{}
