@@ -38,16 +38,6 @@ type TestCaseParams struct {
 	ProxyImageURL    string
 }
 
-const testcaseParamsKey = "TestCaseParams"
-
-func WithTestCaseParams(ctx context.Context, tp *TestCaseParams) context.Context {
-	return context.WithValue(ctx, testcaseParamsKey, tp)
-}
-func TestCaseParamsFromContext(ctx context.Context) (*TestCaseParams, bool) {
-	u, ok := ctx.Value(testcaseParamsKey).(*TestCaseParams)
-	return u, ok
-}
-
 func NewNamespaceName(prefix string) string {
 	return fmt.Sprintf("test%s%d", prefix, rand.IntnRange(1000, 9999))
 }
