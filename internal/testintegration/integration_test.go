@@ -100,7 +100,7 @@ func TestModifiesNewDeployment(t *testing.T) {
 	}
 
 	t.Log("Creating deployment")
-	d := testhelpers.NewDeployment(key, deploymentAppLabel)
+	d := testhelpers.BuildDeployment(key, deploymentAppLabel)
 	err = testhelpers.CreateWorkload(tp, d)
 
 	if err != nil {
