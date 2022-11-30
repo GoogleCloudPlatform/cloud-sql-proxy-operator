@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const BusyboxDeployYaml = `apiVersion: apps/appsv1
+const busyboxDeployYaml = `apiVersion: apps/appsv1
 kind: Deployment
 metadata:
   name: busybox-deployment-
@@ -55,126 +55,48 @@ spec:
         command: ['sh', '-c', 'echo Container 1 is Running ; sleep 3600']
 `
 
-const BusyboxStatefulSetYaml = `apiVersion: apps/appsv1
-kind: StatefulSet
-metadata:
-  name: busybox-deployment-
-  labels:
-    app: busyboxon
-spec:
-  replicas: 2
-  strategy:
-    type: RollingUpdate
-  selector:
-    matchLabels:
-      app: busyboxon
-  template:
-    metadata:
-      labels:
-        app: busyboxon
-        enableawait: "yes"
-    spec:
-      containers:
-      - name: busybox
-        image: busybox
-        imagePullPolicy: IfNotPresent
-        command: ['sh', '-c', 'echo Container 1 is Running ; sleep 3600']
-`
+func NewDeployment(name types.NamespacedName, appLabel string) *appsv1.Deployment {
+	var two int32 = 2
+	return &appsv1.Deployment{
+		TypeMeta: metav1.TypeMeta{Kind: "Deployment", APIVersion: "apps/v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name.Name,
+			Namespace: name.Namespace,
+			Labels:    map[string]string{"app": appLabel},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &two,
+			Strategy: appsv1.DeploymentStrategy{Type: "RollingUpdate"},
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": "busyboxon"},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app": "busyboxon"},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:            "busybox",
+						Image:           "busybox",
+						ImagePullPolicy: "IfNotPresent",
+						Command:         []string{"sh", "-c", "echo Container 1 is Running ; sleep 30"},
+					}},
+				},
+			},
+		},
+	}
+}
 
-const BusyboxDaemonSetYaml = `apiVersion: apps/appsv1
-kind: ReplicaSet
-metadata:
-  name: busybox-deployment-
-  labels:
-    app: busyboxon
-spec:
-  serviceName: busybox
-  strategy:
-    type: RollingUpdate
-  selector:
-    matchLabels:
-      app: busyboxon
-  template:
-    metadata:
-      labels:
-        app: busyboxon
-        enableawait: "yes"
-    spec:
-      containers:
-      - name: busybox
-        image: busybox
-        imagePullPolicy: IfNotPresent
-        command: ['sh', '-c', 'echo Container 1 is Running ; sleep 3600']
-`
-
-// Run 10 jobs that each take 30 seconds to complete, one at a time
-const BusyboxJob = `apiVersion: batch/v1
-kind: Job
-metadata:
-  name: busybox-deployment-
-  labels:
-    app: busyboxon
-spec:
-  template:
-    metadata:
-      labels:
-        app: busyboxon
-    spec:
-      restartPolicy: "Never"
-      containers:
-      - name: busybox
-        image: busybox
-        imagePullPolicy: IfNotPresent
-        command: ['sh', '-c', 'echo Container 1 is Running ; sleep 30']
-  backoffLimit: 2
-  completions: 10
-  parallelism: 1
-`
-const BusyboxCronJob = `apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: busybox-deployment-
-  labels:
-    app: busyboxon
-spec:
-  schedule: "* * * * *"
-  jobTemplate:
-    spec:
-      template:
-        metadata:
-          labels:
-            app: busyboxon
-        spec:
-          restartPolicy: "Never"
-          containers:
-          - name: busybox
-            image: busybox
-            imagePullPolicy: IfNotPresent
-            command: ['sh', '-c', 'echo Container 1 is Running ; sleep 30']
-      backoffLimit: 2
-`
-
-func CreateWorkload(ctx context.Context, tctx *TestCaseParams, name types.NamespacedName, appLabel string, inputYaml string, o client.Object) error {
+func CreateWorkload(tctx *TestCaseParams, o client.Object) error {
 	tctx.T.Helper()
 
-	err := yaml.Unmarshal([]byte(inputYaml), &o)
-	if err != nil {
-		return err
-	}
-	o.SetName(name.Name)
-	o.SetNamespace(name.Namespace)
-	o.SetLabels(map[string]string{"app": appLabel})
-
-	err = tctx.Client.Create(ctx, o)
+	err := tctx.Client.Create(tctx.Ctx, o)
 	if err != nil {
 		return err
 	}
 
 	err = RetryUntilSuccess(tctx.T, 5, 1*time.Second, func() error {
-		return tctx.Client.Get(ctx, types.NamespacedName{
-			Namespace: name.Namespace,
-			Name:      name.Name,
-		}, o)
+		return tctx.Client.Get(tctx.Ctx, client.ObjectKeyFromObject(o), o)
 	})
 	if err != nil {
 		return err
@@ -214,7 +136,7 @@ func CreateBusyboxDeployment(ctx context.Context, tctx *TestCaseParams,
 
 	d := &appsv1.Deployment{}
 
-	err := yaml.Unmarshal([]byte(BusyboxDeployYaml), &d)
+	err := yaml.Unmarshal([]byte(busyboxDeployYaml), &d)
 	if err != nil {
 		return nil, err
 	}
