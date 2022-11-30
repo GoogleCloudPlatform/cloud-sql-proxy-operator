@@ -36,7 +36,7 @@ metadata:
   labels:
     app: busyboxon
 spec:
-  d: 2
+  replicas: 2
   strategy:
     type: RollingUpdate
   selector:
@@ -108,7 +108,7 @@ func CreateWorkload(tctx *TestCaseParams, o client.Object) error {
 // "UpToDate" condition to be "True", and the returns it. Fails after 30 seconds
 // if the containers does not match.
 func GetAuthProxyWorkloadAfterReconcile(ctx context.Context, tctx *TestCaseParams,
-		key types.NamespacedName) (*v1alpha1.AuthProxyWorkload, error) {
+	key types.NamespacedName) (*v1alpha1.AuthProxyWorkload, error) {
 	tctx.T.Helper()
 	createdPodmod := &v1alpha1.AuthProxyWorkload{}
 	// We'll need to retry getting this newly created resource, given that creation may not immediately happen.
@@ -131,7 +131,7 @@ func GetAuthProxyWorkloadAfterReconcile(ctx context.Context, tctx *TestCaseParam
 // CreateBusyboxDeployment creates a simple busybox deployment, using the
 // key as its namespace and name. It also sets the label "app"= appLabel.
 func CreateBusyboxDeployment(ctx context.Context, tctx *TestCaseParams,
-		name types.NamespacedName, appLabel string) (*appsv1.Deployment, error) {
+	name types.NamespacedName, appLabel string) (*appsv1.Deployment, error) {
 	tctx.T.Helper()
 
 	d := &appsv1.Deployment{}
@@ -166,7 +166,7 @@ func CreateBusyboxDeployment(ctx context.Context, tctx *TestCaseParams,
 // "UpToDate" condition to be "True", and the returns it. Fails after 30 seconds
 // if the containers does not match.
 func GetAuthProxyWorkload(ctx context.Context, tctx *TestCaseParams,
-		key types.NamespacedName) (*v1alpha1.AuthProxyWorkload, error) {
+	key types.NamespacedName) (*v1alpha1.AuthProxyWorkload, error) {
 	tctx.T.Helper()
 	createdPodmod := &v1alpha1.AuthProxyWorkload{}
 	// We'll need to retry getting this newly created resource, given that creation may not immediately happen.
