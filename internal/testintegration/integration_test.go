@@ -81,18 +81,17 @@ func TestModifiesNewDeployment(t *testing.T) {
 		pwlName            = "newdeploy"
 		deploymentAppLabel = "busybox"
 	)
-	ctx := tp.Ctx
 	key := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
 
 	t.Log("Creating AuthProxyWorkload")
-	err := testhelpers.CreateAuthProxyWorkload(ctx, tp, key, deploymentAppLabel, tp.ConnectionString, "Deployment")
+	err := tp.CreateAuthProxyWorkload(key, deploymentAppLabel, tp.ConnectionString, "Deployment")
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
 	t.Log("Waiting for AuthProxyWorkload operator to begin the reconcile loop")
-	_, err = testhelpers.GetAuthProxyWorkloadAfterReconcile(ctx, tp, key)
+	_, err = tp.GetAuthProxyWorkloadAfterReconcile(key)
 	if err != nil {
 		t.Error("unable to create AuthProxyWorkload", err)
 		return
@@ -100,7 +99,7 @@ func TestModifiesNewDeployment(t *testing.T) {
 
 	t.Log("Creating deployment")
 	d := testhelpers.BuildDeployment(key, deploymentAppLabel)
-	err = testhelpers.CreateWorkload(tp, d)
+	err = tp.CreateWorkload(d)
 
 	if err != nil {
 		t.Error("unable to create deployment", err)
@@ -135,7 +134,7 @@ func TestModifiesNewDeployment(t *testing.T) {
 		return nil
 	})
 
-	testhelpers.ExpectPodContainerCount(tp, d.GetNamespace(), d.Spec.Selector, 2, "all")
+	tp.ExpectPodContainerCount(d.Spec.Selector, 2, "all")
 }
 
 func TestModifiesExistingDeployment(t *testing.T) {

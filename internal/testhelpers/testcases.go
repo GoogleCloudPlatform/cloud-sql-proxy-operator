@@ -38,6 +38,16 @@ type TestCaseParams struct {
 	ProxyImageURL    string
 }
 
+const testcaseParamsKey = "TestCaseParams"
+
+func WithTestCaseParams(ctx context.Context, tp *TestCaseParams) context.Context {
+	return context.WithValue(ctx, testcaseParamsKey, tp)
+}
+func TestCaseParamsFromContext(ctx context.Context) (*TestCaseParams, bool) {
+	u, ok := ctx.Value(testcaseParamsKey).(*TestCaseParams)
+	return u, ok
+}
+
 func NewNamespaceName(prefix string) string {
 	return fmt.Sprintf("test%s%d", prefix, rand.IntnRange(1000, 9999))
 }
@@ -112,13 +122,13 @@ func TestDeleteResource(tctx *TestCaseParams) {
 	)
 	CreateOrPatchNamespace(ctx, tctx)
 	key := types.NamespacedName{Name: name, Namespace: ns}
-	err := CreateAuthProxyWorkload(ctx, tctx, key, "app", expectedConnStr, "Deployment")
+	err := tctx.CreateAuthProxyWorkload(key, "app", expectedConnStr, "Deployment")
 	if err != nil {
 		t.Errorf("Unable to create auth proxy workload %v", err)
 		return
 	}
 
-	res, err := GetAuthProxyWorkload(ctx, tctx, key)
+	res, err := tctx.GetAuthProxyWorkload(key)
 	if err != nil {
 		t.Errorf("Unable to find entity after create %v", err)
 		return
@@ -174,26 +184,24 @@ func TestModifiesNewDeployment(tp *TestCaseParams) {
 		pwlName            = "newdeploy"
 		deploymentAppLabel = "busybox"
 	)
-	ctx := testContext
 	key := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
 
 	t.Log("Creating AuthProxyWorkload")
-	err := CreateAuthProxyWorkload(ctx, tp, key,
-		deploymentAppLabel, tp.ConnectionString, "Deployment")
+	err := tp.CreateAuthProxyWorkload(key, deploymentAppLabel, tp.ConnectionString, "Deployment")
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
 	t.Log("Waiting for AuthProxyWorkload operator to begin the reconcile loop")
-	_, err = GetAuthProxyWorkload(ctx, tp, key)
+	_, err = tp.GetAuthProxyWorkload(key)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
 	t.Log("Creating deployment")
-	deployment, err := CreateBusyboxDeployment(ctx, tp, key, deploymentAppLabel)
+	deployment, err := tp.CreateBusyboxDeployment(key, deploymentAppLabel)
 	if err != nil {
 		t.Error(err)
 		return
@@ -204,7 +212,7 @@ func TestModifiesNewDeployment(tp *TestCaseParams) {
 	}
 
 	t.Log("Waiting for deployment reconcile to complete")
-	err = ExpectContainerCount(ctx, tp, key, 2)
+	err = tp.ExpectContainerCount(key, 2)
 
 	if err != nil {
 		t.Errorf("number of containers did not resolve to 2 after waiting for reconcile")
@@ -226,7 +234,7 @@ func TestModifiesExistingDeployment(tp *TestCaseParams) func() {
 	dKey := types.NamespacedName{Name: deploymentName, Namespace: tp.Namespace}
 
 	tp.T.Log("Creating deployment")
-	deployment, err := CreateBusyboxDeployment(ctx, tp, dKey, deploymentAppLabel)
+	deployment, err := tp.CreateBusyboxDeployment(dKey, deploymentAppLabel)
 	if err != nil {
 		tp.T.Error(err)
 		return func() {}
@@ -238,7 +246,7 @@ func TestModifiesExistingDeployment(tp *TestCaseParams) func() {
 	}
 
 	tp.T.Log("Creating cloud sql instance")
-	err = CreateAuthProxyWorkload(ctx, tp, pKey, deploymentAppLabel, tp.ConnectionString, "Deployment")
+	err = tp.CreateAuthProxyWorkload(pKey, deploymentAppLabel, tp.ConnectionString, "Deployment")
 	if err != nil {
 		tp.T.Error(err)
 		return func() {}
@@ -246,7 +254,7 @@ func TestModifiesExistingDeployment(tp *TestCaseParams) func() {
 	}
 
 	tp.T.Log("Waiting for cloud sql instance to begin the reconcile loop ")
-	updatedI, err := GetAuthProxyWorkload(ctx, tp, pKey)
+	updatedI, err := tp.GetAuthProxyWorkload(pKey)
 	if err != nil {
 		tp.T.Error(err)
 		return func() {}
@@ -257,14 +265,14 @@ func TestModifiesExistingDeployment(tp *TestCaseParams) func() {
 	tp.T.Logf("status: %v", string(status))
 
 	tp.T.Logf("Waiting for deployment reconcile to complete")
-	err = ExpectContainerCount(ctx, tp, dKey, 2)
+	err = tp.ExpectContainerCount(dKey, 2)
 	if err != nil {
 		tp.T.Error(err)
 		return func() {}
 
 	}
 
-	updatedI, err = GetAuthProxyWorkload(ctx, tp, pKey)
+	updatedI, err = tp.GetAuthProxyWorkload(pKey)
 	if err != nil {
 		tp.T.Error(err)
 		return func() {}
@@ -286,7 +294,7 @@ func TestModifiesExistingDeployment(tp *TestCaseParams) func() {
 		}
 
 		tp.T.Logf("Waiting for deployment reconcile to complete")
-		err = ExpectContainerCount(ctx, tp, dKey, 1)
+		err = tp.ExpectContainerCount(dKey, 1)
 		if err != nil {
 			tp.T.Error(err)
 			return
