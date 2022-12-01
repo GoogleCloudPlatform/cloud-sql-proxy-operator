@@ -49,9 +49,8 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func testCaseParams(t *testing.T, name string) *testhelpers.TestCaseParams {
-	return &testhelpers.TestCaseParams{
-		T:                t,
+func newTestCaseClient(name string) *testhelpers.TestCaseClient {
+	return &testhelpers.TestCaseClient{
 		Client:           testintegration.Client,
 		Namespace:        testhelpers.NewNamespaceName(name),
 		ConnectionString: "region:project:inst",
@@ -61,37 +60,40 @@ func testCaseParams(t *testing.T, name string) *testhelpers.TestCaseParams {
 }
 
 func TestCreateResource(t *testing.T) {
-	tctx := testCaseParams(t, "create")
-	testhelpers.TestCreateResource(tctx)
+	tcc := newTestCaseClient("create")
+	testhelpers.TestCreateResource(tcc, t)
 
 }
 
 func TestDeleteResource(t *testing.T) {
-	tctx := testCaseParams(t, "delete")
-	testhelpers.TestDeleteResource(tctx)
+	tcc := newTestCaseClient("delete")
+	testhelpers.TestDeleteResource(tcc, t)
 
 }
 
 func TestModifiesNewDeployment(t *testing.T) {
-	tp := testCaseParams(t, "modifynew")
+	tcc := newTestCaseClient("modifynew")
 
-	tp.CreateOrPatchNamespace()
+	err := tcc.CreateOrPatchNamespace()
+	if err != nil {
+		t.Fatalf("can't create namespace, %v", err)
+	}
 
 	const (
 		pwlName            = "newdeploy"
 		deploymentAppLabel = "busybox"
 	)
-	key := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
+	key := types.NamespacedName{Name: pwlName, Namespace: tcc.Namespace}
 
 	t.Log("Creating AuthProxyWorkload")
-	err := tp.CreateAuthProxyWorkload(key, deploymentAppLabel, tp.ConnectionString, "Deployment")
+	err = tcc.CreateAuthProxyWorkload(key, deploymentAppLabel, tcc.ConnectionString, "Deployment")
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
 	t.Log("Waiting for AuthProxyWorkload operator to begin the reconcile loop")
-	_, err = tp.GetAuthProxyWorkloadAfterReconcile(key)
+	_, err = tcc.GetAuthProxyWorkloadAfterReconcile(key)
 	if err != nil {
 		t.Error("unable to create AuthProxyWorkload", err)
 		return
@@ -99,7 +101,7 @@ func TestModifiesNewDeployment(t *testing.T) {
 
 	t.Log("Creating deployment")
 	d := testhelpers.BuildDeployment(key, deploymentAppLabel)
-	err = tp.CreateWorkload(d)
+	err = tcc.CreateWorkload(d)
 
 	if err != nil {
 		t.Error("unable to create deployment", err)
@@ -107,19 +109,19 @@ func TestModifiesNewDeployment(t *testing.T) {
 	}
 
 	t.Log("Creating deployment replicas")
-	_, _, err = createDeploymentReplicaSetAndPods(tp, d)
+	_, _, err = createDeploymentReplicaSetAndPods(tcc, d)
 	if err != nil {
 		t.Error("unable to create pods", err)
 		return
 	}
 
-	testhelpers.RetryUntilSuccess(t, 5, 5, func() error {
+	testhelpers.RetryUntilSuccess(5, 5, func() error {
 		dep := &appsv1.Deployment{}
-		err := tp.Client.Get(tp.Ctx, key, dep)
+		err := tcc.Client.Get(tcc.Ctx, key, dep)
 		if err != nil {
 			return err
 		}
-		annKey := fmt.Sprintf("cloudsql.cloud.google.com/req-%s-%s", tp.Namespace, pwlName)
+		annKey := fmt.Sprintf("cloudsql.cloud.google.com/req-%s-%s", tcc.Namespace, pwlName)
 		wantAnn := "1"
 		var gotAnn string
 		if dep.Spec.Template.Annotations != nil {
@@ -134,12 +136,16 @@ func TestModifiesNewDeployment(t *testing.T) {
 		return nil
 	})
 
-	tp.ExpectPodContainerCount(d.Spec.Selector, 2, "all")
+	err = tcc.ExpectPodContainerCount(d.Spec.Selector, 2, "all")
+	if err != nil {
+		t.Error(err)
+	}
+
 }
 
 func TestModifiesExistingDeployment(t *testing.T) {
-	tctx := testCaseParams(t, "modifyexisting")
-	testRemove := testhelpers.TestModifiesExistingDeployment(tctx)
+	tctx := newTestCaseClient("modifyexisting")
+	testRemove := testhelpers.TestModifiesExistingDeployment(tctx, t)
 	testRemove()
 }
 
@@ -147,7 +153,7 @@ func TestModifiesExistingDeployment(t *testing.T) {
 // built into kubernetes. It creates one ReplicaSet and DeploymentSpec.Replicas pods
 // with the correct labels and ownership annotations as if it were in a live cluster.
 // This will make it easier to test and debug the behavior of our pod injection webhooks.
-func createDeploymentReplicaSetAndPods(tp *testhelpers.TestCaseParams, d *appsv1.Deployment) (*appsv1.ReplicaSet, []*corev1.Pod, error) {
+func createDeploymentReplicaSetAndPods(tp *testhelpers.TestCaseClient, d *appsv1.Deployment) (*appsv1.ReplicaSet, []*corev1.Pod, error) {
 	podTemplateHash := strconv.FormatUint(rand.Uint64(), 16)
 	rs := &appsv1.ReplicaSet{
 		TypeMeta: metav1.TypeMeta{Kind: "ReplicaSet", APIVersion: "apps/metav1"},

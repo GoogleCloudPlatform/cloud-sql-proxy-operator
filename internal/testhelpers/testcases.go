@@ -29,9 +29,8 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-type TestCaseParams struct {
+type TestCaseClient struct {
 	Ctx              context.Context
-	T                *testing.T
 	Client           client.Client
 	Namespace        string
 	ConnectionString string
@@ -42,18 +41,20 @@ func NewNamespaceName(prefix string) string {
 	return fmt.Sprintf("test%s%d", prefix, rand.IntnRange(1000, 9999))
 }
 
-func TestCreateResource(tctx *TestCaseParams) {
+func TestCreateResource(tcc *TestCaseClient, t *testing.T) {
 
 	var (
-		namespace   = tctx.Namespace
+		namespace   = tcc.Namespace
 		wantName    = "instance1"
 		resourceKey = types.NamespacedName{Name: wantName, Namespace: namespace}
-		ctx         = tctx.Ctx
-		t           = tctx.T
+		ctx         = tcc.Ctx
 	)
 
 	// First, set up the k8s namespace for this test.
-	tctx.CreateOrPatchNamespace()
+	err := tcc.CreateOrPatchNamespace()
+	if err != nil {
+		t.Fatalf("can't create namespace, %v", err)
+	}
 
 	// Fill in the resource with appropriate details.
 	resource := &v1alpha1.AuthProxyWorkload{
@@ -71,13 +72,13 @@ func TestCreateResource(tctx *TestCaseParams) {
 				Name: "busybox",
 			},
 			Instances: []v1alpha1.InstanceSpec{{
-				ConnectionString: tctx.ConnectionString,
+				ConnectionString: tcc.ConnectionString,
 			}},
 		},
 	}
 
 	// Call kubernetes to create the resource.
-	err := tctx.Client.Create(ctx, resource)
+	err = tcc.Client.Create(ctx, resource)
 	if err != nil {
 		t.Errorf("Error %v", err)
 		return
@@ -86,8 +87,8 @@ func TestCreateResource(tctx *TestCaseParams) {
 	// Wait for kubernetes to finish creating the resource, kubernetes
 	// is eventually-consistent.
 	retrievedResource := &v1alpha1.AuthProxyWorkload{}
-	err = RetryUntilSuccess(t, 5, time.Second*5, func() error {
-		return tctx.Client.Get(ctx, resourceKey, retrievedResource)
+	err = RetryUntilSuccess(5, time.Second*5, func() error {
+		return tcc.Client.Get(ctx, resourceKey, retrievedResource)
 	})
 	if err != nil {
 		t.Errorf("unable to find entity after create %v", err)
@@ -100,25 +101,27 @@ func TestCreateResource(tctx *TestCaseParams) {
 	}
 }
 
-func TestDeleteResource(tctx *TestCaseParams) {
+func TestDeleteResource(tcc *TestCaseClient, t *testing.T) {
 	const (
 		name            = "instance1"
 		expectedConnStr = "proj:inst:db"
 	)
 	var (
-		ns  = tctx.Namespace
-		t   = tctx.T
-		ctx = tctx.Ctx
+		ns  = tcc.Namespace
+		ctx = tcc.Ctx
 	)
-	tctx.CreateOrPatchNamespace()
+	err := tcc.CreateOrPatchNamespace()
+	if err != nil {
+		t.Fatalf("can't create namespace, %v", err)
+	}
 	key := types.NamespacedName{Name: name, Namespace: ns}
-	err := tctx.CreateAuthProxyWorkload(key, "app", expectedConnStr, "Deployment")
+	err = tcc.CreateAuthProxyWorkload(key, "app", expectedConnStr, "Deployment")
 	if err != nil {
 		t.Errorf("Unable to create auth proxy workload %v", err)
 		return
 	}
 
-	res, err := tctx.GetAuthProxyWorkload(key)
+	res, err := tcc.GetAuthProxyWorkload(key)
 	if err != nil {
 		t.Errorf("Unable to find entity after create %v", err)
 		return
@@ -136,21 +139,21 @@ func TestDeleteResource(tctx *TestCaseParams) {
 	}
 
 	// Make sure the finalizer was added before deleting the resource.
-	err = RetryUntilSuccess(t, 3, 5*time.Second, func() error {
-		err = tctx.Client.Get(ctx, key, res)
+	err = RetryUntilSuccess(3, 5*time.Second, func() error {
+		err = tcc.Client.Get(ctx, key, res)
 		if len(res.Finalizers) == 0 {
 			return errors.New("waiting for finalizer to be set")
 		}
 		return nil
 	})
 
-	err = tctx.Client.Delete(ctx, res)
+	err = tcc.Client.Delete(ctx, res)
 	if err != nil {
 		t.Error(err)
 	}
 
-	err = RetryUntilSuccess(t, 3, 5*time.Second, func() error {
-		err = tctx.Client.Get(ctx, key, res)
+	err = RetryUntilSuccess(3, 5*time.Second, func() error {
+		err = tcc.Client.Get(ctx, key, res)
 		// The test passes when this returns an error,
 		// because that means the resource was deleted.
 		if err != nil {
@@ -164,32 +167,34 @@ func TestDeleteResource(tctx *TestCaseParams) {
 
 }
 
-func TestModifiesNewDeployment(tp *TestCaseParams) {
-	t := tp.T
-	tp.CreateOrPatchNamespace()
+func TestModifiesNewDeployment(tcc *TestCaseClient, t *testing.T) {
+	err := tcc.CreateOrPatchNamespace()
+	if err != nil {
+		t.Fatalf("can't create namespace, %v", err)
+	}
 
 	const (
 		pwlName            = "newdeploy"
 		deploymentAppLabel = "busybox"
 	)
-	key := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
+	key := types.NamespacedName{Name: pwlName, Namespace: tcc.Namespace}
 
 	t.Log("Creating AuthProxyWorkload")
-	err := tp.CreateAuthProxyWorkload(key, deploymentAppLabel, tp.ConnectionString, "Deployment")
+	err = tcc.CreateAuthProxyWorkload(key, deploymentAppLabel, tcc.ConnectionString, "Deployment")
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
 	t.Log("Waiting for AuthProxyWorkload operator to begin the reconcile loop")
-	_, err = tp.GetAuthProxyWorkload(key)
+	_, err = tcc.GetAuthProxyWorkload(key)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
 	t.Log("Creating deployment")
-	deployment, err := tp.CreateBusyboxDeployment(key, deploymentAppLabel)
+	deployment, err := tcc.CreateBusyboxDeployment(key, deploymentAppLabel)
 	if err != nil {
 		t.Error(err)
 		return
@@ -200,69 +205,72 @@ func TestModifiesNewDeployment(tp *TestCaseParams) {
 	}
 
 	t.Log("Waiting for deployment reconcile to complete")
-	err = tp.ExpectContainerCount(key, 2)
+	err = tcc.ExpectContainerCount(key, 2)
 
 	if err != nil {
 		t.Errorf("number of containers did not resolve to 2 after waiting for reconcile")
 	}
 }
 
-func TestModifiesExistingDeployment(tp *TestCaseParams) func() {
+func TestModifiesExistingDeployment(tcc *TestCaseClient, t *testing.T) func() {
 	const (
 		pwlName            = "db-mod"
 		deploymentName     = "deploy-mod"
 		deploymentAppLabel = "existing-mod"
 	)
 
-	ctx := tp.Ctx
-	tp.CreateOrPatchNamespace()
-	tp.T.Logf("Creating namespace %v", tp.Namespace)
-
-	pKey := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
-	dKey := types.NamespacedName{Name: deploymentName, Namespace: tp.Namespace}
-
-	tp.T.Log("Creating deployment")
-	deployment, err := tp.CreateBusyboxDeployment(dKey, deploymentAppLabel)
+	ctx := tcc.Ctx
+	err := tcc.CreateOrPatchNamespace()
 	if err != nil {
-		tp.T.Error(err)
+		t.Fatalf("can't create namespace, %v", err)
+	}
+	t.Logf("Creating namespace %v", tcc.Namespace)
+
+	pKey := types.NamespacedName{Name: pwlName, Namespace: tcc.Namespace}
+	dKey := types.NamespacedName{Name: deploymentName, Namespace: tcc.Namespace}
+
+	t.Log("Creating deployment")
+	deployment, err := tcc.CreateBusyboxDeployment(dKey, deploymentAppLabel)
+	if err != nil {
+		t.Error(err)
 		return func() {}
 	}
 	// expect 1 container... no cloudsql instance yet
 	containerLen := len(deployment.Spec.Template.Spec.Containers)
 	if containerLen != 1 {
-		tp.T.Errorf("was %v, wants %v. number of containers. It should be set by the admission controller.", containerLen, 1)
+		t.Errorf("was %v, wants %v. number of containers. It should be set by the admission controller.", containerLen, 1)
 	}
 
-	tp.T.Log("Creating cloud sql instance")
-	err = tp.CreateAuthProxyWorkload(pKey, deploymentAppLabel, tp.ConnectionString, "Deployment")
+	t.Log("Creating cloud sql instance")
+	err = tcc.CreateAuthProxyWorkload(pKey, deploymentAppLabel, tcc.ConnectionString, "Deployment")
 	if err != nil {
-		tp.T.Error(err)
+		t.Error(err)
 		return func() {}
 
 	}
 
-	tp.T.Log("Waiting for cloud sql instance to begin the reconcile loop ")
-	updatedI, err := tp.GetAuthProxyWorkload(pKey)
+	t.Log("Waiting for cloud sql instance to begin the reconcile loop ")
+	updatedI, err := tcc.GetAuthProxyWorkload(pKey)
 	if err != nil {
-		tp.T.Error(err)
+		t.Error(err)
 		return func() {}
 
 	}
 	status, _ := yaml.Marshal(updatedI.Status)
 
-	tp.T.Logf("status: %v", string(status))
+	t.Logf("status: %v", string(status))
 
-	tp.T.Logf("Waiting for deployment reconcile to complete")
-	err = tp.ExpectContainerCount(dKey, 2)
+	t.Logf("Waiting for deployment reconcile to complete")
+	err = tcc.ExpectContainerCount(dKey, 2)
 	if err != nil {
-		tp.T.Error(err)
+		t.Error(err)
 		return func() {}
 
 	}
 
-	updatedI, err = tp.GetAuthProxyWorkload(pKey)
+	updatedI, err = tcc.GetAuthProxyWorkload(pKey)
 	if err != nil {
-		tp.T.Error(err)
+		t.Error(err)
 		return func() {}
 
 	}
@@ -274,17 +282,17 @@ func TestModifiesExistingDeployment(tp *TestCaseParams) func() {
 	// }
 
 	return func() {
-		tp.T.Logf("Deleting for cloud sql instance")
-		err = tp.Client.Delete(ctx, updatedI)
+		t.Logf("Deleting for cloud sql instance")
+		err = tcc.Client.Delete(ctx, updatedI)
 		if err != nil {
-			tp.T.Error(err)
+			t.Error(err)
 			return
 		}
 
-		tp.T.Logf("Waiting for deployment reconcile to complete")
-		err = tp.ExpectContainerCount(dKey, 1)
+		t.Logf("Waiting for deployment reconcile to complete")
+		err = tcc.ExpectContainerCount(dKey, 1)
 		if err != nil {
-			tp.T.Error(err)
+			t.Error(err)
 			return
 		}
 	}

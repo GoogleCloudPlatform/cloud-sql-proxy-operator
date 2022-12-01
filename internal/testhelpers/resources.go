@@ -86,16 +86,14 @@ func BuildDeployment(name types.NamespacedName, appLabel string) *appsv1.Deploym
 	}
 }
 
-func (p *TestCaseParams) CreateWorkload(o client.Object) error {
-	p.T.Helper()
-
-	err := p.Client.Create(p.Ctx, o)
+func (tcc *TestCaseClient) CreateWorkload(o client.Object) error {
+	err := tcc.Client.Create(tcc.Ctx, o)
 	if err != nil {
 		return err
 	}
 
-	err = RetryUntilSuccess(p.T, 5, 1*time.Second, func() error {
-		return p.Client.Get(p.Ctx, client.ObjectKeyFromObject(o), o)
+	err = RetryUntilSuccess(5, 1*time.Second, func() error {
+		return tcc.Client.Get(tcc.Ctx, client.ObjectKeyFromObject(o), o)
 	})
 	if err != nil {
 		return err
@@ -106,12 +104,11 @@ func (p *TestCaseParams) CreateWorkload(o client.Object) error {
 // GetAuthProxyWorkloadAfterReconcile finds an AuthProxyWorkload resource named key, waits for its
 // "UpToDate" condition to be "True", and the returns it. Fails after 30 seconds
 // if the containers does not match.
-func (p *TestCaseParams) GetAuthProxyWorkloadAfterReconcile(key types.NamespacedName) (*v1alpha1.AuthProxyWorkload, error) {
-	p.T.Helper()
+func (tcc *TestCaseClient) GetAuthProxyWorkloadAfterReconcile(key types.NamespacedName) (*v1alpha1.AuthProxyWorkload, error) {
 	createdPodmod := &v1alpha1.AuthProxyWorkload{}
 	// We'll need to retry getting this newly created resource, given that creation may not immediately happen.
-	err := RetryUntilSuccess(p.T, 6, 5*time.Second, func() error {
-		err := p.Client.Get(p.Ctx, key, createdPodmod)
+	err := RetryUntilSuccess(6, 5*time.Second, func() error {
+		err := tcc.Client.Get(tcc.Ctx, key, createdPodmod)
 		if err != nil {
 			return err
 		}
@@ -128,19 +125,18 @@ func (p *TestCaseParams) GetAuthProxyWorkloadAfterReconcile(key types.Namespaced
 
 // CreateBusyboxDeployment creates a simple busybox deployment, using the
 // key as its namespace and name. It also sets the label "app"= appLabel.
-func (p *TestCaseParams) CreateBusyboxDeployment(name types.NamespacedName, appLabel string) (*appsv1.Deployment, error) {
-	p.T.Helper()
+func (tcc *TestCaseClient) CreateBusyboxDeployment(name types.NamespacedName, appLabel string) (*appsv1.Deployment, error) {
 
 	d := BuildDeployment(name, appLabel)
 
-	err := p.Client.Create(p.Ctx, d)
+	err := tcc.Client.Create(tcc.Ctx, d)
 	if err != nil {
 		return nil, err
 	}
 
 	cd := &appsv1.Deployment{}
-	err = RetryUntilSuccess(p.T, 5, 1*time.Second, func() error {
-		return p.Client.Get(p.Ctx, types.NamespacedName{
+	err = RetryUntilSuccess(5, 1*time.Second, func() error {
+		return tcc.Client.Get(tcc.Ctx, types.NamespacedName{
 			Namespace: name.Namespace,
 			Name:      name.Name,
 		}, cd)
@@ -154,12 +150,11 @@ func (p *TestCaseParams) CreateBusyboxDeployment(name types.NamespacedName, appL
 // GetAuthProxyWorkload finds an AuthProxyWorkload resource named key, waits for its
 // "UpToDate" condition to be "True", and the returns it. Fails after 30 seconds
 // if the containers does not match.
-func (p *TestCaseParams) GetAuthProxyWorkload(key types.NamespacedName) (*v1alpha1.AuthProxyWorkload, error) {
-	p.T.Helper()
+func (tcc *TestCaseClient) GetAuthProxyWorkload(key types.NamespacedName) (*v1alpha1.AuthProxyWorkload, error) {
 	createdPodmod := &v1alpha1.AuthProxyWorkload{}
 	// We'll need to retry getting this newly created resource, given that creation may not immediately happen.
-	err := RetryUntilSuccess(p.T, 6, 5*time.Second, func() error {
-		err := p.Client.Get(p.Ctx, key, createdPodmod)
+	err := RetryUntilSuccess(6, 5*time.Second, func() error {
+		err := tcc.Client.Get(tcc.Ctx, key, createdPodmod)
 		if err != nil {
 			return err
 		}
@@ -194,18 +189,16 @@ func ListPods(ctx context.Context, c client.Client, ns string, selector *metav1.
 // ExpectPodContainerCount finds a deployment and keeps checking until the number of
 // containers on the deployment's PodSpec.Containers == count. Returns error after 30 seconds
 // if the containers do not match.
-func (p *TestCaseParams) ExpectPodContainerCount(podSelector *metav1.LabelSelector, count int, allOrAny string) error {
-
-	p.T.Helper()
+func (tcc *TestCaseClient) ExpectPodContainerCount(podSelector *metav1.LabelSelector, count int, allOrAny string) error {
 
 	var (
 		countBadPods int
 		countPods    int
 	)
 
-	err := RetryUntilSuccess(p.T, 6, 10*time.Second, func() error {
+	err := RetryUntilSuccess(6, 10*time.Second, func() error {
 		countBadPods = 0
-		pods, err := ListPods(p.Ctx, p.Client, p.Namespace, podSelector)
+		pods, err := ListPods(tcc.Ctx, tcc.Client, tcc.Namespace, podSelector)
 		if err != nil {
 			return err
 		}
@@ -217,7 +210,6 @@ func (p *TestCaseParams) ExpectPodContainerCount(podSelector *metav1.LabelSelect
 			got := len(pod.Spec.Containers)
 			if got != count {
 				countBadPods++
-				p.T.Logf("got %d containers, want %d containers on pod %v: ", got, count, pod.Name)
 			}
 		}
 		switch {
@@ -230,8 +222,7 @@ func (p *TestCaseParams) ExpectPodContainerCount(podSelector *metav1.LabelSelect
 	})
 
 	if err != nil {
-		p.T.Errorf("want %v containers, got the wrong number of containers on %d of %d pods", count, countBadPods, countPods)
-		return err
+		return fmt.Errorf("want %v containers, got the wrong number of containers on %d of %d pods", count, countBadPods, countPods)
 	}
 
 	return nil
@@ -240,16 +231,14 @@ func (p *TestCaseParams) ExpectPodContainerCount(podSelector *metav1.LabelSelect
 // ExpectContainerCount finds a deployment and keeps checking until the number of
 // containers on the deployment's PodSpec.Containers == count. Returns error after 30 seconds
 // if the containers do not match.
-func (p *TestCaseParams) ExpectContainerCount(key types.NamespacedName, count int) error {
-
-	p.T.Helper()
+func (tcc *TestCaseClient) ExpectContainerCount(key types.NamespacedName, count int) error {
 
 	var (
 		got        int
 		deployment = &appsv1.Deployment{}
 	)
-	err := RetryUntilSuccess(p.T, 6, 5*time.Second, func() error {
-		err := p.Client.Get(p.Ctx, key, deployment)
+	err := RetryUntilSuccess(6, 5*time.Second, func() error {
+		err := tcc.Client.Get(tcc.Ctx, key, deployment)
 		if err != nil {
 			return err
 		}
@@ -261,11 +250,9 @@ func (p *TestCaseParams) ExpectContainerCount(key types.NamespacedName, count in
 	})
 
 	if err != nil {
-		p.T.Errorf("want %v containers, got %v number of containers did not resolve after waiting for reconcile", count, got)
-		return err
+		return fmt.Errorf("want %v containers, got %v number of containers did not resolve after waiting for reconcile", count, got)
 	}
 
-	p.T.Logf("Container len is now %v", got)
 	return nil
 }
 
@@ -288,8 +275,7 @@ func BuildAuthProxyWorkload(key types.NamespacedName, connectionString string) *
 }
 
 // CreateAuthProxyWorkload creates an AuthProxyWorkload in the kubernetes cluster.
-func (p *TestCaseParams) CreateAuthProxyWorkload(key types.NamespacedName, appLabel string, connectionString string, kind string) error {
-	p.T.Helper()
+func (tcc *TestCaseClient) CreateAuthProxyWorkload(key types.NamespacedName, appLabel string, connectionString string, kind string) error {
 	proxy := BuildAuthProxyWorkload(key, connectionString)
 	proxy.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
 		Kind: kind,
@@ -297,11 +283,10 @@ func (p *TestCaseParams) CreateAuthProxyWorkload(key types.NamespacedName, appLa
 			MatchLabels: map[string]string{"app": appLabel},
 		},
 	}
-	proxy.Spec.AuthProxyContainer = &v1alpha1.AuthProxyContainerSpec{Image: p.ProxyImageURL}
-	err := p.Client.Create(p.Ctx, proxy)
+	proxy.Spec.AuthProxyContainer = &v1alpha1.AuthProxyContainerSpec{Image: tcc.ProxyImageURL}
+	err := tcc.Client.Create(tcc.Ctx, proxy)
 	if err != nil {
-		p.T.Errorf("Unable to create entity %v", err)
-		return err
+		return fmt.Errorf("Unable to create entity %v", err)
 	}
 	return nil
 }

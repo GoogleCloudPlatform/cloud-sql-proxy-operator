@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	helpers2 "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -40,23 +40,23 @@ func TestMain(m *testing.M) {
 }
 
 func TestCreateResource(t *testing.T) {
-	tctx := params(t, "create")
-	helpers2.TestCreateResource(tctx)
+	tcc := newTestCaseClient("create")
+	testhelpers.TestCreateResource(tcc, t)
 }
 
 func TestDeleteResource(t *testing.T) {
-	tctx := params(t, "delete")
-	helpers2.TestDeleteResource(tctx)
+	tcc := newTestCaseClient("delete")
+	testhelpers.TestDeleteResource(tcc, t)
 }
 
 func TestModifiesNewDeployment(t *testing.T) {
-	tctx := params(t, "newdeploy")
-	helpers2.TestModifiesNewDeployment(tctx)
+	tcc := newTestCaseClient("newdeploy")
+	testhelpers.TestModifiesNewDeployment(tcc, t)
 
 	var podList *v1.PodList
-	err := helpers2.RetryUntilSuccess(t, 5, 10*time.Second, func() error {
+	err := testhelpers.RetryUntilSuccess(5, 10*time.Second, func() error {
 		var err error
-		podList, err = listDeploymentPods(tctx.Ctx, client.ObjectKey{Namespace: tctx.Namespace, Name: "newdeploy"})
+		podList, err = listDeploymentPods(tcc.Ctx, client.ObjectKey{Namespace: tcc.Namespace, Name: "newdeploy"})
 		return err
 	})
 
@@ -72,6 +72,6 @@ func TestModifiesNewDeployment(t *testing.T) {
 }
 
 func TestModifiesExistingDeployment(t *testing.T) {
-	tctx := params(t, "modifydeploy")
-	helpers2.TestModifiesExistingDeployment(tctx)
+	tcc := newTestCaseClient("modifydeploy")
+	testhelpers.TestModifiesExistingDeployment(tcc, t)
 }

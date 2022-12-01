@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -27,38 +26,37 @@ import (
 
 // CreateOrPatchNamespace ensures that a namespace exists with the given name
 // in kubernetes, or fails the test as fatal.
-func (p *TestCaseParams) CreateOrPatchNamespace() {
+func (tcc *TestCaseClient) CreateOrPatchNamespace() error {
 	var newNS = corev1.Namespace{
 		TypeMeta:   metav1.TypeMeta{Kind: "Namespace", APIVersion: "v1"},
-		ObjectMeta: metav1.ObjectMeta{Name: p.Namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: tcc.Namespace},
 	}
-	_, err := controllerutil.CreateOrPatch(p.Ctx, p.Client, &newNS, func() error {
-		newNS.ObjectMeta.Name = p.Namespace
+	_, err := controllerutil.CreateOrPatch(tcc.Ctx, tcc.Client, &newNS, func() error {
+		newNS.ObjectMeta.Name = tcc.Namespace
 		return nil
 	})
 	if err != nil {
-		p.T.Fatalf("unable to verify existance of namespace %v, %v", p.Namespace, err)
+		return fmt.Errorf("unable to verify existance of namespace %v, %v", tcc.Namespace, err)
 	}
 
 	var gotNS corev1.Namespace
-	err = RetryUntilSuccess(p.T, 5, time.Second*5, func() error {
-		return p.Client.Get(p.Ctx, client.ObjectKey{Name: p.Namespace}, &gotNS)
+	err = RetryUntilSuccess(5, time.Second*5, func() error {
+		return tcc.Client.Get(tcc.Ctx, client.ObjectKey{Name: tcc.Namespace}, &gotNS)
 	})
 
 	if err != nil {
-		p.T.Fatalf("unable to verify existance of namespace %v, %v", p.Namespace, err)
+		return fmt.Errorf("unable to verify existance of namespace %v, %v", tcc.Namespace, err)
 	}
+	return nil
 
 }
 
 // RetryUntilSuccess runs `f` until it no longer returns an error, or it has
 // returned an error `attempts` number of times. It waits `sleep` duration
 // between failed attempts. It returns the error from the last attempt.
-func RetryUntilSuccess(t TestLogger, attempts int, sleep time.Duration, f func() error) (err error) {
-	t.Helper()
+func RetryUntilSuccess(attempts int, sleep time.Duration, f func() error) (err error) {
 	for i := 0; i < attempts; i++ {
 		if i > 0 {
-			t.Logf("retrying after attempt %d, %v", i, err)
 			time.Sleep(sleep)
 			sleep *= 2
 		}
@@ -69,20 +67,3 @@ func RetryUntilSuccess(t TestLogger, attempts int, sleep time.Duration, f func()
 	}
 	return fmt.Errorf("after %d attempts, last error: %s", attempts, err)
 }
-
-// TestLogger interface hides the testing.T.Logf() and testing.T.Helper() so that
-// helper package functions can be used both inside a testcase with a real testing.T
-// and in the TestMain() function with a TestSetupLogger, outside a testcase.
-type TestLogger interface {
-	Helper()
-	Logf(format string, args ...interface{})
-}
-
-type TestSetupLogger struct {
-	logr.Logger
-}
-
-func (l *TestSetupLogger) Logf(format string, args ...interface{}) {
-	l.Info(fmt.Sprintf(format, args...))
-}
-func (l *TestSetupLogger) Helper() {}
