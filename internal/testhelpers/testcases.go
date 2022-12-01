@@ -53,7 +53,7 @@ func TestCreateResource(tctx *TestCaseParams) {
 	)
 
 	// First, set up the k8s namespace for this test.
-	CreateOrPatchNamespace(ctx, tctx)
+	tctx.CreateOrPatchNamespace()
 
 	// Fill in the resource with appropriate details.
 	resource := &v1alpha1.AuthProxyWorkload{
@@ -110,7 +110,7 @@ func TestDeleteResource(tctx *TestCaseParams) {
 		t   = tctx.T
 		ctx = tctx.Ctx
 	)
-	CreateOrPatchNamespace(ctx, tctx)
+	tctx.CreateOrPatchNamespace()
 	key := types.NamespacedName{Name: name, Namespace: ns}
 	err := tctx.CreateAuthProxyWorkload(key, "app", expectedConnStr, "Deployment")
 	if err != nil {
@@ -166,9 +166,7 @@ func TestDeleteResource(tctx *TestCaseParams) {
 
 func TestModifiesNewDeployment(tp *TestCaseParams) {
 	t := tp.T
-	testContext := tp.Ctx
-
-	CreateOrPatchNamespace(testContext, tp)
+	tp.CreateOrPatchNamespace()
 
 	const (
 		pwlName            = "newdeploy"
@@ -217,7 +215,7 @@ func TestModifiesExistingDeployment(tp *TestCaseParams) func() {
 	)
 
 	ctx := tp.Ctx
-	CreateOrPatchNamespace(ctx, tp)
+	tp.CreateOrPatchNamespace()
 	tp.T.Logf("Creating namespace %v", tp.Namespace)
 
 	pKey := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}

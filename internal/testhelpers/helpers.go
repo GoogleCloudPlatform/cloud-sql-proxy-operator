@@ -15,7 +15,6 @@
 package testhelpers
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -28,26 +27,26 @@ import (
 
 // CreateOrPatchNamespace ensures that a namespace exists with the given name
 // in kubernetes, or fails the test as fatal.
-func CreateOrPatchNamespace(ctx context.Context, tctx *TestCaseParams) {
+func (p *TestCaseParams) CreateOrPatchNamespace() {
 	var newNS = corev1.Namespace{
 		TypeMeta:   metav1.TypeMeta{Kind: "Namespace", APIVersion: "v1"},
-		ObjectMeta: metav1.ObjectMeta{Name: tctx.Namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: p.Namespace},
 	}
-	_, err := controllerutil.CreateOrPatch(ctx, tctx.Client, &newNS, func() error {
-		newNS.ObjectMeta.Name = tctx.Namespace
+	_, err := controllerutil.CreateOrPatch(p.Ctx, p.Client, &newNS, func() error {
+		newNS.ObjectMeta.Name = p.Namespace
 		return nil
 	})
 	if err != nil {
-		tctx.T.Fatalf("unable to verify existance of namespace %v, %v", tctx.Namespace, err)
+		p.T.Fatalf("unable to verify existance of namespace %v, %v", p.Namespace, err)
 	}
 
 	var gotNS corev1.Namespace
-	err = RetryUntilSuccess(tctx.T, 5, time.Second*5, func() error {
-		return tctx.Client.Get(ctx, client.ObjectKey{Name: tctx.Namespace}, &gotNS)
+	err = RetryUntilSuccess(p.T, 5, time.Second*5, func() error {
+		return p.Client.Get(p.Ctx, client.ObjectKey{Name: p.Namespace}, &gotNS)
 	})
 
 	if err != nil {
-		tctx.T.Fatalf("unable to verify existance of namespace %v, %v", tctx.Namespace, err)
+		p.T.Fatalf("unable to verify existance of namespace %v, %v", p.Namespace, err)
 	}
 
 }

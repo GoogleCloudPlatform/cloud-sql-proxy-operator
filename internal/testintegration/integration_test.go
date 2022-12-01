@@ -75,7 +75,7 @@ func TestDeleteResource(t *testing.T) {
 func TestModifiesNewDeployment(t *testing.T) {
 	tp := testCaseParams(t, "modifynew")
 
-	testhelpers.CreateOrPatchNamespace(tp.Ctx, tp)
+	tp.CreateOrPatchNamespace()
 
 	const (
 		pwlName            = "newdeploy"
