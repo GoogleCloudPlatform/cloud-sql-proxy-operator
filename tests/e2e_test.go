@@ -94,6 +94,12 @@ func TestProxyAppliedOnNewWorkload(t *testing.T) {
 			if err != nil {
 				t.Error(err)
 			}
+			t.Cleanup(func() {
+				err = tp.DeleteNamespace()
+				if err != nil {
+					t.Fatal(err)
+				}
+			})
 
 			const (
 				pwlName  = "newss"
@@ -104,23 +110,13 @@ func TestProxyAppliedOnNewWorkload(t *testing.T) {
 			t.Log("Creating AuthProxyWorkload")
 			err = tp.CreateAuthProxyWorkload(key, appLabel, tp.ConnectionString, kind)
 			if err != nil {
-				t.Error(err)
-				err = tp.DeleteNamespace()
-				if err != nil {
-					t.Error(err)
-				}
-				return
+				t.Fatal(err)
 			}
 
 			t.Log("Waiting for AuthProxyWorkload operator to begin the reconcile loop")
 			_, err = tp.GetAuthProxyWorkloadAfterReconcile(key)
 			if err != nil {
-				t.Error("unable to create AuthProxyWorkload", err)
-				err = tp.DeleteNamespace()
-				if err != nil {
-					t.Error(err)
-				}
-				return
+				t.Fatal("unable to create AuthProxyWorkload", err)
 			}
 
 			t.Log("Creating ", kind)
@@ -128,22 +124,12 @@ func TestProxyAppliedOnNewWorkload(t *testing.T) {
 			test.o.SetName(test.name)
 			err = tp.CreateWorkload(test.o)
 			if err != nil {
-				t.Error("unable to create ", kind, err)
-				err = tp.DeleteNamespace()
-				if err != nil {
-					t.Error(err)
-				}
-				return
+				t.Fatal("unable to create ", kind, err)
 			}
 			selector := &metav1.LabelSelector{
 				MatchLabels: map[string]string{"app": "busyboxon"},
 			}
 			err = tp.ExpectPodContainerCount(selector, 2, "all")
-			if err != nil {
-				t.Error(err)
-			}
-
-			err = tp.DeleteNamespace()
 			if err != nil {
 				t.Error(err)
 			}
@@ -195,6 +181,12 @@ func TestProxyAppliedOnExistingWorkload(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			t.Cleanup(func() {
+				err = tp.DeleteNamespace()
+				if err != nil {
+					t.Fatal(err)
+				}
+			})
 
 			const (
 				pwlName  = "newss"
@@ -207,57 +199,33 @@ func TestProxyAppliedOnExistingWorkload(t *testing.T) {
 			test.o.SetName(test.name)
 			err = tp.CreateWorkload(test.o)
 			if err != nil {
-				t.Error("unable to create ", kind, err)
-				err = tp.DeleteNamespace()
-				if err != nil {
-					t.Error(err)
-				}
-				return
+				t.Fatal("unable to create ", kind, err)
 			}
 			selector := &metav1.LabelSelector{
 				MatchLabels: map[string]string{"app": "busyboxon"},
 			}
+
 			err = tp.ExpectPodContainerCount(selector, 1, test.allOrAny)
 			if err != nil {
-				t.Error(err)
-			}
-
-			if err != nil {
-				err = tp.DeleteNamespace()
-				if err != nil {
-					t.Error(err)
-				}
-				return
+				t.Fatal(err)
 			}
 
 			t.Log("Creating AuthProxyWorkload")
 			err = tp.CreateAuthProxyWorkload(key, appLabel, tp.ConnectionString, kind)
 			if err != nil {
-				t.Error(err)
-				err = tp.DeleteNamespace()
-				if err != nil {
-					t.Error(err)
-				}
-				return
+				t.Fatal(err)
 			}
 
 			t.Log("Waiting for AuthProxyWorkload operator to begin the reconcile loop")
 			_, err = tp.GetAuthProxyWorkloadAfterReconcile(key)
 			if err != nil {
-				t.Error("unable to create AuthProxyWorkload", err)
-				return
+				t.Fatal(err)
 			}
 
 			err = tp.ExpectPodContainerCount(selector, 2, test.allOrAny)
 			if err != nil {
-				t.Error(err)
+				t.Fatal(err)
 			}
-
-			err = tp.DeleteNamespace()
-			if err != nil {
-				t.Error(err)
-			}
-
 		})
 	}
 }
