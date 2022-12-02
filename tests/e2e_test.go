@@ -38,14 +38,13 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestCreateResource(t *testing.T) {
+func TestCreateAndDeleteResource(t *testing.T) {
 	tcc := newTestCaseClient("create")
-	testhelpers.TestCreateResource(tcc, t)
-}
+	err := tcc.CreateAndDeleteResource()
+	if err != nil {
+		t.Error(err)
+	}
 
-func TestDeleteResource(t *testing.T) {
-	tcc := newTestCaseClient("delete")
-	testhelpers.TestDeleteResource(tcc, t)
 }
 
 func TestModifiesNewDeployment(t *testing.T) {
