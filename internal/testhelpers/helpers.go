@@ -54,13 +54,13 @@ func (cc *TestCaseClient) CreateOrPatchNamespace() error {
 }
 
 // RetryUntilSuccess runs `f` until it no longer returns an error, or it has
-// returned an error `attempts` number of times. It waits `sleep` duration
+// returned an error `attempts` number of times. It sleeps duration `d`
 // between failed attempts. It returns the error from the last attempt.
-func RetryUntilSuccess(attempts int, sleep time.Duration, f func() error) (err error) {
+func RetryUntilSuccess(attempts int, d time.Duration, f func() error) (err error) {
 	for i := 0; i < attempts; i++ {
 		if i > 0 {
-			time.Sleep(sleep)
-			sleep *= 2
+			time.Sleep(d)
+			d *= 2
 		}
 		err = f()
 		if err == nil {
