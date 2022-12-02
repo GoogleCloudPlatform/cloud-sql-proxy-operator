@@ -84,11 +84,5 @@ func SetupWorkloadControllers(mgr ctrl.Manager, u *workload.Updater) error {
 			updater: u,
 		}})
 
-	mgr.GetWebhookServer().Register("/mutate-workloads", &webhook.Admission{
-		Handler: &WorkloadAdmissionWebhook{
-			Client:  mgr.GetClient(),
-			updater: u,
-		}})
-
 	return nil
 }
