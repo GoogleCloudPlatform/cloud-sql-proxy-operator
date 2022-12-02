@@ -18,13 +18,11 @@
 package testintegration_test
 
 import (
-	"fmt"
 	"os"
 	"testing"
 
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testintegration"
-	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -106,27 +104,6 @@ func TestModifiesNewDeployment(t *testing.T) {
 		t.Error("unable to create pods", err)
 		return
 	}
-
-	testhelpers.RetryUntilSuccess(5, testhelpers.DefaultRetryInterval, func() error {
-		dep := &appsv1.Deployment{}
-		err := tcc.Client.Get(tcc.Ctx, key, dep)
-		if err != nil {
-			return err
-		}
-		annKey := fmt.Sprintf("cloudsql.cloud.google.com/req-%s-%s", tcc.Namespace, pwlName)
-		wantAnn := "1"
-		var gotAnn string
-		if dep.Spec.Template.Annotations != nil {
-			gotAnn = dep.Spec.Template.Annotations[annKey]
-		}
-		if len(dep.Spec.Template.Annotations) == 0 {
-			return fmt.Errorf("Expected annotations")
-		}
-		if wantAnn != gotAnn {
-			return fmt.Errorf("got %s, want %s for annotation named %s", gotAnn, wantAnn, annKey)
-		}
-		return nil
-	})
 
 	err = tcc.ExpectPodContainerCount(d.Spec.Selector, 2, "all")
 	if err != nil {
