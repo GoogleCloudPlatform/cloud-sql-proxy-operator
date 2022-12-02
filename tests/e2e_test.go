@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
 	v1 "k8s.io/api/core/v1"
@@ -54,7 +53,7 @@ func TestModifiesNewDeployment(t *testing.T) {
 	testhelpers.TestModifiesNewDeployment(tcc, t)
 
 	var podList *v1.PodList
-	err := testhelpers.RetryUntilSuccess(5, 10*time.Second, func() error {
+	err := testhelpers.RetryUntilSuccess(5, testhelpers.DefaultRetryInterval, func() error {
 		var err error
 		podList, err = listDeploymentPods(tcc.Ctx, client.ObjectKey{Namespace: tcc.Namespace, Name: "newdeploy"})
 		return err

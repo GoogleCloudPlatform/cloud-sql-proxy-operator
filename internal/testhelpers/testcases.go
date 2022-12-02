@@ -19,7 +19,6 @@ import (
 	"errors"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -87,7 +86,7 @@ func TestCreateResource(tcc *TestCaseClient, t *testing.T) {
 	// Wait for kubernetes to finish creating the resource, kubernetes
 	// is eventually-consistent.
 	retrievedResource := &v1alpha1.AuthProxyWorkload{}
-	err = RetryUntilSuccess(5, time.Second*5, func() error {
+	err = RetryUntilSuccess(5, DefaultRetryInterval, func() error {
 		return tcc.Client.Get(ctx, resourceKey, retrievedResource)
 	})
 	if err != nil {
@@ -139,7 +138,7 @@ func TestDeleteResource(tcc *TestCaseClient, t *testing.T) {
 	}
 
 	// Make sure the finalizer was added before deleting the resource.
-	err = RetryUntilSuccess(3, 5*time.Second, func() error {
+	err = RetryUntilSuccess(3, DefaultRetryInterval, func() error {
 		err = tcc.Client.Get(ctx, key, res)
 		if len(res.Finalizers) == 0 {
 			return errors.New("waiting for finalizer to be set")
@@ -152,7 +151,7 @@ func TestDeleteResource(tcc *TestCaseClient, t *testing.T) {
 		t.Error(err)
 	}
 
-	err = RetryUntilSuccess(3, 5*time.Second, func() error {
+	err = RetryUntilSuccess(3, DefaultRetryInterval, func() error {
 		err = tcc.Client.Get(ctx, key, res)
 		// The test passes when this returns an error,
 		// because that means the resource was deleted.

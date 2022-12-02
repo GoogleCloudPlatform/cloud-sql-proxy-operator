@@ -24,28 +24,30 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+const DefaultRetryInterval = 5 * time.Second
+
 // CreateOrPatchNamespace ensures that a namespace exists with the given name
 // in kubernetes, or fails the test as fatal.
-func (tcc *TestCaseClient) CreateOrPatchNamespace() error {
+func (cc *TestCaseClient) CreateOrPatchNamespace() error {
 	var newNS = corev1.Namespace{
 		TypeMeta:   metav1.TypeMeta{Kind: "Namespace", APIVersion: "v1"},
-		ObjectMeta: metav1.ObjectMeta{Name: tcc.Namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: cc.Namespace},
 	}
-	_, err := controllerutil.CreateOrPatch(tcc.Ctx, tcc.Client, &newNS, func() error {
-		newNS.ObjectMeta.Name = tcc.Namespace
+	_, err := controllerutil.CreateOrPatch(cc.Ctx, cc.Client, &newNS, func() error {
+		newNS.ObjectMeta.Name = cc.Namespace
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("unable to verify existance of namespace %v, %v", tcc.Namespace, err)
+		return fmt.Errorf("unable to verify existance of namespace %v, %v", cc.Namespace, err)
 	}
 
 	var gotNS corev1.Namespace
-	err = RetryUntilSuccess(5, time.Second*5, func() error {
-		return tcc.Client.Get(tcc.Ctx, client.ObjectKey{Name: tcc.Namespace}, &gotNS)
+	err = RetryUntilSuccess(5, DefaultRetryInterval, func() error {
+		return cc.Client.Get(cc.Ctx, client.ObjectKey{Name: cc.Namespace}, &gotNS)
 	})
 
 	if err != nil {
-		return fmt.Errorf("unable to verify existance of namespace %v, %v", tcc.Namespace, err)
+		return fmt.Errorf("unable to verify existance of namespace %v, %v", cc.Namespace, err)
 	}
 	return nil
 
