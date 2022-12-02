@@ -54,7 +54,15 @@ func newTestCaseClient(name string) *testhelpers.TestCaseClient {
 
 func TestCreateAndDeleteResource(t *testing.T) {
 	tcc := newTestCaseClient("create")
-	err := tcc.CreateAndDeleteResource()
+	res, err := tcc.CreateResource(tcc.Ctx)
+	if err != nil {
+		t.Error(err)
+	}
+	err = tcc.WaitForFinalizerOnResource(tcc.Ctx, res)
+	if err != nil {
+		t.Error(err)
+	}
+	err = tcc.DeleteResourceAndWait(tcc.Ctx, res)
 	if err != nil {
 		t.Error(err)
 	}
@@ -144,7 +152,10 @@ func TestModifiesExistingDeployment(t *testing.T) {
 	}
 
 	// expect 1 container... no cloudsql instance yet
-	tp.ExpectPodContainerCount(d.Spec.Selector, 1, "all")
+	err = tp.ExpectPodContainerCount(d.Spec.Selector, 1, "all")
+	if err != nil {
+		t.Error(err)
+	}
 
 	t.Log("Creating cloud sql instance")
 	err = tp.CreateAuthProxyWorkload(pKey, deploymentAppLabel, tp.ConnectionString, "Deployment")

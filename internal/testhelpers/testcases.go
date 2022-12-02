@@ -40,54 +40,69 @@ func NewNamespaceName(prefix string) string {
 	return fmt.Sprintf("test%s%d", prefix, rand.IntnRange(1000, 9999))
 }
 
-func (tcc *TestCaseClient) CreateAndDeleteResource() error {
+// CreateResource creates a new workload resource in the TestCaseClient's namespace
+// waits until the resource exists.
+func (cc *TestCaseClient) CreateResource(_ context.Context) (*v1alpha1.AuthProxyWorkload, error) {
 	const (
 		name            = "instance1"
 		expectedConnStr = "proj:inst:db"
 	)
 	var (
-		ns  = tcc.Namespace
-		ctx = tcc.Ctx
+		ns = cc.Namespace
 	)
-	err := tcc.CreateOrPatchNamespace()
+	err := cc.CreateOrPatchNamespace()
 	if err != nil {
-		return fmt.Errorf("can't create namespace, %v", err)
+		return nil, fmt.Errorf("can't create namespace, %v", err)
 	}
 	key := types.NamespacedName{Name: name, Namespace: ns}
-	err = tcc.CreateAuthProxyWorkload(key, "app", expectedConnStr, "Deployment")
+	err = cc.CreateAuthProxyWorkload(key, "app", expectedConnStr, "Deployment")
 	if err != nil {
-		return fmt.Errorf("Unable to create auth proxy workload %v", err)
+		return nil, fmt.Errorf("unable to create auth proxy workload %v", err)
 	}
 
-	res, err := tcc.GetAuthProxyWorkloadAfterReconcile(key)
+	res, err := cc.GetAuthProxyWorkloadAfterReconcile(key)
 	if err != nil {
-		return fmt.Errorf("Unable to find entity after create %v", err)
+		return nil, fmt.Errorf("unable to find entity after create %v", err)
 	}
 
 	if connStr := res.Spec.Instances[0].ConnectionString; connStr != expectedConnStr {
-		return fmt.Errorf("was %v, wants %v, spec.cloudSqlInstance", connStr, expectedConnStr)
+		return nil, fmt.Errorf("was %v, wants %v, spec.cloudSqlInstance", connStr, expectedConnStr)
 	}
 
 	if wlstatus := GetConditionStatus(res.Status.Conditions, v1alpha1.ConditionUpToDate); wlstatus != metav1.ConditionTrue {
-		return fmt.Errorf("was %v, wants %v, status.condition[up-to-date]", wlstatus, metav1.ConditionTrue)
+		return nil, fmt.Errorf("was %v, wants %v, status.condition[up-to-date]", wlstatus, metav1.ConditionTrue)
 	}
+	return res, nil
+}
+
+// WaitForFinalizerOnResource queries the client to see if the resource has
+// a finalizer.
+func (cc *TestCaseClient) WaitForFinalizerOnResource(ctx context.Context, res *v1alpha1.AuthProxyWorkload) error {
 
 	// Make sure the finalizer was added before deleting the resource.
-	err = RetryUntilSuccess(3, DefaultRetryInterval, func() error {
-		err = tcc.Client.Get(ctx, key, res)
+	return RetryUntilSuccess(3, DefaultRetryInterval, func() error {
+		err := cc.Client.Get(ctx, client.ObjectKeyFromObject(res), res)
+		if err != nil {
+			return err
+		}
 		if len(res.Finalizers) == 0 {
 			return errors.New("waiting for finalizer to be set")
 		}
 		return nil
 	})
+}
 
-	err = tcc.Client.Delete(ctx, res)
+// DeleteResourceAndWait issues a delete request for the resource and then waits for the resource
+// to actually be deleted. This will return an error if the resource is not deleted within 15 seconds.
+func (cc *TestCaseClient) DeleteResourceAndWait(ctx context.Context, res *v1alpha1.AuthProxyWorkload) error {
+
+	err := cc.Client.Delete(ctx, res)
 	if err != nil {
 		return err
 	}
 
 	err = RetryUntilSuccess(3, DefaultRetryInterval, func() error {
-		err = tcc.Client.Get(ctx, key, res)
+		err = cc.Client.Get(ctx, client.ObjectKeyFromObject(res), res)
 		// The test passes when this returns an error,
 		// because that means the resource was deleted.
 		if err != nil {
