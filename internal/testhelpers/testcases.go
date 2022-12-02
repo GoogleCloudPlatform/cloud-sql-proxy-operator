@@ -40,67 +40,7 @@ func NewNamespaceName(prefix string) string {
 	return fmt.Sprintf("test%s%d", prefix, rand.IntnRange(1000, 9999))
 }
 
-func TestCreateResource(tcc *TestCaseClient, t *testing.T) {
-
-	var (
-		namespace   = tcc.Namespace
-		wantName    = "instance1"
-		resourceKey = types.NamespacedName{Name: wantName, Namespace: namespace}
-		ctx         = tcc.Ctx
-	)
-
-	// First, set up the k8s namespace for this test.
-	err := tcc.CreateOrPatchNamespace()
-	if err != nil {
-		t.Fatalf("can't create namespace, %v", err)
-	}
-
-	// Fill in the resource with appropriate details.
-	resource := &v1alpha1.AuthProxyWorkload{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1alpha1.GroupVersion.String(),
-			Kind:       "AuthProxyWorkload",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      wantName,
-			Namespace: namespace,
-		},
-		Spec: v1alpha1.AuthProxyWorkloadSpec{
-			Workload: v1alpha1.WorkloadSelectorSpec{
-				Kind: "Deployment",
-				Name: "busybox",
-			},
-			Instances: []v1alpha1.InstanceSpec{{
-				ConnectionString: tcc.ConnectionString,
-			}},
-		},
-	}
-
-	// Call kubernetes to create the resource.
-	err = tcc.Client.Create(ctx, resource)
-	if err != nil {
-		t.Errorf("Error %v", err)
-		return
-	}
-
-	// Wait for kubernetes to finish creating the resource, kubernetes
-	// is eventually-consistent.
-	retrievedResource := &v1alpha1.AuthProxyWorkload{}
-	err = RetryUntilSuccess(5, DefaultRetryInterval, func() error {
-		return tcc.Client.Get(ctx, resourceKey, retrievedResource)
-	})
-	if err != nil {
-		t.Errorf("unable to find entity after create %v", err)
-		return
-	}
-
-	// Test the contents of the resource that was retrieved from kubernetes.
-	if got := retrievedResource.GetName(); got != wantName {
-		t.Errorf("got %v, want %v resource wantName", got, wantName)
-	}
-}
-
-func TestDeleteResource(tcc *TestCaseClient, t *testing.T) {
+func (tcc *TestCaseClient) CreateAndDeleteResource() error {
 	const (
 		name            = "instance1"
 		expectedConnStr = "proj:inst:db"
@@ -111,30 +51,25 @@ func TestDeleteResource(tcc *TestCaseClient, t *testing.T) {
 	)
 	err := tcc.CreateOrPatchNamespace()
 	if err != nil {
-		t.Fatalf("can't create namespace, %v", err)
+		return fmt.Errorf("can't create namespace, %v", err)
 	}
 	key := types.NamespacedName{Name: name, Namespace: ns}
 	err = tcc.CreateAuthProxyWorkload(key, "app", expectedConnStr, "Deployment")
 	if err != nil {
-		t.Errorf("Unable to create auth proxy workload %v", err)
-		return
+		return fmt.Errorf("Unable to create auth proxy workload %v", err)
 	}
 
 	res, err := tcc.GetAuthProxyWorkloadAfterReconcile(key)
 	if err != nil {
-		t.Errorf("Unable to find entity after create %v", err)
-		return
+		return fmt.Errorf("Unable to find entity after create %v", err)
 	}
 
-	resourceYaml, _ := yaml.Marshal(res)
-	t.Logf("Resource Yaml: %s", string(resourceYaml))
-
 	if connStr := res.Spec.Instances[0].ConnectionString; connStr != expectedConnStr {
-		t.Errorf("was %v, wants %v, spec.cloudSqlInstance", connStr, expectedConnStr)
+		return fmt.Errorf("was %v, wants %v, spec.cloudSqlInstance", connStr, expectedConnStr)
 	}
 
 	if wlstatus := GetConditionStatus(res.Status.Conditions, v1alpha1.ConditionUpToDate); wlstatus != metav1.ConditionTrue {
-		t.Errorf("was %v, wants %v, status.condition[up-to-date]", wlstatus, metav1.ConditionTrue)
+		return fmt.Errorf("was %v, wants %v, status.condition[up-to-date]", wlstatus, metav1.ConditionTrue)
 	}
 
 	// Make sure the finalizer was added before deleting the resource.
@@ -148,7 +83,7 @@ func TestDeleteResource(tcc *TestCaseClient, t *testing.T) {
 
 	err = tcc.Client.Delete(ctx, res)
 	if err != nil {
-		t.Error(err)
+		return err
 	}
 
 	err = RetryUntilSuccess(3, DefaultRetryInterval, func() error {
@@ -160,10 +95,12 @@ func TestDeleteResource(tcc *TestCaseClient, t *testing.T) {
 		}
 		return fmt.Errorf("was nil, wants error when looking up deleted AuthProxyWorkload resource")
 	})
+
 	if err != nil {
-		t.Error(err)
+		return err
 	}
 
+	return nil
 }
 
 func TestModifiesNewDeployment(tcc *TestCaseClient, t *testing.T) {

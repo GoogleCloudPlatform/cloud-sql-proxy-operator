@@ -54,15 +54,12 @@ func newTestCaseClient(name string) *testhelpers.TestCaseClient {
 	}
 }
 
-func TestCreateResource(t *testing.T) {
+func TestCreateAndDeleteResource(t *testing.T) {
 	tcc := newTestCaseClient("create")
-	testhelpers.TestCreateResource(tcc, t)
-
-}
-
-func TestDeleteResource(t *testing.T) {
-	tcc := newTestCaseClient("delete")
-	testhelpers.TestDeleteResource(tcc, t)
+	err := tcc.CreateAndDeleteResource()
+	if err != nil {
+		t.Error(err)
+	}
 
 }
 
@@ -163,7 +160,7 @@ func TestModifiesExistingDeployment(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	_, _, err = createDeploymentReplicaSetAndPods(tp, d)
+	_, _, err = tp.CreateDeploymentReplicaSetAndPods(d)
 	if err != nil {
 		t.Errorf("Unable to create pods and replicaset for deployment, %v", err)
 		return
