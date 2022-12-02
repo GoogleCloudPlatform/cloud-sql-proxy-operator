@@ -18,13 +18,11 @@
 package testintegration_test
 
 import (
-	"fmt"
 	"os"
 	"testing"
 
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testintegration"
-	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -54,15 +52,20 @@ func newTestCaseClient(name string) *testhelpers.TestCaseClient {
 	}
 }
 
-func TestCreateResource(t *testing.T) {
+func TestCreateAndDeleteResource(t *testing.T) {
 	tcc := newTestCaseClient("create")
-	testhelpers.TestCreateResource(tcc, t)
-
-}
-
-func TestDeleteResource(t *testing.T) {
-	tcc := newTestCaseClient("delete")
-	testhelpers.TestDeleteResource(tcc, t)
+	res, err := tcc.CreateResource(tcc.Ctx)
+	if err != nil {
+		t.Error(err)
+	}
+	err = tcc.WaitForFinalizerOnResource(tcc.Ctx, res)
+	if err != nil {
+		t.Error(err)
+	}
+	err = tcc.DeleteResourceAndWait(tcc.Ctx, res)
+	if err != nil {
+		t.Error(err)
+	}
 
 }
 
@@ -110,27 +113,6 @@ func TestModifiesNewDeployment(t *testing.T) {
 		return
 	}
 
-	testhelpers.RetryUntilSuccess(5, testhelpers.DefaultRetryInterval, func() error {
-		dep := &appsv1.Deployment{}
-		err := tcc.Client.Get(tcc.Ctx, key, dep)
-		if err != nil {
-			return err
-		}
-		annKey := fmt.Sprintf("cloudsql.cloud.google.com/req-%s-%s", tcc.Namespace, pwlName)
-		wantAnn := "1"
-		var gotAnn string
-		if dep.Spec.Template.Annotations != nil {
-			gotAnn = dep.Spec.Template.Annotations[annKey]
-		}
-		if len(dep.Spec.Template.Annotations) == 0 {
-			return fmt.Errorf("Expected annotations")
-		}
-		if wantAnn != gotAnn {
-			return fmt.Errorf("got %s, want %s for annotation named %s", gotAnn, wantAnn, annKey)
-		}
-		return nil
-	})
-
 	err = tcc.ExpectPodContainerCount(d.Spec.Selector, 2, "all")
 	if err != nil {
 		t.Error(err)
@@ -139,7 +121,57 @@ func TestModifiesNewDeployment(t *testing.T) {
 }
 
 func TestModifiesExistingDeployment(t *testing.T) {
-	tctx := newTestCaseClient("modifyexisting")
-	testRemove := testhelpers.TestModifiesExistingDeployment(tctx, t)
-	testRemove()
+	const (
+		pwlName            = "db-mod"
+		deploymentName     = "deploy-mod"
+		deploymentAppLabel = "existing-mod"
+	)
+	tp := newTestCaseClient("modifyexisting")
+
+	err := tp.CreateOrPatchNamespace()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("Creating namespace %v", tp.Namespace)
+
+	pKey := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
+	dKey := types.NamespacedName{Name: deploymentName, Namespace: tp.Namespace}
+
+	t.Log("Creating deployment")
+	d := testhelpers.BuildDeployment(dKey, deploymentAppLabel)
+	err = tp.CreateWorkload(d)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, _, err = tp.CreateDeploymentReplicaSetAndPods(d)
+	if err != nil {
+		t.Errorf("Unable to create pods and replicaset for deployment, %v", err)
+		return
+	}
+
+	// expect 1 container... no cloudsql instance yet
+	err = tp.ExpectPodContainerCount(d.Spec.Selector, 1, "all")
+	if err != nil {
+		t.Error(err)
+	}
+
+	t.Log("Creating cloud sql instance")
+	err = tp.CreateAuthProxyWorkload(pKey, deploymentAppLabel, tp.ConnectionString, "Deployment")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	t.Log("Waiting for cloud sql instance to begin the reconcile loop ")
+	_, err = tp.GetAuthProxyWorkloadAfterReconcile(pKey)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	//TODO implement the new reconcile algorithm before finishing this test.
+	// Then, we should assert 2 containers on all pods.
+
 }
