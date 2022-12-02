@@ -191,7 +191,10 @@ func TestProxyAppliedOnExistingWorkload(t *testing.T) {
 
 			tp := newTestCaseClient("modify" + strings.ToLower(kind))
 
-			tp.CreateOrPatchNamespace()
+			err := tp.CreateOrPatchNamespace()
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			const (
 				pwlName  = "newss"
@@ -202,7 +205,7 @@ func TestProxyAppliedOnExistingWorkload(t *testing.T) {
 			t.Log("Creating ", kind)
 			test.o.SetNamespace(tp.Namespace)
 			test.o.SetName(test.name)
-			err := tp.CreateWorkload(test.o)
+			err = tp.CreateWorkload(test.o)
 			if err != nil {
 				t.Error("unable to create ", kind, err)
 				err = tp.DeleteNamespace()

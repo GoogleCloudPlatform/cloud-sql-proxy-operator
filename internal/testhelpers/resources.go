@@ -32,6 +32,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+func buildPodTemplateSpec() corev1.PodTemplateSpec {
+	return corev1.PodTemplateSpec{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{"app": "busyboxon"},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Name:            "busybox",
+				Image:           "busybox",
+				ImagePullPolicy: "IfNotPresent",
+				Command:         []string{"sh", "-c", "echo Container 1 is Running ; sleep 30"},
+			}},
+		},
+	}
+}
+
 func BuildDeployment(name types.NamespacedName, appLabel string) *appsv1.Deployment {
 	var two int32 = 2
 	return &appsv1.Deployment{
@@ -47,19 +63,7 @@ func BuildDeployment(name types.NamespacedName, appLabel string) *appsv1.Deploym
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"app": "busyboxon"},
 			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"app": "busyboxon"},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{{
-						Name:            "busybox",
-						Image:           "busybox",
-						ImagePullPolicy: "IfNotPresent",
-						Command:         []string{"sh", "-c", "echo Container 1 is Running ; sleep 30"},
-					}},
-				},
-			},
+			Template: buildPodTemplateSpec(),
 		},
 	}
 }
@@ -79,19 +83,7 @@ func BuildStatefulSet(name types.NamespacedName, appLabel string) *appsv1.Statef
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"app": "busyboxon"},
 			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"app": "busyboxon"},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{{
-						Name:            "busybox",
-						Image:           "busybox",
-						ImagePullPolicy: "IfNotPresent",
-						Command:         []string{"sh", "-c", "echo Container 1 is Running ; sleep 30"},
-					}},
-				},
-			},
+			Template: buildPodTemplateSpec(),
 		},
 	}
 }
@@ -109,19 +101,7 @@ func BuildDaemonSet(name types.NamespacedName, appLabel string) *appsv1.DaemonSe
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"app": "busyboxon"},
 			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"app": "busyboxon"},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{{
-						Name:            "busybox",
-						Image:           "busybox",
-						ImagePullPolicy: "IfNotPresent",
-						Command:         []string{"sh", "-c", "echo Container 1 is Running ; sleep 30"},
-					}},
-				},
-			},
+			Template: buildPodTemplateSpec(),
 		},
 	}
 }
@@ -135,20 +115,7 @@ func BuildJob(name types.NamespacedName, appLabel string) *batchv1.Job {
 			Labels:    map[string]string{"app": appLabel},
 		},
 		Spec: batchv1.JobSpec{
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"app": "busyboxon"},
-				},
-				Spec: corev1.PodSpec{
-					RestartPolicy: corev1.RestartPolicyNever,
-					Containers: []corev1.Container{{
-						Name:            "busybox",
-						Image:           "busybox",
-						ImagePullPolicy: "IfNotPresent",
-						Command:         []string{"sh", "-c", "echo Container 1 is Running ; sleep 30"},
-					}},
-				},
-			},
+			Template: buildPodTemplateSpec(),
 		},
 	}
 }
@@ -164,20 +131,7 @@ func BuildCronJob(name types.NamespacedName, appLabel string) *batchv1.CronJob {
 		Spec: batchv1.CronJobSpec{
 			JobTemplate: batchv1.JobTemplateSpec{
 				Spec: batchv1.JobSpec{
-					Template: corev1.PodTemplateSpec{
-						ObjectMeta: metav1.ObjectMeta{
-							Labels: map[string]string{"app": "busyboxon"},
-						},
-						Spec: corev1.PodSpec{
-							RestartPolicy: corev1.RestartPolicyNever,
-							Containers: []corev1.Container{{
-								Name:            "busybox",
-								Image:           "busybox",
-								ImagePullPolicy: "IfNotPresent",
-								Command:         []string{"sh", "-c", "echo Container 1 is Running ; sleep 30"},
-							}},
-						},
-					},
+					Template: buildPodTemplateSpec(),
 				},
 			},
 		},
