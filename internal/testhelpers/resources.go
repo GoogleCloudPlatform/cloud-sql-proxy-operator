@@ -150,28 +150,6 @@ func (cc *TestCaseClient) CreateBusyboxDeployment(name types.NamespacedName, app
 	return cd, nil
 }
 
-// GetAuthProxyWorkload finds an AuthProxyWorkload resource named key, waits for its
-// "UpToDate" condition to be "True", and the returns it. Fails after 30 seconds
-// if the containers does not match.
-func (cc *TestCaseClient) GetAuthProxyWorkload(key types.NamespacedName) (*v1alpha1.AuthProxyWorkload, error) {
-	createdPodmod := &v1alpha1.AuthProxyWorkload{}
-	// We'll need to retry getting this newly created resource, given that creation may not immediately happen.
-	err := RetryUntilSuccess(6, DefaultRetryInterval, func() error {
-		err := cc.Client.Get(cc.Ctx, key, createdPodmod)
-		if err != nil {
-			return err
-		}
-		if GetConditionStatus(createdPodmod.Status.Conditions, v1alpha1.ConditionUpToDate) != metav1.ConditionTrue {
-			return errors.New("AuthProxyWorkload found, but reconcile not complete yet")
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return createdPodmod, err
-}
-
 // ListPods lists all the pods in a particular deployment.
 func ListPods(ctx context.Context, c client.Client, ns string, selector *metav1.LabelSelector) (*corev1.PodList, error) {
 

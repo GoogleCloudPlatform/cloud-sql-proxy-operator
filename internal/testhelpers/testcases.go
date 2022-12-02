@@ -120,7 +120,7 @@ func TestDeleteResource(tcc *TestCaseClient, t *testing.T) {
 		return
 	}
 
-	res, err := tcc.GetAuthProxyWorkload(key)
+	res, err := tcc.GetAuthProxyWorkloadAfterReconcile(key)
 	if err != nil {
 		t.Errorf("Unable to find entity after create %v", err)
 		return
@@ -186,7 +186,7 @@ func TestModifiesNewDeployment(tcc *TestCaseClient, t *testing.T) {
 	}
 
 	t.Log("Waiting for AuthProxyWorkload operator to begin the reconcile loop")
-	_, err = tcc.GetAuthProxyWorkload(key)
+	_, err = tcc.GetAuthProxyWorkloadAfterReconcile(key)
 	if err != nil {
 		t.Error(err)
 		return
@@ -249,7 +249,7 @@ func TestModifiesExistingDeployment(tcc *TestCaseClient, t *testing.T) func() {
 	}
 
 	t.Log("Waiting for cloud sql instance to begin the reconcile loop ")
-	updatedI, err := tcc.GetAuthProxyWorkload(pKey)
+	updatedI, err := tcc.GetAuthProxyWorkloadAfterReconcile(pKey)
 	if err != nil {
 		t.Error(err)
 		return func() {}
@@ -267,7 +267,7 @@ func TestModifiesExistingDeployment(tcc *TestCaseClient, t *testing.T) func() {
 
 	}
 
-	updatedI, err = tcc.GetAuthProxyWorkload(pKey)
+	updatedI, err = tcc.GetAuthProxyWorkloadAfterReconcile(pKey)
 	if err != nil {
 		t.Error(err)
 		return func() {}
