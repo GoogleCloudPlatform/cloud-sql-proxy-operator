@@ -58,7 +58,6 @@ func newTestCaseClient(ns string) *testhelpers.TestCaseClient {
 		Namespace:        testhelpers.NewNamespaceName(ns),
 		ConnectionString: infra.InstanceConnectionString,
 		ProxyImageURL:    proxyImageURL,
-		Ctx:              testContext(),
 	}
 }
 
