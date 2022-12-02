@@ -170,11 +170,7 @@ func (r *AuthProxyWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Re
 func (r *AuthProxyWorkloadReconciler) doDelete(ctx context.Context, resource *cloudsqlapi.AuthProxyWorkload, l logr.Logger) (ctrl.Result, error) {
 
 	// Mark all related workloads as needing to be updated
-	wls, err := r.updateWorkloadStatus(ctx, l, resource)
-	if err != nil {
-		return requeueNow, err
-	}
-	err = r.patchAnnotations(ctx, wls, l)
+	_, err := r.updateWorkloadStatus(ctx, l, resource)
 	if err != nil {
 		return requeueNow, err
 	}
@@ -415,40 +411,6 @@ func replaceCondition(conds []*metav1.Condition, newC *metav1.Condition) []*meta
 	newC.LastTransitionTime = metav1.NewTime(time.Now())
 	conds = append(conds, newC)
 	return conds
-}
-
-// patchAnnotations Safely patch the workloads with updated annotations
-func (r *AuthProxyWorkloadReconciler) patchAnnotations(ctx context.Context, wls []workload.Workload, l logr.Logger) error {
-	for _, wl := range wls {
-		// Get a reference to the workload's underlying resource object.
-		obj := wl.Object()
-
-		// Copy the annotations. This is what should be set during the patch.
-		annCopy := make(map[string]string)
-		for k, v := range obj.GetAnnotations() {
-			annCopy[k] = v
-		}
-
-		// The mutate function will assign the new annotations to obj.
-		mutateFn := controllerutil.MutateFn(func() error {
-			// This gets called after obj has been freshly loaded from k8s
-			obj.SetAnnotations(annCopy)
-			return nil
-		})
-
-		// controllerutil.CreateOrPatch() will do the following:
-		// 1. fetch the object from the k8s api into obj
-		// 2. use the mutate function to assign the new value for annotations to the obj
-		// 3. send a patch back to the k8s api
-		// 4. fetch the object from the k8s api into obj again, resulting in wl
-		//    holding an up-to-date version of the object.
-		_, err := controllerutil.CreateOrPatch(ctx, r.Client, obj, mutateFn)
-		if err != nil {
-			l.Error(err, "Unable to patch workload", "name", wl.Object().GetName())
-			return err
-		}
-	}
-	return nil
 }
 
 // newStatus creates a WorkloadStatus from a workload with identifying
