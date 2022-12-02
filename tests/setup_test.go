@@ -23,8 +23,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"testing"
-	"time"
 
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/controller"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
@@ -55,9 +53,8 @@ var (
 	operatorURL   string
 )
 
-func params(t *testing.T, ns string) *testhelpers.TestCaseParams {
-	return &testhelpers.TestCaseParams{
-		T:                t,
+func newTestCaseClient(ns string) *testhelpers.TestCaseClient {
+	return &testhelpers.TestCaseClient{
 		Client:           c,
 		Namespace:        testhelpers.NewNamespaceName(ns),
 		ConnectionString: infra.InstanceConnectionString,
@@ -164,7 +161,7 @@ func setupTests() (func(), error) {
 
 func waitForCorrectOperatorPods(ctx context.Context, err error) (client.ObjectKey, error) {
 	managerDeploymentKey := client.ObjectKey{Namespace: "cloud-sql-proxy-operator-system", Name: "cloud-sql-proxy-operator-controller-manager"}
-	err = testhelpers.RetryUntilSuccess(&testSetupLogger{Logger: logger}, 5, 5*time.Second, func() error {
+	err = testhelpers.RetryUntilSuccess(5, testhelpers.DefaultRetryInterval, func() error {
 		deployment := appsv1.Deployment{}
 		// Fetch the deployment
 		err := c.Get(ctx, managerDeploymentKey, &deployment)

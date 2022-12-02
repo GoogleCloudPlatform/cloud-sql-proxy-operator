@@ -18,11 +18,14 @@
 package testintegration_test
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testintegration"
+	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func TestMain(m *testing.M) {
@@ -41,9 +44,8 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func testCaseParams(t *testing.T, name string) *testhelpers.TestCaseParams {
-	return &testhelpers.TestCaseParams{
-		T:                t,
+func newTestCaseClient(name string) *testhelpers.TestCaseClient {
+	return &testhelpers.TestCaseClient{
 		Client:           testintegration.Client,
 		Namespace:        testhelpers.NewNamespaceName(name),
 		ConnectionString: "region:project:inst",
@@ -53,24 +55,91 @@ func testCaseParams(t *testing.T, name string) *testhelpers.TestCaseParams {
 }
 
 func TestCreateResource(t *testing.T) {
-	tctx := testCaseParams(t, "create")
-	testhelpers.TestCreateResource(tctx)
+	tcc := newTestCaseClient("create")
+	testhelpers.TestCreateResource(tcc, t)
 
 }
 
 func TestDeleteResource(t *testing.T) {
-	tctx := testCaseParams(t, "delete")
-	testhelpers.TestDeleteResource(tctx)
+	tcc := newTestCaseClient("delete")
+	testhelpers.TestDeleteResource(tcc, t)
 
 }
 
 func TestModifiesNewDeployment(t *testing.T) {
-	tctx := testCaseParams(t, "modifynew")
-	testhelpers.TestModifiesNewDeployment(tctx)
+	tcc := newTestCaseClient("modifynew")
+
+	err := tcc.CreateOrPatchNamespace()
+	if err != nil {
+		t.Fatalf("can't create namespace, %v", err)
+	}
+
+	const (
+		pwlName            = "newdeploy"
+		deploymentAppLabel = "busybox"
+	)
+	key := types.NamespacedName{Name: pwlName, Namespace: tcc.Namespace}
+
+	t.Log("Creating AuthProxyWorkload")
+	err = tcc.CreateAuthProxyWorkload(key, deploymentAppLabel, tcc.ConnectionString, "Deployment")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	t.Log("Waiting for AuthProxyWorkload operator to begin the reconcile loop")
+	_, err = tcc.GetAuthProxyWorkloadAfterReconcile(key)
+	if err != nil {
+		t.Error("unable to create AuthProxyWorkload", err)
+		return
+	}
+
+	t.Log("Creating deployment")
+	d := testhelpers.BuildDeployment(key, deploymentAppLabel)
+	err = tcc.CreateWorkload(d)
+
+	if err != nil {
+		t.Error("unable to create deployment", err)
+		return
+	}
+
+	t.Log("Creating deployment replicas")
+	_, _, err = tcc.CreateDeploymentReplicaSetAndPods(d)
+	if err != nil {
+		t.Error("unable to create pods", err)
+		return
+	}
+
+	testhelpers.RetryUntilSuccess(5, testhelpers.DefaultRetryInterval, func() error {
+		dep := &appsv1.Deployment{}
+		err := tcc.Client.Get(tcc.Ctx, key, dep)
+		if err != nil {
+			return err
+		}
+		annKey := fmt.Sprintf("cloudsql.cloud.google.com/req-%s-%s", tcc.Namespace, pwlName)
+		wantAnn := "1"
+		var gotAnn string
+		if dep.Spec.Template.Annotations != nil {
+			gotAnn = dep.Spec.Template.Annotations[annKey]
+		}
+		if len(dep.Spec.Template.Annotations) == 0 {
+			return fmt.Errorf("Expected annotations")
+		}
+		if wantAnn != gotAnn {
+			return fmt.Errorf("got %s, want %s for annotation named %s", gotAnn, wantAnn, annKey)
+		}
+		return nil
+	})
+
+	err = tcc.ExpectPodContainerCount(d.Spec.Selector, 2, "all")
+	if err != nil {
+		t.Error(err)
+	}
+
 }
 
 func TestModifiesExistingDeployment(t *testing.T) {
-	tctx := testCaseParams(t, "modifyexisting")
-	testRemove := testhelpers.TestModifiesExistingDeployment(tctx)
+	tctx := newTestCaseClient("modifyexisting")
+	testRemove := testhelpers.TestModifiesExistingDeployment(tctx, t)
 	testRemove()
 }
