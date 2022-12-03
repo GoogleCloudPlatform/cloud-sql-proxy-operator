@@ -202,7 +202,10 @@ func waitForCorrectOperatorPods(ctx context.Context, err error) (*appsv1.Deploym
 
 		return nil // OK to continue.
 	})
-	return deployment, err
+	if err != nil {
+		return nil, err
+	}
+	return deployment, nil
 }
 
 func tailPods(ctx context.Context, podlist *corev1.PodList) {

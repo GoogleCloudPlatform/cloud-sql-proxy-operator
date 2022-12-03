@@ -92,7 +92,7 @@ func TestProxyAppliedOnNewWorkload(t *testing.T) {
 
 			err := tp.CreateOrPatchNamespace()
 			if err != nil {
-				t.Error(err)
+				t.Fatal(err)
 			}
 			t.Cleanup(func() {
 				err = tp.DeleteNamespace()
