@@ -147,7 +147,7 @@ func TestModifiesExistingDeployment(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	_, _, err = tcc.CreateDeploymentReplicaSetAndPods(ctx, d)
+	rs1, pods, err := tcc.CreateDeploymentReplicaSetAndPods(ctx, d)
 	if err != nil {
 		t.Errorf("Unable to create pods and replicaset for deployment, %v", err)
 		return
@@ -172,8 +172,36 @@ func TestModifiesExistingDeployment(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	// user must manually trigger the pods to be recreated.
+	// so we simulate that by asserting that after the update, there is only
+	// 1 container on the pods.
 
-	//TODO implement the new reconcile algorithm before finishing this test.
-	// Then, we should assert 2 containers on all pods.
+	// expect 1 container... no cloudsql instance yet
+	err = tcc.ExpectPodContainerCount(ctx, d.Spec.Selector, 1, "all")
+	if err != nil {
+		t.Error(err)
+	}
 
+	// Then we simulate the deployment pods being replaced
+	err = tcc.Client.Delete(ctx, rs1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 0; i < len(pods); i++ {
+		err = tcc.Client.Delete(ctx, pods[i])
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	_, _, err = tcc.CreateDeploymentReplicaSetAndPods(ctx, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// and check for 2 containers
+	err = tcc.ExpectPodContainerCount(ctx, d.Spec.Selector, 2, "all")
+	if err != nil {
+		t.Error(err)
+	}
 }
