@@ -93,33 +93,15 @@ func (r *AuthProxyWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
+//+kubebuilder:rbac:groups=apps,resources=*,verbs=get;list;watch
+//+kubebuilder:rbac:groups=batch,resources=*,verbs=get;list;watch
+//+kubebuilder:rbac:groups="",resources=*,verbs=get;list;watch
+
 //+kubebuilder:rbac:groups=cloudsql.cloud.google.com,resources=authproxyworkloads,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=cloudsql.cloud.google.com,resources=authproxyworkloads/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=cloudsql.cloud.google.com,resources=authproxyworkloads/finalizers,verbs=update
 
-//+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=apps,resources=deployments/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=apps,resources=deployments/finalizers,verbs=update
-
-//+kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=apps,resources=statefulsets/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=apps,resources=statefulsets/finalizers,verbs=update
-
-//+kubebuilder:rbac:groups=apps,resources=daemonsets,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=apps,resources=daemonsets/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=apps,resources=daemonsets/finalizers,verbs=update
-
-//+kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=batch,resources=jobs/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=batch,resources=jobs/finalizers,verbs=update
-
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups="",resources=pods/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups="",resources=pods/finalizers,verbs=update
-
-//+kubebuilder:rbac:groups=batch,resources=cronjobs,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=batch,resources=cronjobs/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=batch,resources=cronjobs/finalizers,verbs=update
 
 // Reconcile updates the state of the cluster so that AuthProxyWorkload instances
 // have their configuration reflected correctly on workload PodSpec configuration.

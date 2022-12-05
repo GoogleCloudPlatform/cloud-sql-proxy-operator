@@ -978,7 +978,7 @@ spec:
                   description: Workload selects the workload to
                   properties:
                     kind:
-                      description: 'Kind specifies what kind of workload Supported kinds: Deployment, StatefulSet, Pod, DaemonSet, Job, CronJob Example: "Deployment" "Deployment.v1" or "Deployment.v1.apps".'
+                      description: 'Kind specifies what kind of workload Supported kinds: Deployment, StatefulSet, Pod, ReplicaSet,DaemonSet, Job, CronJob Example: "Deployment" "Deployment.v1" or "Deployment.v1.apps".'
                       pattern: \w+(\.\w+)*
                       type: string
                     name:
@@ -1083,6 +1083,7 @@ spec:
                           - Pod
                           - Deployment
                           - StatefulSet
+                          - ReplicaSet
                           - DaemonSet
                           - Job
                           - CronJob
@@ -1201,6 +1202,14 @@ rules:
   - apiGroups:
       - ""
     resources:
+      - '*'
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
       - pods
     verbs:
       - create
@@ -1211,149 +1220,21 @@ rules:
       - update
       - watch
   - apiGroups:
-      - ""
-    resources:
-      - pods/finalizers
-    verbs:
-      - update
-  - apiGroups:
-      - ""
-    resources:
-      - pods/status
-    verbs:
-      - get
-      - patch
-      - update
-  - apiGroups:
       - apps
     resources:
-      - daemonsets
+      - '*'
     verbs:
-      - create
-      - delete
       - get
       - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - apps
-    resources:
-      - daemonsets/finalizers
-    verbs:
-      - update
-  - apiGroups:
-      - apps
-    resources:
-      - daemonsets/status
-    verbs:
-      - get
-      - patch
-      - update
-  - apiGroups:
-      - apps
-    resources:
-      - deployments
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - apps
-    resources:
-      - deployments/finalizers
-    verbs:
-      - update
-  - apiGroups:
-      - apps
-    resources:
-      - deployments/status
-    verbs:
-      - get
-      - patch
-      - update
-  - apiGroups:
-      - apps
-    resources:
-      - statefulsets
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - apps
-    resources:
-      - statefulsets/finalizers
-    verbs:
-      - update
-  - apiGroups:
-      - apps
-    resources:
-      - statefulsets/status
-    verbs:
-      - get
-      - patch
-      - update
-  - apiGroups:
-      - batch
-    resources:
-      - cronjobs
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
       - watch
   - apiGroups:
       - batch
     resources:
-      - cronjobs/finalizers
+      - '*'
     verbs:
-      - update
-  - apiGroups:
-      - batch
-    resources:
-      - cronjobs/status
-    verbs:
-      - get
-      - patch
-      - update
-  - apiGroups:
-      - batch
-    resources:
-      - jobs
-    verbs:
-      - create
-      - delete
       - get
       - list
-      - patch
-      - update
       - watch
-  - apiGroups:
-      - batch
-    resources:
-      - jobs/finalizers
-    verbs:
-      - update
-  - apiGroups:
-      - batch
-    resources:
-      - jobs/status
-    verbs:
-      - get
-      - patch
-      - update
   - apiGroups:
       - cloudsql.cloud.google.com
     resources:
@@ -1648,10 +1529,10 @@ webhooks:
       service:
         name: cloud-sql-proxy-operator-webhook-service
         namespace: cloud-sql-proxy-operator-system
-        path: /mutate-workloads
+        path: /mutate-pods
     failurePolicy: Ignore
     matchPolicy: Equivalent
-    name: mpod.kb.io
+    name: pods.proxy.cloudsql.google.com
     rules:
       - apiGroups:
           - ""
@@ -1659,32 +1540,8 @@ webhooks:
           - v1
         operations:
           - CREATE
-          - UPDATE
         resources:
           - pods
-        scope: '*'
-      - apiGroups:
-          - apps
-        apiVersions:
-          - v1
-        operations:
-          - CREATE
-          - UPDATE
-        resources:
-          - deployments
-          - daemonsets
-          - statefulsets
-        scope: '*'
-      - apiGroups:
-          - batch
-        apiVersions:
-          - v1
-        operations:
-          - CREATE
-          - UPDATE
-        resources:
-          - jobs
-          - cronjobs
         scope: '*'
     sideEffects: None
     timeoutSeconds: 2

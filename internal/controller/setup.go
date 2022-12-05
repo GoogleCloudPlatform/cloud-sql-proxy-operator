@@ -22,6 +22,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 var setupLog = ctrl.Log.WithName("setup")
@@ -65,12 +66,23 @@ func SetupManagers(mgr manager.Manager) error {
 	// When kubebuilder scaffolds a new controller here, please
 	// adjust the code so it follows the pattern above.
 
-	err = SetupWorkloadControllers(mgr, u)
+	err = RegisterPodWebhook(mgr, u)
 	if err != nil {
 		setupLog.Error(err, "unable to create workload admission webhook controller")
 		return err
 	}
 
 	setupLog.Info("Configuring reconcilers complete.")
+	return nil
+}
+
+// RegisterPodWebhook register the webhook to mutate pods
+func RegisterPodWebhook(mgr ctrl.Manager, u *workload.Updater) error {
+	mgr.GetWebhookServer().Register("/mutate-pods", &webhook.Admission{
+		Handler: &PodAdmissionWebhook{
+			Client:  mgr.GetClient(),
+			updater: u,
+		}})
+
 	return nil
 }
