@@ -41,16 +41,17 @@ func TestMain(m *testing.M) {
 }
 
 func TestCreateAndDeleteResource(t *testing.T) {
+	ctx := testContext()
 	tcc := newTestCaseClient("create")
-	res, err := tcc.CreateResource(tcc.Ctx)
+	res, err := tcc.CreateResource(ctx)
 	if err != nil {
 		t.Error(err)
 	}
-	err = tcc.WaitForFinalizerOnResource(tcc.Ctx, res)
+	err = tcc.WaitForFinalizerOnResource(ctx, res)
 	if err != nil {
 		t.Error(err)
 	}
-	err = tcc.DeleteResourceAndWait(tcc.Ctx, res)
+	err = tcc.DeleteResourceAndWait(ctx, res)
 	if err != nil {
 		t.Error(err)
 	}
@@ -87,15 +88,17 @@ func TestProxyAppliedOnNewWorkload(t *testing.T) {
 		test := tests[i]
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
+			ctx := testContext()
+
 			kind := test.o.GetObjectKind().GroupVersionKind().Kind
 			tp := newTestCaseClient("new" + strings.ToLower(kind))
 
-			err := tp.CreateOrPatchNamespace()
+			err := tp.CreateOrPatchNamespace(ctx)
 			if err != nil {
 				t.Fatal(err)
 			}
 			t.Cleanup(func() {
-				err = tp.DeleteNamespace()
+				err = tp.DeleteNamespace(ctx)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -108,13 +111,13 @@ func TestProxyAppliedOnNewWorkload(t *testing.T) {
 			key := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
 
 			t.Log("Creating AuthProxyWorkload")
-			err = tp.CreateAuthProxyWorkload(key, appLabel, tp.ConnectionString, kind)
+			err = tp.CreateAuthProxyWorkload(ctx, key, appLabel, tp.ConnectionString, kind)
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			t.Log("Waiting for AuthProxyWorkload operator to begin the reconcile loop")
-			_, err = tp.GetAuthProxyWorkloadAfterReconcile(key)
+			_, err = tp.GetAuthProxyWorkloadAfterReconcile(ctx, key)
 			if err != nil {
 				t.Fatal("unable to create AuthProxyWorkload", err)
 			}
@@ -122,14 +125,14 @@ func TestProxyAppliedOnNewWorkload(t *testing.T) {
 			t.Log("Creating ", kind)
 			test.o.SetNamespace(tp.Namespace)
 			test.o.SetName(test.name)
-			err = tp.CreateWorkload(test.o)
+			err = tp.CreateWorkload(ctx, test.o)
 			if err != nil {
 				t.Fatal("unable to create ", kind, err)
 			}
 			selector := &metav1.LabelSelector{
 				MatchLabels: map[string]string{"app": "busyboxon"},
 			}
-			err = tp.ExpectPodContainerCount(selector, 2, "all")
+			err = tp.ExpectPodContainerCount(ctx, selector, 2, "all")
 			if err != nil {
 				t.Error(err)
 			}
@@ -173,16 +176,17 @@ func TestProxyAppliedOnExistingWorkload(t *testing.T) {
 		test := tests[i]
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
+			ctx := testContext()
 			kind := test.o.GetObjectKind().GroupVersionKind().Kind
 
 			tp := newTestCaseClient("modify" + strings.ToLower(kind))
 
-			err := tp.CreateOrPatchNamespace()
+			err := tp.CreateOrPatchNamespace(ctx)
 			if err != nil {
 				t.Fatal(err)
 			}
 			t.Cleanup(func() {
-				err = tp.DeleteNamespace()
+				err = tp.DeleteNamespace(ctx)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -197,7 +201,7 @@ func TestProxyAppliedOnExistingWorkload(t *testing.T) {
 			t.Log("Creating ", kind)
 			test.o.SetNamespace(tp.Namespace)
 			test.o.SetName(test.name)
-			err = tp.CreateWorkload(test.o)
+			err = tp.CreateWorkload(ctx, test.o)
 			if err != nil {
 				t.Fatal("unable to create ", kind, err)
 			}
@@ -205,24 +209,24 @@ func TestProxyAppliedOnExistingWorkload(t *testing.T) {
 				MatchLabels: map[string]string{"app": "busyboxon"},
 			}
 
-			err = tp.ExpectPodContainerCount(selector, 1, test.allOrAny)
+			err = tp.ExpectPodContainerCount(ctx, selector, 1, test.allOrAny)
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			t.Log("Creating AuthProxyWorkload")
-			err = tp.CreateAuthProxyWorkload(key, appLabel, tp.ConnectionString, kind)
+			err = tp.CreateAuthProxyWorkload(ctx, key, appLabel, tp.ConnectionString, kind)
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			t.Log("Waiting for AuthProxyWorkload operator to begin the reconcile loop")
-			_, err = tp.GetAuthProxyWorkloadAfterReconcile(key)
+			_, err = tp.GetAuthProxyWorkloadAfterReconcile(ctx, key)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			err = tp.ExpectPodContainerCount(selector, 2, test.allOrAny)
+			err = tp.ExpectPodContainerCount(ctx, selector, 2, test.allOrAny)
 			if err != nil {
 				t.Fatal(err)
 			}

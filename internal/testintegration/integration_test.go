@@ -48,21 +48,21 @@ func newTestCaseClient(name string) *testhelpers.TestCaseClient {
 		Namespace:        testhelpers.NewNamespaceName(name),
 		ConnectionString: "region:project:inst",
 		ProxyImageURL:    "proxy-image:latest",
-		Ctx:              testintegration.TestContext(),
 	}
 }
 
 func TestCreateAndDeleteResource(t *testing.T) {
+	ctx := testintegration.TestContext()
 	tcc := newTestCaseClient("create")
-	res, err := tcc.CreateResource(tcc.Ctx)
+	res, err := tcc.CreateResource(ctx)
 	if err != nil {
 		t.Error(err)
 	}
-	err = tcc.WaitForFinalizerOnResource(tcc.Ctx, res)
+	err = tcc.WaitForFinalizerOnResource(ctx, res)
 	if err != nil {
 		t.Error(err)
 	}
-	err = tcc.DeleteResourceAndWait(tcc.Ctx, res)
+	err = tcc.DeleteResourceAndWait(ctx, res)
 	if err != nil {
 		t.Error(err)
 	}
@@ -70,9 +70,10 @@ func TestCreateAndDeleteResource(t *testing.T) {
 }
 
 func TestModifiesNewDeployment(t *testing.T) {
+	ctx := testintegration.TestContext()
 	tcc := newTestCaseClient("modifynew")
 
-	err := tcc.CreateOrPatchNamespace()
+	err := tcc.CreateOrPatchNamespace(ctx)
 	if err != nil {
 		t.Fatalf("can't create namespace, %v", err)
 	}
@@ -84,14 +85,14 @@ func TestModifiesNewDeployment(t *testing.T) {
 	key := types.NamespacedName{Name: pwlName, Namespace: tcc.Namespace}
 
 	t.Log("Creating AuthProxyWorkload")
-	err = tcc.CreateAuthProxyWorkload(key, deploymentAppLabel, tcc.ConnectionString, "Deployment")
+	err = tcc.CreateAuthProxyWorkload(ctx, key, deploymentAppLabel, tcc.ConnectionString, "Deployment")
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
 	t.Log("Waiting for AuthProxyWorkload operator to begin the reconcile loop")
-	_, err = tcc.GetAuthProxyWorkloadAfterReconcile(key)
+	_, err = tcc.GetAuthProxyWorkloadAfterReconcile(ctx, key)
 	if err != nil {
 		t.Error("unable to create AuthProxyWorkload", err)
 		return
@@ -99,7 +100,7 @@ func TestModifiesNewDeployment(t *testing.T) {
 
 	t.Log("Creating deployment")
 	d := testhelpers.BuildDeployment(key, deploymentAppLabel)
-	err = tcc.CreateWorkload(d)
+	err = tcc.CreateWorkload(ctx, d)
 
 	if err != nil {
 		t.Error("unable to create deployment", err)
@@ -107,13 +108,13 @@ func TestModifiesNewDeployment(t *testing.T) {
 	}
 
 	t.Log("Creating deployment replicas")
-	_, _, err = tcc.CreateDeploymentReplicaSetAndPods(d)
+	_, _, err = tcc.CreateDeploymentReplicaSetAndPods(ctx, d)
 	if err != nil {
 		t.Error("unable to create pods", err)
 		return
 	}
 
-	err = tcc.ExpectPodContainerCount(d.Spec.Selector, 2, "all")
+	err = tcc.ExpectPodContainerCount(ctx, d.Spec.Selector, 2, "all")
 	if err != nil {
 		t.Error(err)
 	}
@@ -126,46 +127,47 @@ func TestModifiesExistingDeployment(t *testing.T) {
 		deploymentName     = "deploy-mod"
 		deploymentAppLabel = "existing-mod"
 	)
-	tp := newTestCaseClient("modifyexisting")
+	ctx := testintegration.TestContext()
+	tcc := newTestCaseClient("modifyexisting")
 
-	err := tp.CreateOrPatchNamespace()
+	err := tcc.CreateOrPatchNamespace(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	t.Logf("Creating namespace %v", tp.Namespace)
+	t.Logf("Creating namespace %v", tcc.Namespace)
 
-	pKey := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
-	dKey := types.NamespacedName{Name: deploymentName, Namespace: tp.Namespace}
+	pKey := types.NamespacedName{Name: pwlName, Namespace: tcc.Namespace}
+	dKey := types.NamespacedName{Name: deploymentName, Namespace: tcc.Namespace}
 
 	t.Log("Creating deployment")
 	d := testhelpers.BuildDeployment(dKey, deploymentAppLabel)
-	err = tp.CreateWorkload(d)
+	err = tcc.CreateWorkload(ctx, d)
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, _, err = tp.CreateDeploymentReplicaSetAndPods(d)
+	_, _, err = tcc.CreateDeploymentReplicaSetAndPods(ctx, d)
 	if err != nil {
 		t.Errorf("Unable to create pods and replicaset for deployment, %v", err)
 		return
 	}
 
 	// expect 1 container... no cloudsql instance yet
-	err = tp.ExpectPodContainerCount(d.Spec.Selector, 1, "all")
+	err = tcc.ExpectPodContainerCount(ctx, d.Spec.Selector, 1, "all")
 	if err != nil {
 		t.Error(err)
 	}
 
 	t.Log("Creating cloud sql instance")
-	err = tp.CreateAuthProxyWorkload(pKey, deploymentAppLabel, tp.ConnectionString, "Deployment")
+	err = tcc.CreateAuthProxyWorkload(ctx, pKey, deploymentAppLabel, tcc.ConnectionString, "Deployment")
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
 	t.Log("Waiting for cloud sql instance to begin the reconcile loop ")
-	_, err = tp.GetAuthProxyWorkloadAfterReconcile(pKey)
+	_, err = tcc.GetAuthProxyWorkloadAfterReconcile(ctx, pKey)
 	if err != nil {
 		t.Error(err)
 		return

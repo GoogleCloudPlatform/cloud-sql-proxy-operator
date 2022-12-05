@@ -27,7 +27,6 @@ import (
 )
 
 type TestCaseClient struct {
-	Ctx              context.Context
 	Client           client.Client
 	Namespace        string
 	ConnectionString string
@@ -40,25 +39,23 @@ func NewNamespaceName(prefix string) string {
 
 // CreateResource creates a new workload resource in the TestCaseClient's namespace
 // waits until the resource exists.
-func (cc *TestCaseClient) CreateResource(_ context.Context) (*cloudsqlapi.AuthProxyWorkload, error) {
+func (cc *TestCaseClient) CreateResource(ctx context.Context) (*cloudsqlapi.AuthProxyWorkload, error) {
 	const (
 		name            = "instance1"
 		expectedConnStr = "proj:inst:db"
 	)
-	var (
-		ns = cc.Namespace
-	)
-	err := cc.CreateOrPatchNamespace()
+	ns := cc.Namespace
+	err := cc.CreateOrPatchNamespace(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("can't create namespace, %v", err)
 	}
 	key := types.NamespacedName{Name: name, Namespace: ns}
-	err = cc.CreateAuthProxyWorkload(key, "app", expectedConnStr, "Deployment")
+	err = cc.CreateAuthProxyWorkload(ctx, key, "app", expectedConnStr, "Deployment")
 	if err != nil {
 		return nil, fmt.Errorf("unable to create auth proxy workload %v", err)
 	}
 
-	res, err := cc.GetAuthProxyWorkloadAfterReconcile(key)
+	res, err := cc.GetAuthProxyWorkloadAfterReconcile(ctx, key)
 	if err != nil {
 		return nil, fmt.Errorf("unable to find entity after create %v", err)
 	}
