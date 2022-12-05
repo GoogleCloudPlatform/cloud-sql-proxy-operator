@@ -195,7 +195,6 @@ func TestReconcileState31(t *testing.T) {
 }
 
 func runReconcileTestcase(p *v1alpha1.AuthProxyWorkload, clientObjects []client.Object, wantRequeue bool, wantStatus metav1.ConditionStatus, wantReason string) error {
-	//t.Helper()
 	cb, err := clientBuilder()
 	if err != nil {
 		return err // shouldn't ever happen

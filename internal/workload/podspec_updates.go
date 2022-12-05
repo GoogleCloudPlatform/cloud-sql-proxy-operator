@@ -131,26 +131,22 @@ var defaultContainerResources = corev1.ResourceRequirements{
 func (u *Updater) ConfigurePodProxies(pl *cloudsqlapi.AuthProxyWorkloadList, wl *PodWorkload, owners []Workload) (bool, []*cloudsqlapi.AuthProxyWorkload, error) {
 
 	// if a wl has an owner, then ignore it.
-	var matchingAuthProxyWorkloads []*cloudsqlapi.AuthProxyWorkload
-	matchingAuthProxyWorkloads = append(matchingAuthProxyWorkloads, u.filterMatchingInstances(pl, wl.Object())...)
+	wls := u.filterMatchingInstances(pl, wl.Object())
 	for _, owner := range owners {
-		matchingAuthProxyWorkloads = append(matchingAuthProxyWorkloads, u.filterMatchingInstances(pl, owner.Object())...)
-	}
-	dedupedWorkloads := make([]*cloudsqlapi.AuthProxyWorkload, 0, len(matchingAuthProxyWorkloads))
-	for i := 0; i < len(matchingAuthProxyWorkloads); i++ {
-		var dup bool
-		for j := 0; j < i; j++ {
-			if matchingAuthProxyWorkloads[i].Name == matchingAuthProxyWorkloads[j].Name {
-				dup = true
-				break
-			}
-		}
-		if !dup {
-			dedupedWorkloads = append(dedupedWorkloads, matchingAuthProxyWorkloads[i])
-		}
+		wls = append(wls, u.filterMatchingInstances(pl, owner.Object())...)
 	}
 
-	updated, err := u.UpdateWorkloadContainers(wl, dedupedWorkloads)
+	// remove duplicates from wls by Name
+	m := map[string]*cloudsqlapi.AuthProxyWorkload{}
+	for _, w := range wls {
+		m[w.GetNamespace()+"/"+w.GetName()] = w
+	}
+	wls = make([]*cloudsqlapi.AuthProxyWorkload, 0, len(m))
+	for _, w := range m {
+		wls = append(wls, w)
+	}
+
+	updated, err := u.UpdateWorkloadContainers(wl, wls)
 	// if there was an error updating workloads, return the error
 	if err != nil {
 		return false, nil, err
@@ -163,7 +159,7 @@ func (u *Updater) ConfigurePodProxies(pl *cloudsqlapi.AuthProxyWorkloadList, wl 
 	}
 
 	// if this was updated return matching DBInstances
-	return updated, dedupedWorkloads, nil
+	return updated, wls, nil
 
 }
 

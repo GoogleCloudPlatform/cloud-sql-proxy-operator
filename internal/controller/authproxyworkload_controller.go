@@ -198,13 +198,13 @@ func (r *AuthProxyWorkloadReconciler) doDelete(ctx context.Context, resource *cl
 // - the condition `UpToDate` status and reason
 //
 // States:
-// |  state  | finalizer| fetch err | readyToStart | Name                |
-// |---------|----------|-----------|--------------|---------------------|
-// | 0       | *        | *         | *            | start               |
-// | 1.1     | absent   | *         | *            | needs finalizer     |
-// | 1.2     | present  | error     | *            | can't list workloads|
-// | 2.1     | present  | nil       | true         | no workloads found  |
-// | 3.1     | present  | nil       | false        | updates complete    |
+// |  state  | finalizer| fetch err | len(wl)      | Name                      |
+// |---------|----------|-----------|--------------|---------------------      |
+// | 0       | *        | *         | *            | start                     |
+// | 1.1     | absent   | *         | *            | needs finalizer           |
+// | 1.2     | present  | error     | *            | can't list workloads      |
+// | 2.1     | present  | nil       | == 0         | no workloads to reconcile |
+// | 3.1     | present  | nil       | > 0          | workloads reconciled      |
 //
 //	start ---x
 //	          \---> 1.1 --> (requeue, goto start)
@@ -236,14 +236,18 @@ func (r *AuthProxyWorkloadReconciler) doCreateUpdate(ctx context.Context, l logr
 	// State 2.1: When there are no workloads, then mark this as "UpToDate" true,
 	// do not requeue.
 	if len(allWorkloads) == 0 {
-		return r.noUpdatesNeeded(ctx, l, resource, orig)
+		return r.noWorkloadsToReconcile(ctx, l, resource, orig)
 	}
 
 	// State 3: Workload updates are in progress. Check if the workload updates
 	// are complete.
 	//
-	//   State 3.1: If workloads are all up to date, mark the condition
-	//   "UpToDate" true and do not requeue.
+	return r.workloadsReconciled(ctx, l, resource, allWorkloads, err, orig)
+}
+
+// workloadsReconciled  State 3.1: If workloads are all up to date, mark the condition
+// "UpToDate" true and do not requeue.
+func (r *AuthProxyWorkloadReconciler) workloadsReconciled(ctx context.Context, l logr.Logger, resource *cloudsqlapi.AuthProxyWorkload, allWorkloads []workload.Workload, err error, orig *cloudsqlapi.AuthProxyWorkload) (ctrl.Result, error) {
 	message := fmt.Sprintf("Reconciled %d matching workloads complete", len(allWorkloads))
 
 	// Workload updates are complete, update the status
@@ -260,14 +264,12 @@ func (r *AuthProxyWorkloadReconciler) doCreateUpdate(ctx context.Context, l logr
 		return ctrl.Result{}, err
 	}
 
-	l.Info("Reconcile checked completion of workload updates",
-		"ns", resource.GetNamespace(), "name", resource.GetName())
 	return ctrl.Result{}, nil
 }
 
-// noUpdatesNeeded no updated needed, so patch the AuthProxyWorkload
+// noWorkloadsToReconcile no updated needed, so patch the AuthProxyWorkload
 // status conditions and return.
-func (r *AuthProxyWorkloadReconciler) noUpdatesNeeded(ctx context.Context, l logr.Logger, resource *cloudsqlapi.AuthProxyWorkload, orig *cloudsqlapi.AuthProxyWorkload) (ctrl.Result, error) {
+func (r *AuthProxyWorkloadReconciler) noWorkloadsToReconcile(ctx context.Context, l logr.Logger, resource *cloudsqlapi.AuthProxyWorkload, orig *cloudsqlapi.AuthProxyWorkload) (ctrl.Result, error) {
 
 	resource.Status.Conditions = replaceCondition(resource.Status.Conditions, &metav1.Condition{
 		Type:               cloudsqlapi.ConditionUpToDate,
