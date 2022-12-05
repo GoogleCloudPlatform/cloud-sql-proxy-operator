@@ -15,6 +15,7 @@
 package testhelpers
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -28,12 +29,12 @@ const DefaultRetryInterval = 5 * time.Second
 
 // CreateOrPatchNamespace ensures that a namespace exists with the given name
 // in kubernetes, or fails the test as fatal.
-func (cc *TestCaseClient) CreateOrPatchNamespace() error {
+func (cc *TestCaseClient) CreateOrPatchNamespace(ctx context.Context) error {
 	var newNS = corev1.Namespace{
 		TypeMeta:   metav1.TypeMeta{Kind: "Namespace", APIVersion: "v1"},
 		ObjectMeta: metav1.ObjectMeta{Name: cc.Namespace},
 	}
-	_, err := controllerutil.CreateOrPatch(cc.Ctx, cc.Client, &newNS, func() error {
+	_, err := controllerutil.CreateOrPatch(ctx, cc.Client, &newNS, func() error {
 		newNS.ObjectMeta.Name = cc.Namespace
 		return nil
 	})
@@ -43,7 +44,7 @@ func (cc *TestCaseClient) CreateOrPatchNamespace() error {
 
 	var gotNS corev1.Namespace
 	err = RetryUntilSuccess(5, DefaultRetryInterval, func() error {
-		return cc.Client.Get(cc.Ctx, client.ObjectKey{Name: cc.Namespace}, &gotNS)
+		return cc.Client.Get(ctx, client.ObjectKey{Name: cc.Namespace}, &gotNS)
 	})
 
 	if err != nil {
@@ -51,6 +52,14 @@ func (cc *TestCaseClient) CreateOrPatchNamespace() error {
 	}
 	return nil
 
+}
+func (cc *TestCaseClient) DeleteNamespace(ctx context.Context) error {
+	ns := &corev1.Namespace{
+		TypeMeta:   metav1.TypeMeta{Kind: "Namespace", APIVersion: "v1"},
+		ObjectMeta: metav1.ObjectMeta{Name: cc.Namespace},
+	}
+
+	return cc.Client.Delete(ctx, ns)
 }
 
 // RetryUntilSuccess runs `f` until it no longer returns an error, or it has

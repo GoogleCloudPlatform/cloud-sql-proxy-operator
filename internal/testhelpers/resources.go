@@ -24,6 +24,7 @@ import (
 
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -31,31 +32,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-const busyboxDeployYaml = `apiVersion: apps/appsv1
-kind: Deployment
-metadata:
-  name: busybox-deployment-
-  labels:
-    app: busyboxon
-spec:
-  replicas: 2
-  strategy:
-    type: RollingUpdate
-  selector:
-    matchLabels:
-      app: busyboxon
-  template:
-    metadata:
-      labels:
-        app: busyboxon
-        enableawait: "yes"
-    spec:
-      containers:
-      - name: busybox
-        image: busybox
-        imagePullPolicy: IfNotPresent
-        command: ['sh', '-c', 'echo Container 1 is Running ; sleep 3600']
-`
+func buildPodTemplateSpec() corev1.PodTemplateSpec {
+	return corev1.PodTemplateSpec{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{"app": "busyboxon"},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Name:            "busybox",
+				Image:           "busybox",
+				ImagePullPolicy: "IfNotPresent",
+				Command:         []string{"sh", "-c", "echo Container 1 is Running ; sleep 30"},
+			}},
+		},
+	}
+}
 
 func BuildDeployment(name types.NamespacedName, appLabel string) *appsv1.Deployment {
 	var two int32 = 2
@@ -72,31 +63,89 @@ func BuildDeployment(name types.NamespacedName, appLabel string) *appsv1.Deploym
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"app": "busyboxon"},
 			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"app": "busyboxon"},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{{
-						Name:            "busybox",
-						Image:           "busybox",
-						ImagePullPolicy: "IfNotPresent",
-						Command:         []string{"sh", "-c", "echo Container 1 is Running ; sleep 30"},
-					}},
+			Template: buildPodTemplateSpec(),
+		},
+	}
+}
+
+func BuildStatefulSet(name types.NamespacedName, appLabel string) *appsv1.StatefulSet {
+	var two int32 = 2
+	return &appsv1.StatefulSet{
+		TypeMeta: metav1.TypeMeta{Kind: "Deployment", APIVersion: "apps/v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name.Name,
+			Namespace: name.Namespace,
+			Labels:    map[string]string{"app": appLabel},
+		},
+		Spec: appsv1.StatefulSetSpec{
+			Replicas:       &two,
+			UpdateStrategy: appsv1.StatefulSetUpdateStrategy{Type: "RollingUpdate"},
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": "busyboxon"},
+			},
+			Template: buildPodTemplateSpec(),
+		},
+	}
+}
+
+func BuildDaemonSet(name types.NamespacedName, appLabel string) *appsv1.DaemonSet {
+	return &appsv1.DaemonSet{
+		TypeMeta: metav1.TypeMeta{Kind: "Deployment", APIVersion: "apps/v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name.Name,
+			Namespace: name.Namespace,
+			Labels:    map[string]string{"app": appLabel},
+		},
+		Spec: appsv1.DaemonSetSpec{
+			UpdateStrategy: appsv1.DaemonSetUpdateStrategy{Type: "RollingUpdate"},
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": "busyboxon"},
+			},
+			Template: buildPodTemplateSpec(),
+		},
+	}
+}
+
+func BuildJob(name types.NamespacedName, appLabel string) *batchv1.Job {
+	return &batchv1.Job{
+		TypeMeta: metav1.TypeMeta{Kind: "Deployment", APIVersion: "apps/v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name.Name,
+			Namespace: name.Namespace,
+			Labels:    map[string]string{"app": appLabel},
+		},
+		Spec: batchv1.JobSpec{
+			Template: buildPodTemplateSpec(),
+		},
+	}
+}
+
+func BuildCronJob(name types.NamespacedName, appLabel string) *batchv1.CronJob {
+	return &batchv1.CronJob{
+		TypeMeta: metav1.TypeMeta{Kind: "Deployment", APIVersion: "apps/v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name.Name,
+			Namespace: name.Namespace,
+			Labels:    map[string]string{"app": appLabel},
+		},
+		Spec: batchv1.CronJobSpec{
+			JobTemplate: batchv1.JobTemplateSpec{
+				Spec: batchv1.JobSpec{
+					Template: buildPodTemplateSpec(),
 				},
 			},
 		},
 	}
 }
 
-func (cc *TestCaseClient) CreateWorkload(o client.Object) error {
-	err := cc.Client.Create(cc.Ctx, o)
+func (cc *TestCaseClient) CreateWorkload(ctx context.Context, o client.Object) error {
+	err := cc.Client.Create(ctx, o)
 	if err != nil {
 		return err
 	}
 
 	err = RetryUntilSuccess(5, time.Second, func() error {
-		return cc.Client.Get(cc.Ctx, client.ObjectKeyFromObject(o), o)
+		return cc.Client.Get(ctx, client.ObjectKeyFromObject(o), o)
 	})
 	if err != nil {
 		return err
@@ -107,11 +156,11 @@ func (cc *TestCaseClient) CreateWorkload(o client.Object) error {
 // GetAuthProxyWorkloadAfterReconcile finds an AuthProxyWorkload resource named key, waits for its
 // "UpToDate" condition to be "True", and the returns it. Fails after 30 seconds
 // if the containers does not match.
-func (cc *TestCaseClient) GetAuthProxyWorkloadAfterReconcile(key types.NamespacedName) (*v1alpha1.AuthProxyWorkload, error) {
+func (cc *TestCaseClient) GetAuthProxyWorkloadAfterReconcile(ctx context.Context, key types.NamespacedName) (*v1alpha1.AuthProxyWorkload, error) {
 	createdPodmod := &v1alpha1.AuthProxyWorkload{}
 	// We'll need to retry getting this newly created resource, given that creation may not immediately happen.
 	err := RetryUntilSuccess(6, DefaultRetryInterval, func() error {
-		err := cc.Client.Get(cc.Ctx, key, createdPodmod)
+		err := cc.Client.Get(ctx, key, createdPodmod)
 		if err != nil {
 			return err
 		}
@@ -128,18 +177,18 @@ func (cc *TestCaseClient) GetAuthProxyWorkloadAfterReconcile(key types.Namespace
 
 // CreateBusyboxDeployment creates a simple busybox deployment, using the
 // key as its namespace and name. It also sets the label "app"= appLabel.
-func (cc *TestCaseClient) CreateBusyboxDeployment(name types.NamespacedName, appLabel string) (*appsv1.Deployment, error) {
+func (cc *TestCaseClient) CreateBusyboxDeployment(ctx context.Context, name types.NamespacedName, appLabel string) (*appsv1.Deployment, error) {
 
 	d := BuildDeployment(name, appLabel)
 
-	err := cc.Client.Create(cc.Ctx, d)
+	err := cc.Client.Create(ctx, d)
 	if err != nil {
 		return nil, err
 	}
 
 	cd := &appsv1.Deployment{}
 	err = RetryUntilSuccess(5, time.Second, func() error {
-		return cc.Client.Get(cc.Ctx, types.NamespacedName{
+		return cc.Client.Get(ctx, types.NamespacedName{
 			Namespace: name.Namespace,
 			Name:      name.Name,
 		}, cd)
@@ -170,7 +219,7 @@ func ListPods(ctx context.Context, c client.Client, ns string, selector *metav1.
 // ExpectPodContainerCount finds a deployment and keeps checking until the number of
 // containers on the deployment's PodSpec.Containers == count. Returns error after 30 seconds
 // if the containers do not match.
-func (cc *TestCaseClient) ExpectPodContainerCount(podSelector *metav1.LabelSelector, count int, allOrAny string) error {
+func (cc *TestCaseClient) ExpectPodContainerCount(ctx context.Context, podSelector *metav1.LabelSelector, count int, allOrAny string) error {
 
 	var (
 		countBadPods int
@@ -179,7 +228,7 @@ func (cc *TestCaseClient) ExpectPodContainerCount(podSelector *metav1.LabelSelec
 
 	err := RetryUntilSuccess(12, DefaultRetryInterval, func() error {
 		countBadPods = 0
-		pods, err := ListPods(cc.Ctx, cc.Client, cc.Namespace, podSelector)
+		pods, err := ListPods(ctx, cc.Client, cc.Namespace, podSelector)
 		if err != nil {
 			return err
 		}
@@ -212,14 +261,14 @@ func (cc *TestCaseClient) ExpectPodContainerCount(podSelector *metav1.LabelSelec
 // ExpectContainerCount finds a deployment and keeps checking until the number of
 // containers on the deployment's PodSpec.Containers == count. Returns error after 30 seconds
 // if the containers do not match.
-func (cc *TestCaseClient) ExpectContainerCount(key types.NamespacedName, count int) error {
+func (cc *TestCaseClient) ExpectContainerCount(ctx context.Context, key types.NamespacedName, count int) error {
 
 	var (
 		got        int
 		deployment = &appsv1.Deployment{}
 	)
 	err := RetryUntilSuccess(6, DefaultRetryInterval, func() error {
-		err := cc.Client.Get(cc.Ctx, key, deployment)
+		err := cc.Client.Get(ctx, key, deployment)
 		if err != nil {
 			return err
 		}
@@ -241,7 +290,7 @@ func (cc *TestCaseClient) ExpectContainerCount(key types.NamespacedName, count i
 // built into kubernetes. It creates one ReplicaSet and DeploymentSpec.Replicas pods
 // with the correct labels and ownership annotations as if it were in a live cluster.
 // This will make it easier to test and debug the behavior of our pod injection webhooks.
-func (cc *TestCaseClient) CreateDeploymentReplicaSetAndPods(d *appsv1.Deployment) (*appsv1.ReplicaSet, []*corev1.Pod, error) {
+func (cc *TestCaseClient) CreateDeploymentReplicaSetAndPods(ctx context.Context, d *appsv1.Deployment) (*appsv1.ReplicaSet, []*corev1.Pod, error) {
 	podTemplateHash := strconv.FormatUint(rand.Uint64(), 16)
 	rs := &appsv1.ReplicaSet{
 		TypeMeta: metav1.TypeMeta{Kind: "ReplicaSet", APIVersion: "apps/metav1"},
@@ -267,8 +316,12 @@ func (cc *TestCaseClient) CreateDeploymentReplicaSetAndPods(d *appsv1.Deployment
 		},
 	}
 
-	controllerutil.SetOwnerReference(d, rs, cc.Client.Scheme())
-	err := cc.Client.Create(cc.Ctx, rs)
+	err := controllerutil.SetOwnerReference(d, rs, cc.Client.Scheme())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = cc.Client.Create(ctx, rs)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -296,8 +349,12 @@ func (cc *TestCaseClient) CreateDeploymentReplicaSetAndPods(d *appsv1.Deployment
 			},
 			Spec: d.Spec.Template.Spec,
 		}
-		controllerutil.SetOwnerReference(rs, p, cc.Client.Scheme())
-		err = cc.Client.Create(cc.Ctx, p)
+		err = controllerutil.SetOwnerReference(rs, p, cc.Client.Scheme())
+		if err != nil {
+			return rs, nil, err
+		}
+
+		err = cc.Client.Create(ctx, p)
 		if err != nil {
 			return rs, nil, err
 		}
@@ -324,7 +381,7 @@ func BuildAuthProxyWorkload(key types.NamespacedName, connectionString string) *
 }
 
 // CreateAuthProxyWorkload creates an AuthProxyWorkload in the kubernetes cluster.
-func (cc *TestCaseClient) CreateAuthProxyWorkload(key types.NamespacedName, appLabel string, connectionString string, kind string) error {
+func (cc *TestCaseClient) CreateAuthProxyWorkload(ctx context.Context, key types.NamespacedName, appLabel string, connectionString string, kind string) error {
 	proxy := BuildAuthProxyWorkload(key, connectionString)
 	proxy.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
 		Kind: kind,
@@ -333,7 +390,7 @@ func (cc *TestCaseClient) CreateAuthProxyWorkload(key types.NamespacedName, appL
 		},
 	}
 	proxy.Spec.AuthProxyContainer = &v1alpha1.AuthProxyContainerSpec{Image: cc.ProxyImageURL}
-	err := cc.Client.Create(cc.Ctx, proxy)
+	err := cc.Client.Create(ctx, proxy)
 	if err != nil {
 		return fmt.Errorf("Unable to create entity %v", err)
 	}
