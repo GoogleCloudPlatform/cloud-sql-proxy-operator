@@ -18,10 +18,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 
-	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -29,6 +27,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
 )
 
 // Constants for well known error codes and defaults. These are exposed on the
@@ -188,86 +188,6 @@ func (u *Updater) filterMatchingInstances(pl *cloudsqlapi.AuthProxyWorkloadList,
 		}
 	}
 	return matchingAuthProxyWorkloads
-}
-
-// WorkloadUpdateStatus describes when a workload was last updated, mostly
-// used to log errors
-type WorkloadUpdateStatus struct {
-	LastGeneration string
-	ThisGeneration string
-}
-
-// UpdateWorkloadAnnotations Updates annotations on the workload indicating that it may need an update.
-// returns true if the workload actually needs an update.
-func (u *Updater) UpdateWorkloadAnnotations(p *cloudsqlapi.AuthProxyWorkload, wl Workload) (bool, WorkloadUpdateStatus) {
-	mpt, ok := wl.(WithMutablePodTemplate)
-	if !ok {
-		return false, WorkloadUpdateStatus{}
-	}
-
-	annName := u.workloadAnnotationName(p)
-
-	pta := wl.PodTemplateAnnotations()
-	if pta == nil {
-		pta = make(map[string]string)
-	}
-
-	g := strconv.FormatInt(p.GetGeneration(), 10)
-	lastG := pta[annName]
-	s := WorkloadUpdateStatus{LastGeneration: lastG, ThisGeneration: g}
-
-	if lastG == g {
-		return false, s
-	}
-	pta[annName] = g
-	mpt.SetPodTemplateAnnotations(pta)
-	return true, s
-}
-
-// RemoveWorkloadAnnotations Updates annotations on the workload indicating that it may need an update.
-// returns true if the workload actually needs an update.
-func (u *Updater) RemoveWorkloadAnnotations(p *cloudsqlapi.AuthProxyWorkload, wl Workload) (bool, WorkloadUpdateStatus) {
-	mpt, ok := wl.(WithMutablePodTemplate)
-	if !ok {
-		return false, WorkloadUpdateStatus{}
-	}
-	annName := u.workloadAnnotationName(p)
-
-	pta := wl.PodTemplateAnnotations()
-	if pta == nil {
-		return false, WorkloadUpdateStatus{}
-	}
-
-	lastG, ok := pta[annName]
-	s := WorkloadUpdateStatus{lastG, ""}
-
-	if !ok {
-		return false, WorkloadUpdateStatus{}
-	}
-
-	delete(pta, annName)
-	mpt.SetPodTemplateAnnotations(pta)
-	return true, s
-}
-
-// Status checks the annotations on a workload related to this
-// AuthProxyWorkload resource, returning what generation of the AuthProxyWorkload
-// resource was last requested, and applied to the workload.
-func (u *Updater) Status(p *cloudsqlapi.AuthProxyWorkload, wl Workload) WorkloadUpdateStatus {
-	g := strconv.FormatInt(p.GetGeneration(), 10)
-	annName := u.workloadAnnotationName(p)
-	pta := wl.PodTemplateAnnotations()
-	if pta == nil {
-		return WorkloadUpdateStatus{ThisGeneration: g}
-	}
-
-	lastG := pta[annName]
-	return WorkloadUpdateStatus{lastG, g}
-}
-
-func (u *Updater) workloadAnnotationName(p *cloudsqlapi.AuthProxyWorkload) string {
-	return cloudsqlapi.AnnotationPrefix + "/" +
-		SafePrefixedName("req-", p.Namespace+"-"+p.Name)
 }
 
 // UpdateWorkloadContainers applies the proxy containers from all of the

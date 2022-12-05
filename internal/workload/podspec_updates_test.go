@@ -513,9 +513,6 @@ func TestContainerReplaced(t *testing.T) {
 	csqls := []*v1alpha1.AuthProxyWorkload{simpleAuthProxy("instance1", wantsInstanceName)}
 	csqls[0].Spec.AuthProxyContainer = &v1alpha1.AuthProxyContainerSpec{Container: wantContainer}
 
-	// Indicate that the workload needs an update
-	u.UpdateWorkloadAnnotations(csqls[0], wl)
-
 	// update the containers
 	_, err := u.UpdateWorkloadContainers(wl, csqls)
 	if err != nil {
@@ -995,42 +992,4 @@ func assertContainerArgsContains(t *testing.T, gotArgs, wantArgs []string) {
 			t.Errorf("missing argument, wants argument %v, got arguments %v", wantArg, gotArgs)
 		}
 	}
-}
-
-func TestMarkAndRemoveAnnotations(t *testing.T) {
-	wl := deploymentWorkload()
-	u := workload.NewUpdater()
-	p := simpleAuthProxy("instance1", "proj:region:dbserver")
-
-	// Indicate that the workload needs an update
-	needsUpdate, status := u.UpdateWorkloadAnnotations(p, wl)
-	wantStatus := workload.WorkloadUpdateStatus{ThisGeneration: "1"}
-	if status != wantStatus {
-		t.Errorf("got %v, want %v for status", status, wantStatus)
-	}
-	if !needsUpdate {
-		t.Errorf("got %v, want %v for needsUpdate", needsUpdate, true)
-	}
-
-	// Indicate that the workload does not an update by trying the same
-	// workload again
-	needsUpdate, status = u.UpdateWorkloadAnnotations(p, wl)
-	wantStatus = workload.WorkloadUpdateStatus{LastGeneration: "1", ThisGeneration: "1"}
-	if status != wantStatus {
-		t.Errorf("got %v, want %v for status", status, wantStatus)
-	}
-	if needsUpdate {
-		t.Errorf("got %v, want %v for needsUpdate", needsUpdate, false)
-	}
-
-	// Remove the status
-	needsUpdate, status = u.RemoveWorkloadAnnotations(p, wl)
-	wantStatus = workload.WorkloadUpdateStatus{LastGeneration: "1"}
-	if status != wantStatus {
-		t.Errorf("got %v, want %v for status", status, wantStatus)
-	}
-	if !needsUpdate {
-		t.Errorf("got %v, want %v for needsUpdate", needsUpdate, false)
-	}
-
 }

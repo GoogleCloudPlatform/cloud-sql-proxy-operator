@@ -20,9 +20,6 @@ import (
 	"sync"
 	"time"
 
-	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
-	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,6 +29,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
+	"github.com/go-logr/logr"
 )
 
 const finalizerName = cloudsqlapi.AnnotationPrefix + "/AuthProxyWorkload-finalizer"
@@ -243,7 +244,25 @@ func (r *AuthProxyWorkloadReconciler) doCreateUpdate(ctx context.Context, l logr
 	//
 	//   State 3.1: If workloads are all up to date, mark the condition
 	//   "UpToDate" true and do not requeue.
-	return r.checkReconcileComplete(ctx, l, resource, orig, allWorkloads)
+	message := fmt.Sprintf("Reconciled %d matching workloads complete", len(allWorkloads))
+
+	// Workload updates are complete, update the status
+	resource.Status.Conditions = replaceCondition(resource.Status.Conditions, &metav1.Condition{
+		Type:               cloudsqlapi.ConditionUpToDate,
+		Status:             metav1.ConditionTrue,
+		ObservedGeneration: resource.GetGeneration(),
+		Reason:             cloudsqlapi.ReasonFinishedReconcile,
+		Message:            message,
+	})
+	err = r.patchAuthProxyWorkloadStatus(ctx, resource, orig)
+	if err != nil {
+		l.Error(err, "Unable to patch status before beginning workloads", "AuthProxyWorkload", resource.GetNamespace()+"/"+resource.GetName())
+		return ctrl.Result{}, err
+	}
+
+	l.Info("Reconcile checked completion of workload updates",
+		"ns", resource.GetNamespace(), "name", resource.GetName())
+	return ctrl.Result{}, nil
 }
 
 // noUpdatesNeeded no updated needed, so patch the AuthProxyWorkload
@@ -267,34 +286,6 @@ func (r *AuthProxyWorkloadReconciler) noUpdatesNeeded(ctx context.Context, l log
 func (r *AuthProxyWorkloadReconciler) readyToStartWorkloadReconcile(resource *cloudsqlapi.AuthProxyWorkload) bool {
 	s := findCondition(resource.Status.Conditions, cloudsqlapi.ConditionUpToDate)
 	return s == nil || (s.Status == metav1.ConditionFalse && s.Reason != cloudsqlapi.ReasonStartedReconcile)
-}
-
-// checkReconcileComplete checks if reconcile has finished and if not, attempts
-// to start the workload reconcile again.
-func (r *AuthProxyWorkloadReconciler) checkReconcileComplete(
-	ctx context.Context, l logr.Logger, resource *cloudsqlapi.AuthProxyWorkload,
-	orig *cloudsqlapi.AuthProxyWorkload, wls []workload.Workload) (ctrl.Result, error) {
-
-	// state 3.1
-	message := fmt.Sprintf("Reconciled %d matching workloads complete", len(wls))
-
-	// Workload updates are complete, update the status
-	resource.Status.Conditions = replaceCondition(resource.Status.Conditions, &metav1.Condition{
-		Type:               cloudsqlapi.ConditionUpToDate,
-		Status:             metav1.ConditionTrue,
-		ObservedGeneration: resource.GetGeneration(),
-		Reason:             cloudsqlapi.ReasonFinishedReconcile,
-		Message:            message,
-	})
-	err := r.patchAuthProxyWorkloadStatus(ctx, resource, orig)
-	if err != nil {
-		l.Error(err, "Unable to patch status before beginning workloads", "AuthProxyWorkload", resource.GetNamespace()+"/"+resource.GetName())
-		return ctrl.Result{}, err
-	}
-
-	l.Info("Reconcile checked completion of workload updates",
-		"ns", resource.GetNamespace(), "name", resource.GetName())
-	return ctrl.Result{}, nil
 }
 
 // applyFinalizer adds the finalizer so that the operator is notified when
