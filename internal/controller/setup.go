@@ -66,7 +66,7 @@ func SetupManagers(mgr manager.Manager) error {
 	// When kubebuilder scaffolds a new controller here, please
 	// adjust the code so it follows the pattern above.
 
-	err = SetupWorkloadControllers(mgr, u)
+	err = RegisterPodWebhook(mgr, u)
 	if err != nil {
 		setupLog.Error(err, "unable to create workload admission webhook controller")
 		return err
@@ -76,8 +76,8 @@ func SetupManagers(mgr manager.Manager) error {
 	return nil
 }
 
-// SetupWorkloadControllers Watch changes for Istio resources managed by the operator
-func SetupWorkloadControllers(mgr ctrl.Manager, u *workload.Updater) error {
+// RegisterPodWebhook register the webhook to mutate pods
+func RegisterPodWebhook(mgr ctrl.Manager, u *workload.Updater) error {
 	mgr.GetWebhookServer().Register("/mutate-pods", &webhook.Admission{
 		Handler: &PodAdmissionWebhook{
 			Client:  mgr.GetClient(),
