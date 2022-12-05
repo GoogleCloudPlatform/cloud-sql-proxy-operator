@@ -16,13 +16,12 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
 	"go.uber.org/zap/zapcore"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +31,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
 )
 
 var logger = zap.New(zap.UseFlagOptions(&zap.Options{
@@ -54,7 +57,10 @@ func TestReconcileState11(t *testing.T) {
 		Name:      "test",
 	}, "project:region:db")
 
-	runReconcileTestcase(t, p, []client.Object{p}, true, "", "")
+	err := runReconcileTestcase(p, []client.Object{p}, true, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestReconcileDeleted(t *testing.T) {
@@ -116,7 +122,11 @@ func TestReconcileState21ByName(t *testing.T) {
 		Namespace: "default",
 	}
 
-	runReconcileTestcase(t, p, []client.Object{p}, false, metav1.ConditionTrue, v1alpha1.ReasonNoWorkloadsFound)
+	err := runReconcileTestcase(p, []client.Object{p}, false, metav1.ConditionTrue, v1alpha1.ReasonNoWorkloadsFound)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 }
 func TestReconcileState21BySelector(t *testing.T) {
 	p := testhelpers.BuildAuthProxyWorkload(types.NamespacedName{
@@ -132,60 +142,11 @@ func TestReconcileState21BySelector(t *testing.T) {
 		},
 	}
 
-	runReconcileTestcase(t, p, []client.Object{p}, false, metav1.ConditionTrue, v1alpha1.ReasonNoWorkloadsFound)
-}
-
-func TestReconcileState22ByName(t *testing.T) {
-	p := testhelpers.BuildAuthProxyWorkload(types.NamespacedName{
-		Namespace: "default",
-		Name:      "test",
-	}, "project:region:db")
-	p.Finalizers = []string{finalizerName}
-	p.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
-		Kind:      "Pod",
-		Namespace: "default",
-		Name:      "thing",
-	}
-	p.Status.Conditions = []*metav1.Condition{{
-		Type:   v1alpha1.ConditionUpToDate,
-		Reason: v1alpha1.ReasonFinishedReconcile,
-		Status: metav1.ConditionTrue,
-	}}
-
-	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "thing",
-			Namespace: "default",
-			Labels:    map[string]string{"app": "things"},
-		},
+	err := runReconcileTestcase(p, []client.Object{p}, false, metav1.ConditionTrue, v1alpha1.ReasonNoWorkloadsFound)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	runReconcileTestcase(t, p, []client.Object{p, pod}, true, metav1.ConditionFalse, v1alpha1.ReasonStartedReconcile)
-}
-
-func TestReconcileState22BySelector(t *testing.T) {
-	p := testhelpers.BuildAuthProxyWorkload(types.NamespacedName{
-		Namespace: "default",
-		Name:      "test",
-	}, "project:region:db")
-	p.Finalizers = []string{finalizerName}
-	p.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
-		Kind:      "Pod",
-		Namespace: "default",
-		Selector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{"app": "things"},
-		},
-	}
-
-	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "thing",
-			Namespace: "default",
-			Labels:    map[string]string{"app": "things"},
-		},
-	}
-
-	runReconcileTestcase(t, p, []client.Object{p, pod}, true, metav1.ConditionFalse, v1alpha1.ReasonStartedReconcile)
 }
 
 func TestReconcileState31(t *testing.T) {
@@ -200,7 +161,7 @@ func TestReconcileState31(t *testing.T) {
 	p.Generation = 1
 	p.Finalizers = []string{finalizerName}
 	p.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
-		Kind:      "Pod",
+		Kind:      "Deployment",
 		Namespace: "default",
 		Selector: &metav1.LabelSelector{
 			MatchLabels: map[string]string{"app": "things"},
@@ -213,71 +174,30 @@ func TestReconcileState31(t *testing.T) {
 	}}
 
 	// mimic a pod that was updated by the webhook
-	resultName := v1alpha1.AnnotationPrefix + "/" +
-		workload.SafePrefixedName("app-", p.Namespace+"-"+p.Name)
 	reqName := v1alpha1.AnnotationPrefix + "/" +
 		workload.SafePrefixedName("req-", p.Namespace+"-"+p.Name)
-	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        "thing",
-			Namespace:   "default",
-			Labels:      map[string]string{"app": "things"},
-			Annotations: map[string]string{resultName: "1", reqName: "1"},
-		},
-	}
-	wantWls := workload.WorkloadUpdateStatus{LastUpdatedGeneration: "1", LastRequstGeneration: "1"}
-	_, _, r := runReconcileTestcase(t, p, []client.Object{p, pod}, wantRequeue, wantStatus, wantReason)
-	assertWorkloadUpdateStatus(t, r, p, pod, wantWls)
-}
-
-func TestReconcileState32(t *testing.T) {
-	p := testhelpers.BuildAuthProxyWorkload(types.NamespacedName{
-		Namespace: "default",
-		Name:      "test",
-	}, "project:region:db")
-	p.Generation = 1
-	p.Finalizers = []string{finalizerName}
-	p.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
-		Kind:      "Pod",
-		Namespace: "default",
-		Selector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{"app": "things"},
-		},
-	}
-	p.Status.Conditions = []*metav1.Condition{{
-		Type:   v1alpha1.ConditionUpToDate,
-		Reason: v1alpha1.ReasonStartedReconcile,
-		Status: metav1.ConditionFalse,
-	}}
-
-	pod := &corev1.Pod{
+	pod := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "thing",
 			Namespace: "default",
 			Labels:    map[string]string{"app": "things"},
 		},
+		Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{reqName: "1"}},
+		}},
 	}
-	wantWls := workload.WorkloadUpdateStatus{LastUpdatedGeneration: "", LastRequstGeneration: "1"}
 
-	_, _, r := runReconcileTestcase(t, p, []client.Object{p, pod}, true, metav1.ConditionFalse, v1alpha1.ReasonStartedReconcile)
-	assertWorkloadUpdateStatus(t, r, p, pod, wantWls)
+	err := runReconcileTestcase(p, []client.Object{p, pod}, wantRequeue, wantStatus, wantReason)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 }
 
-func assertWorkloadUpdateStatus(t *testing.T, r *AuthProxyWorkloadReconciler, p *v1alpha1.AuthProxyWorkload, pod *corev1.Pod, wantWls workload.WorkloadUpdateStatus) {
-	wls := r.updater.Status(p, &workload.PodWorkload{Pod: pod})
-	if wls.LastRequstGeneration != wantWls.LastRequstGeneration {
-		t.Errorf("got %v, want %v, workload status LastRequstGeneration", wls.LastRequstGeneration, wantWls.LastRequstGeneration)
-	}
-	if wls.LastUpdatedGeneration != wantWls.LastUpdatedGeneration {
-		t.Errorf("got %v, want %v. workload status LastUpdatedGeneration", wls.LastUpdatedGeneration, wantWls.LastUpdatedGeneration)
-	}
-}
-
-func runReconcileTestcase(t *testing.T, p *v1alpha1.AuthProxyWorkload, clientObjects []client.Object, wantRequeue bool, wantStatus metav1.ConditionStatus, wantReason string) (context.Context, client.WithWatch, *AuthProxyWorkloadReconciler) {
-	t.Helper()
+func runReconcileTestcase(p *v1alpha1.AuthProxyWorkload, clientObjects []client.Object, wantRequeue bool, wantStatus metav1.ConditionStatus, wantReason string) error {
 	cb, err := clientBuilder()
 	if err != nil {
-		t.Error(err) // shouldn't ever happen
+		return err // shouldn't ever happen
 	}
 
 	c := cb.WithObjects(clientObjects...).Build()
@@ -285,10 +205,10 @@ func runReconcileTestcase(t *testing.T, p *v1alpha1.AuthProxyWorkload, clientObj
 	r, req, ctx := reconciler(p, c)
 	res, err := r.Reconcile(ctx, req)
 	if err != nil {
-		t.Error(err)
+		return err
 	}
 	if res.Requeue != wantRequeue {
-		t.Errorf("got %v, want %v for requeue", res.Requeue, wantRequeue)
+		return fmt.Errorf("got %v, want %v for requeue", res.Requeue, wantRequeue)
 	}
 
 	for _, o := range clientObjects {
@@ -301,18 +221,17 @@ func runReconcileTestcase(t *testing.T, p *v1alpha1.AuthProxyWorkload, clientObj
 	if wantStatus != "" || wantReason != "" {
 		cond := findCondition(p.Status.Conditions, v1alpha1.ConditionUpToDate)
 		if cond == nil {
-			t.Error("UpToDate condition was nil, wants condition to exist.")
-			return ctx, c, nil
+			return fmt.Errorf("the UpToDate condition was nil, wants condition to exist")
 		}
 		if wantStatus != "" && cond.Status != wantStatus {
-			t.Errorf("got %v, want %v for UpToDate condition status", cond.Status, wantStatus)
+			return fmt.Errorf("got %v, want %v for UpToDate condition status", cond.Status, wantStatus)
 		}
 		if wantReason != "" && cond.Reason != wantReason {
-			t.Errorf("got %v, want %v for UpToDate condition reason", cond.Reason, wantReason)
+			return fmt.Errorf("got %v, want %v for UpToDate condition reason", cond.Reason, wantReason)
 		}
 	}
 
-	return ctx, c, r
+	return nil
 }
 
 func clientBuilder() (*fake.ClientBuilder, error) {
@@ -321,6 +240,10 @@ func clientBuilder() (*fake.ClientBuilder, error) {
 		return nil, err
 	}
 	err = corev1.AddToScheme(scheme)
+	if err != nil {
+		return nil, err
+	}
+	err = appsv1.AddToScheme(scheme)
 	if err != nil {
 		return nil, err
 	}
