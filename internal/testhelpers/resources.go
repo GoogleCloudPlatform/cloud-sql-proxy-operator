@@ -32,7 +32,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func buildPodTemplateSpec() corev1.PodTemplateSpec {
+func buildPodTemplateSpec(mainPodSleep int) corev1.PodTemplateSpec {
+	podCmd := fmt.Sprintf("echo Container 1 is Running ; sleep %d", mainPodSleep)
 	return corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{"app": "busyboxon"},
@@ -42,7 +43,7 @@ func buildPodTemplateSpec() corev1.PodTemplateSpec {
 				Name:            "busybox",
 				Image:           "busybox",
 				ImagePullPolicy: "IfNotPresent",
-				Command:         []string{"sh", "-c", "echo Container 1 is Running ; sleep 30"},
+				Command:         []string{"sh", "-c", podCmd},
 			}},
 		},
 	}
@@ -63,7 +64,7 @@ func BuildDeployment(name types.NamespacedName, appLabel string) *appsv1.Deploym
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"app": "busyboxon"},
 			},
-			Template: buildPodTemplateSpec(),
+			Template: buildPodTemplateSpec(3600),
 		},
 	}
 }
@@ -71,7 +72,7 @@ func BuildDeployment(name types.NamespacedName, appLabel string) *appsv1.Deploym
 func BuildStatefulSet(name types.NamespacedName, appLabel string) *appsv1.StatefulSet {
 	var two int32 = 2
 	return &appsv1.StatefulSet{
-		TypeMeta: metav1.TypeMeta{Kind: "Deployment", APIVersion: "apps/v1"},
+		TypeMeta: metav1.TypeMeta{Kind: "StatefulSet", APIVersion: "apps/v1"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name.Name,
 			Namespace: name.Namespace,
@@ -83,14 +84,14 @@ func BuildStatefulSet(name types.NamespacedName, appLabel string) *appsv1.Statef
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"app": "busyboxon"},
 			},
-			Template: buildPodTemplateSpec(),
+			Template: buildPodTemplateSpec(3600),
 		},
 	}
 }
 
 func BuildDaemonSet(name types.NamespacedName, appLabel string) *appsv1.DaemonSet {
 	return &appsv1.DaemonSet{
-		TypeMeta: metav1.TypeMeta{Kind: "Deployment", APIVersion: "apps/v1"},
+		TypeMeta: metav1.TypeMeta{Kind: "DaemonSet", APIVersion: "apps/v1"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name.Name,
 			Namespace: name.Namespace,
@@ -101,28 +102,30 @@ func BuildDaemonSet(name types.NamespacedName, appLabel string) *appsv1.DaemonSe
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"app": "busyboxon"},
 			},
-			Template: buildPodTemplateSpec(),
+			Template: buildPodTemplateSpec(3600),
 		},
 	}
 }
 
 func BuildJob(name types.NamespacedName, appLabel string) *batchv1.Job {
-	return &batchv1.Job{
-		TypeMeta: metav1.TypeMeta{Kind: "Deployment", APIVersion: "apps/v1"},
+	job := &batchv1.Job{
+		TypeMeta: metav1.TypeMeta{Kind: "Job", APIVersion: "batch/v1"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name.Name,
 			Namespace: name.Namespace,
 			Labels:    map[string]string{"app": appLabel},
 		},
 		Spec: batchv1.JobSpec{
-			Template: buildPodTemplateSpec(),
+			Template: buildPodTemplateSpec(60),
 		},
 	}
+	job.Spec.Template.Spec.RestartPolicy = corev1.RestartPolicyNever
+	return job
 }
 
 func BuildCronJob(name types.NamespacedName, appLabel string) *batchv1.CronJob {
-	return &batchv1.CronJob{
-		TypeMeta: metav1.TypeMeta{Kind: "Deployment", APIVersion: "apps/v1"},
+	job := &batchv1.CronJob{
+		TypeMeta: metav1.TypeMeta{Kind: "CronJob", APIVersion: "batch/v1"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name.Name,
 			Namespace: name.Namespace,
@@ -131,11 +134,14 @@ func BuildCronJob(name types.NamespacedName, appLabel string) *batchv1.CronJob {
 		Spec: batchv1.CronJobSpec{
 			JobTemplate: batchv1.JobTemplateSpec{
 				Spec: batchv1.JobSpec{
-					Template: buildPodTemplateSpec(),
+					Template: buildPodTemplateSpec(60),
 				},
 			},
 		},
 	}
+	job.Spec.JobTemplate.Spec.Template.Spec.RestartPolicy = corev1.RestartPolicyNever
+	return job
+
 }
 
 func (cc *TestCaseClient) CreateWorkload(ctx context.Context, o client.Object) error {
