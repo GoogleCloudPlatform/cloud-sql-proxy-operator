@@ -19,12 +19,13 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/json"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
 )
 
 // PodAdmissionWebhook implementation of a controller-runtime webhook for all
