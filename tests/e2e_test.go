@@ -21,9 +21,11 @@ import (
 	"testing"
 
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 func TestMain(m *testing.M) {
@@ -59,6 +61,11 @@ func TestCreateAndDeleteResource(t *testing.T) {
 }
 
 func TestProxyAppliedOnNewWorkload(t *testing.T) {
+	// When running tests during development, set the SKIP_CLEANUP=true envvar so that
+	// the test namespace remains after the test ends. By default, the test
+	// namespace will be deleted when the test exits.
+	skipCleanup := loadValue("SKIP_CLEANUP", "", "false") == "true"
+
 	tests := []struct {
 		name string
 		o    client.Object
@@ -98,6 +105,10 @@ func TestProxyAppliedOnNewWorkload(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Cleanup(func() {
+				if skipCleanup {
+					return
+				}
+
 				err = tp.DeleteNamespace(ctx)
 				if err != nil {
 					t.Fatal(err)
@@ -132,43 +143,50 @@ func TestProxyAppliedOnNewWorkload(t *testing.T) {
 			selector := &metav1.LabelSelector{
 				MatchLabels: map[string]string{"app": "busyboxon"},
 			}
+			t.Log("Checking for container counts", kind)
 			err = tp.ExpectPodContainerCount(ctx, selector, 2, "all")
 			if err != nil {
 				t.Error(err)
 			}
+			t.Log("Done, OK", kind)
 		})
 	}
 }
 
 func TestProxyAppliedOnExistingWorkload(t *testing.T) {
+	// When running tests during development, set the SKIP_CLEANUP=true envvar so that
+	// the test namespace remains after the test ends. By default, the test
+	// namespace will be deleted when the test exits.
+	skipCleanup := loadValue("SKIP_CLEANUP", "", "false") == "true"
+
 	tests := []struct {
 		name     string
-		o        client.Object
+		o        workload.Workload
 		allOrAny string
 	}{
 		{
 			name:     "deployment",
-			o:        testhelpers.BuildDeployment(types.NamespacedName{}, "busybox"),
+			o:        &workload.DeploymentWorkload{Deployment: testhelpers.BuildDeployment(types.NamespacedName{}, "busybox")},
 			allOrAny: "all",
 		},
 		{
 			name:     "statefulset",
-			o:        testhelpers.BuildStatefulSet(types.NamespacedName{}, "busybox"),
+			o:        &workload.StatefulSetWorkload{StatefulSet: testhelpers.BuildStatefulSet(types.NamespacedName{}, "busybox")},
 			allOrAny: "all",
 		},
 		{
 			name:     "daemonset",
-			o:        testhelpers.BuildDaemonSet(types.NamespacedName{}, "busybox"),
+			o:        &workload.DaemonSetWorkload{DaemonSet: testhelpers.BuildDaemonSet(types.NamespacedName{}, "busybox")},
 			allOrAny: "all",
 		},
 		{
 			name:     "job",
-			o:        testhelpers.BuildJob(types.NamespacedName{}, "busybox"),
+			o:        &workload.JobWorkload{Job: testhelpers.BuildJob(types.NamespacedName{}, "busybox")},
 			allOrAny: "any",
 		},
 		{
 			name:     "cronjob",
-			o:        testhelpers.BuildCronJob(types.NamespacedName{}, "busybox"),
+			o:        &workload.CronJobWorkload{CronJob: testhelpers.BuildCronJob(types.NamespacedName{}, "busybox")},
 			allOrAny: "any",
 		},
 	}
@@ -177,7 +195,7 @@ func TestProxyAppliedOnExistingWorkload(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testContext()
-			kind := test.o.GetObjectKind().GroupVersionKind().Kind
+			kind := test.o.Object().GetObjectKind().GroupVersionKind().Kind
 
 			tp := newTestCaseClient("modify" + strings.ToLower(kind))
 
@@ -185,7 +203,11 @@ func TestProxyAppliedOnExistingWorkload(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			t.Cleanup(func() {
+				if skipCleanup {
+					return
+				}
 				err = tp.DeleteNamespace(ctx)
 				if err != nil {
 					t.Fatal(err)
@@ -199,9 +221,9 @@ func TestProxyAppliedOnExistingWorkload(t *testing.T) {
 			key := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
 
 			t.Log("Creating ", kind)
-			test.o.SetNamespace(tp.Namespace)
-			test.o.SetName(test.name)
-			err = tp.CreateWorkload(ctx, test.o)
+			test.o.Object().SetNamespace(tp.Namespace)
+			test.o.Object().SetName(test.name)
+			err = tp.CreateWorkload(ctx, test.o.Object())
 			if err != nil {
 				t.Fatal("unable to create ", kind, err)
 			}
@@ -226,10 +248,34 @@ func TestProxyAppliedOnExistingWorkload(t *testing.T) {
 				t.Fatal(err)
 			}
 
+			t.Log("Pod container count remains unmodified for existing workload")
+			err = tp.ExpectPodContainerCount(ctx, selector, 1, test.allOrAny)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// if this is an apps/v1 resource with a mutable pod template,
+			// force a rolling update.
+			wl, ok := test.o.(workload.WithMutablePodTemplate)
+			if ok {
+				// patch the workload, add an annotation to the podspec
+				t.Log("Customer updates the workload triggering a rollout")
+				controllerutil.CreateOrPatch(ctx, tp.Client, test.o.Object(), func() error {
+					wl.SetPodTemplateAnnotations(map[string]string{"customer": "updated"})
+					return nil
+				})
+
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			t.Logf("Wait for %v pods to have 2 containers", test.allOrAny)
 			err = tp.ExpectPodContainerCount(ctx, selector, 2, test.allOrAny)
 			if err != nil {
 				t.Fatal(err)
 			}
+
 		})
 	}
 }
