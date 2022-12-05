@@ -16,6 +16,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 
@@ -56,7 +57,10 @@ func TestReconcileState11(t *testing.T) {
 		Name:      "test",
 	}, "project:region:db")
 
-	runReconcileTestcase(t, p, []client.Object{p}, true, "", "")
+	err := runReconcileTestcase(p, []client.Object{p}, true, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestReconcileDeleted(t *testing.T) {
@@ -118,7 +122,11 @@ func TestReconcileState21ByName(t *testing.T) {
 		Namespace: "default",
 	}
 
-	runReconcileTestcase(t, p, []client.Object{p}, false, metav1.ConditionTrue, v1alpha1.ReasonNoWorkloadsFound)
+	err := runReconcileTestcase(p, []client.Object{p}, false, metav1.ConditionTrue, v1alpha1.ReasonNoWorkloadsFound)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 }
 func TestReconcileState21BySelector(t *testing.T) {
 	p := testhelpers.BuildAuthProxyWorkload(types.NamespacedName{
@@ -134,7 +142,11 @@ func TestReconcileState21BySelector(t *testing.T) {
 		},
 	}
 
-	runReconcileTestcase(t, p, []client.Object{p}, false, metav1.ConditionTrue, v1alpha1.ReasonNoWorkloadsFound)
+	err := runReconcileTestcase(p, []client.Object{p}, false, metav1.ConditionTrue, v1alpha1.ReasonNoWorkloadsFound)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 }
 
 func TestReconcileState31(t *testing.T) {
@@ -175,14 +187,18 @@ func TestReconcileState31(t *testing.T) {
 		}},
 	}
 
-	runReconcileTestcase(t, p, []client.Object{p, pod}, wantRequeue, wantStatus, wantReason)
+	err := runReconcileTestcase(p, []client.Object{p, pod}, wantRequeue, wantStatus, wantReason)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 }
 
-func runReconcileTestcase(t *testing.T, p *v1alpha1.AuthProxyWorkload, clientObjects []client.Object, wantRequeue bool, wantStatus metav1.ConditionStatus, wantReason string) (context.Context, client.WithWatch, *AuthProxyWorkloadReconciler) {
+func runReconcileTestcase(p *v1alpha1.AuthProxyWorkload, clientObjects []client.Object, wantRequeue bool, wantStatus metav1.ConditionStatus, wantReason string) error {
 	//t.Helper()
 	cb, err := clientBuilder()
 	if err != nil {
-		t.Error(err) // shouldn't ever happen
+		return err // shouldn't ever happen
 	}
 
 	c := cb.WithObjects(clientObjects...).Build()
@@ -190,10 +206,10 @@ func runReconcileTestcase(t *testing.T, p *v1alpha1.AuthProxyWorkload, clientObj
 	r, req, ctx := reconciler(p, c)
 	res, err := r.Reconcile(ctx, req)
 	if err != nil {
-		t.Error(err)
+		return err
 	}
 	if res.Requeue != wantRequeue {
-		t.Errorf("got %v, want %v for requeue", res.Requeue, wantRequeue)
+		return fmt.Errorf("got %v, want %v for requeue", res.Requeue, wantRequeue)
 	}
 
 	for _, o := range clientObjects {
@@ -206,18 +222,17 @@ func runReconcileTestcase(t *testing.T, p *v1alpha1.AuthProxyWorkload, clientObj
 	if wantStatus != "" || wantReason != "" {
 		cond := findCondition(p.Status.Conditions, v1alpha1.ConditionUpToDate)
 		if cond == nil {
-			t.Error("UpToDate condition was nil, wants condition to exist.")
-			return ctx, c, nil
+			return fmt.Errorf("the UpToDate condition was nil, wants condition to exist")
 		}
 		if wantStatus != "" && cond.Status != wantStatus {
-			t.Errorf("got %v, want %v for UpToDate condition status", cond.Status, wantStatus)
+			return fmt.Errorf("got %v, want %v for UpToDate condition status", cond.Status, wantStatus)
 		}
 		if wantReason != "" && cond.Reason != wantReason {
-			t.Errorf("got %v, want %v for UpToDate condition reason", cond.Reason, wantReason)
+			return fmt.Errorf("got %v, want %v for UpToDate condition reason", cond.Reason, wantReason)
 		}
 	}
 
-	return ctx, c, r
+	return nil
 }
 
 func clientBuilder() (*fake.ClientBuilder, error) {

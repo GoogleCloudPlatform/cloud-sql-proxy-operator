@@ -27,7 +27,8 @@ import (
 )
 
 // Workload is a standard interface to access the pod definition for the
-// 6 major kinds of interfaces: Deployment, Pod, StatefulSet, ReplicaSet, Job, and Cronjob.
+// 7 major kinds of interfaces: Deployment, Pod, StatefulSet, ReplicaSet,
+// DaemonSet, Job, and Cronjob.
 // These methods are used by the ModifierStore to update the contents of the
 // workload's pod template (or the pod itself) so that it will contain
 // necessary configuration and other details before it starts, or if the
@@ -46,8 +47,8 @@ type WithMutablePodTemplate interface {
 }
 
 // WorkloadList is a standard way to access the lists of the
-// 6 major kinds of interfaces: DeploymentList, DaemonSetList, PodList,
-// StatefulSetList, JobList, and CronjobList.
+// 7 major kinds of interfaces: DeploymentList, DaemonSetList, PodList,
+// ReplicaSetList, StatefulSetList, JobList, and CronJobList.
 type WorkloadList interface {
 	// List returns a pointer to the ObjectList ready to be passed to client.List()
 	List() client.ObjectList
