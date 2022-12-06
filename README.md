@@ -9,34 +9,131 @@ which specifies the Cloud SQL Auth Proxy configuration for a workload. The opera
 reads this resource and adds a properly configured Cloud SQL Auth Proxy container
 to the matching workload pods. 
 
-## Setting up the initial project
-These commands will be run to initialize the kubebuilder project 
+# Quick Start
+Follow the instructions in the Quick Start Guide for Cloud SQL: [Connect to Cloud SQL for PostgreSQL from Google Kubernetes Engine](https://cloud.google.com/sql/docs/postgres/connect-instance-kubernetes)
+through the end of the step named [Build the Sample App](https://cloud.google.com/sql/docs/postgres/connect-instance-kubernetes#build_the_sample_app). 
 
+Then, continue following these instructions: 
 
-```
-# Get the kubebuilder binary
-mkdir -p .bin
-curl -L -o .bin/kubebuilder "https://github.com/kubernetes-sigs/kubebuilder/releases/download/v3.6.0/kubebuilder_$(go env GOOS)_$(go env GOARCH)"
-chmod a+x .bin/kubebuilder
+## Install the Cloud SQL Proxy Operator
 
-# Clean up the root dir for kubebuilder
-rm -rf Makefile main.go go.mod go.sum cover.out 
+Run the following command to install the cloud sql proxy operator into
+your kuberentes cluster:
 
-mkdir -p .bin/tmp/
-mv docs .bin/tmp/
-mv version.txt .bin/tmp/
-
-rm -rf bin
-.bin/kubebuilder init --owner "Google LLC" --project-name "cloud-sql-proxy-operator" --domain cloud.google.com --repo github.com/GoogleCloudPlatform/cloud-sql-proxy-operator
-
-mv .bin/tmp/* .
-
+```shell
+curl -o install.sh https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator-dev/0.0.5/install.sh
+bash install.sh
 ```
 
-Then, to create the CRD for Workload
-```
-.bin/kubebuilder create api --group cloudsql --version v1alpha1 --kind AuthProxyWorkload --controller --resource --force
-.bin/kubebuilder create webhook --group cloudsql --version v1alpha1 --kind AuthProxyWorkload --defaulting --programmatic-validation
+Confirm that the operator is installed and running by listing its pods:
+
+```shell
+kubectl get pods -n cloud-sql-proxy-operator-system
 ```
 
+## Configure Cloud SQL Proxy for the quick start app
 
+Get the Cloud SQL instance connection name by running the gcloud sql instances describe command:
+
+```shell
+gcloud sql instances describe quickstart-instance --format='value(connectionName)'
+```
+
+Create a new file named `authproxyworkload.yaml` containing the following:
+
+```yaml
+apiVersion: cloudsql.cloud.google.com/v1alpha1
+kind: AuthProxyWorkload
+metadata:
+  name: authproxyworkload-sample
+spec:
+  workloadSelector:
+    kind: "Deployment"
+    name: "gke-cloud-sql-quickstart"
+  instances:
+    - connectionString: "<INSTANCE_CONNECTION_NAME>"
+      portEnvName: "DB_PORT"
+      hostEnvName: "INSTANCE_HOST"
+      socketType: "tcp"
+```
+
+Update <INSTANCE_CONNECTION_NAME> with the Cloud SQL instance connection name 
+retrieved from the gcloud command on the previous step. The format is 
+project_id:region:instance_name. The instance connection name is also visible 
+in the Cloud SQL instance Overview page.
+
+Apply the proxy configuration to to kubernetes:
+
+```shell
+kubectl apply -f authproxyworkload.yaml
+```
+
+### Deploy the sample app
+
+Proceed with the quickstart guide step [Deploy the sample app](https://cloud.google.com/sql/docs/postgres/connect-instance-kubernetes#deploy_the_sample_app).
+In step 2, use this YAML as your template.
+
+Note that this template has only one container for the application. In the published
+quickstart guide, there are two containers, one for the application, and one for the
+proxy.
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gke-cloud-sql-quickstart
+spec:
+  selector:
+    matchLabels:
+      app: gke-cloud-sql-app
+  template:
+    metadata:
+      labels:
+        app: gke-cloud-sql-app
+    spec:
+      serviceAccountName: <YOUR-KSA-NAME>
+      containers:
+      - name: gke-cloud-sql-app
+        # Replace <LOCATION> with your Artifact Registry location (e.g., us-central1).
+        # Replace <YOUR_PROJECT_ID> with your project ID.
+        image: <LOCATION>-docker.pkg.dev/<YOUR_PROJECT_ID>/gke-cloud-sql-repo/gke-sql:latest
+        # This app listens on port 8080 for web traffic by default.
+        ports:
+        - containerPort: 8080
+        env:
+        - name: PORT
+          value: "8080"
+        - name: INSTANCE_HOST
+          value: "set-by-proxy"
+        - name: DB_PORT
+          value: "set-by-proxy"
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: <YOUR-DB-SECRET>
+              key: username
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: <YOUR-DB-SECRET>
+              key: password
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: <YOUR-DB-SECRET>
+              key: database
+```
+
+### Inspect the container managed by the proxy operator
+Finally, after completing the steps in the quickstart guide, inspect the pods
+for the application to see the proxy container.
+
+```shell
+kubectl describe pods -l app=gke-cloud-sql-app
+```
+
+Note that there are now two containers on the pods, while there is only one
+container on the deployment. The operator adds a second proxy container configured
+using the settings in the `AuthProxyWorkload` resource. 
+
+# Developing this project
