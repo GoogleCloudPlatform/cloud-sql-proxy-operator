@@ -20,11 +20,12 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
+
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
 )
 
 func podWorkload() *workload.PodWorkload {
