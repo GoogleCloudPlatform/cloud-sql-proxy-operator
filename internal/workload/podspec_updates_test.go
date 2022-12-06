@@ -22,25 +22,10 @@ import (
 
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 )
-
-func deploymentWorkload() *workload.DeploymentWorkload {
-	return &workload.DeploymentWorkload{Deployment: &appsv1.Deployment{
-		TypeMeta:   metav1.TypeMeta{Kind: "Deployment", APIVersion: "apps/v1"},
-		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "busybox", Labels: map[string]string{"app": "hello"}},
-		Spec: appsv1.DeploymentSpec{
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{{Name: "busybox", Image: "busybox"}},
-				},
-			},
-		},
-	}}
-}
 
 func podWorkload() *workload.PodWorkload {
 	return &workload.PodWorkload{Pod: &corev1.Pod{
@@ -86,17 +71,7 @@ func authProxyWorkloadFromSpec(name string, spec v1alpha1.AuthProxyWorkloadSpec)
 	return proxy
 }
 
-func findContainer(wl *workload.DeploymentWorkload, name string) (corev1.Container, error) {
-	for i := range wl.Deployment.Spec.Template.Spec.Containers {
-		c := &wl.Deployment.Spec.Template.Spec.Containers[i]
-		if c.Name == name {
-			return *c, nil
-		}
-	}
-	return corev1.Container{}, fmt.Errorf("no container found with name %s", name)
-}
-
-func findPodContainer(wl *workload.PodWorkload, name string) (corev1.Container, error) {
+func findContainer(wl *workload.PodWorkload, name string) (corev1.Container, error) {
 	for i := range wl.Pod.Spec.Containers {
 		c := &wl.Pod.Spec.Containers[i]
 		if c.Name == name {
@@ -106,7 +81,7 @@ func findPodContainer(wl *workload.PodWorkload, name string) (corev1.Container, 
 	return corev1.Container{}, fmt.Errorf("no container found with name %s", name)
 }
 
-func findEnvVar(wl *workload.DeploymentWorkload, containerName, envName string) (corev1.EnvVar, error) {
+func findEnvVar(wl *workload.PodWorkload, containerName, envName string) (corev1.EnvVar, error) {
 	container, err := findContainer(wl, containerName)
 	if err != nil {
 		return corev1.EnvVar{}, err
@@ -119,7 +94,7 @@ func findEnvVar(wl *workload.DeploymentWorkload, containerName, envName string) 
 	return corev1.EnvVar{}, fmt.Errorf("no envvar named %v on container %v", envName, containerName)
 }
 
-func hasArg(wl *workload.DeploymentWorkload, containerName, argValue string) (bool, error) {
+func hasArg(wl *workload.PodWorkload, containerName, argValue string) (bool, error) {
 	container, err := findContainer(wl, containerName)
 	if err != nil {
 		return false, err
@@ -137,34 +112,41 @@ func hasArg(wl *workload.DeploymentWorkload, containerName, argValue string) (bo
 	return false, nil
 }
 
-func logPodSpec(t *testing.T, wl *workload.DeploymentWorkload) {
-	podSpecYaml, err := yaml.Marshal(wl.Deployment.Spec.Template.Spec)
+func logPodSpec(t *testing.T, wl *workload.PodWorkload) {
+	podSpecYaml, err := yaml.Marshal(wl.Pod.Spec)
 	if err != nil {
 		t.Errorf("unexpected error while marshaling PodSpec to yaml, %v", err)
 	}
 	t.Logf("PodSpec: %s", string(podSpecYaml))
 }
 
-func TestUpdateWorkload(t *testing.T) {
+func configureProxies(u *workload.Updater, wl *workload.PodWorkload, proxies []*v1alpha1.AuthProxyWorkload) error {
+	l := &v1alpha1.AuthProxyWorkloadList{Items: make([]v1alpha1.AuthProxyWorkload, len(proxies))}
+	for i := 0; i < len(proxies); i++ {
+		l.Items[i] = *proxies[i]
+	}
+	_, _, err := u.ConfigurePodProxies(l, wl, nil)
+	return err
+}
+
+func TestUpdatePodWorkload(t *testing.T) {
 	var (
-		wantsName                      = "instance1"
-		wantsPort                int32 = 8080
-		wantContainerName              = "csql-default-" + wantsName
-		wantsInstanceName              = "project:server:db"
-		wantsUpdatedInstanceName       = "project:server:newdb"
-		wantsInstanceArg               = fmt.Sprintf("%s?port=%d", wantsInstanceName, wantsPort)
-		wantsUpdatedInstanceArg        = fmt.Sprintf("%s?port=%d", wantsUpdatedInstanceName, wantsPort)
-		u                              = workload.NewUpdater()
+		wantsName               = "instance1"
+		wantsPort         int32 = 8080
+		wantContainerName       = "csql-default-" + wantsName
+		wantsInstanceName       = "project:server:db"
+		wantsInstanceArg        = fmt.Sprintf("%s?port=%d", wantsInstanceName, wantsPort)
+		u                       = workload.NewUpdater()
 	)
 	var err error
 
-	// Create a deployment
-	wl := deploymentWorkload()
+	// Create a pod
+	wl := podWorkload()
 
 	// ensure that the deployment only has one container before
 	// updating the deployment.
-	if len(wl.Deployment.Spec.Template.Spec.Containers) != 1 {
-		t.Fatalf("got %v, wants 1. deployment containers length", len(wl.Deployment.Spec.Template.Spec.Containers))
+	if len(wl.Pod.Spec.Containers) != 1 {
+		t.Fatalf("got %v, wants 1. deployment containers length", len(wl.Pod.Spec.Containers))
 	}
 
 	// Create a AuthProxyWorkload that matches the deployment
@@ -172,17 +154,17 @@ func TestUpdateWorkload(t *testing.T) {
 	proxy.Spec.Instances[0].Port = ptr(wantsPort)
 
 	// Update the container with new markWorkloadNeedsUpdate
-	_, err = u.UpdateWorkloadContainers(wl, []*v1alpha1.AuthProxyWorkload{proxy})
+	err = configureProxies(u, wl, []*v1alpha1.AuthProxyWorkload{proxy})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// test that there are now 2 containers
-	if want, got := 2, len(wl.Deployment.Spec.Template.Spec.Containers); want != got {
+	if want, got := 2, len(wl.Pod.Spec.Containers); want != got {
 		t.Fatalf("got %v want %v, number of deployment containers", got, want)
 	}
 
-	t.Logf("Containers: {%v}", wl.Deployment.Spec.Template.Spec.Containers)
+	t.Logf("Containers: {%v}", wl.Pod.Spec.Containers)
 
 	// test that the container has the proper name following the conventions
 	foundContainer, err := findContainer(wl, wantContainerName)
@@ -194,47 +176,6 @@ func TestUpdateWorkload(t *testing.T) {
 	if gotArg, err := hasArg(wl, wantContainerName, wantsInstanceArg); err != nil || !gotArg {
 		t.Errorf("wants connection string arg %v but it was not present in proxy container args %v",
 			wantsInstanceArg, foundContainer.Args)
-	}
-
-	// Now change the spec
-	proxy.Spec.Instances[0].ConnectionString = wantsUpdatedInstanceName
-	proxy.ObjectMeta.Generation = 2
-	// update the containers again with the new instance name
-
-	// Indicate that the workload needs an update
-
-	// Perform the update
-	_, err = u.UpdateWorkloadContainers(wl, []*v1alpha1.AuthProxyWorkload{proxy})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// test that there are still 2 containers
-	if want, got := 2, len(wl.Deployment.Spec.Template.Spec.Containers); want != got {
-		t.Fatalf("got %v want %v, number of deployment containers", got, want)
-	}
-
-	// test that the container has the proper name following the conventions
-	foundContainer, err = findContainer(wl, wantContainerName)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// test that the container args have the expected args
-	if gotArg, err := hasArg(wl, wantContainerName, wantsUpdatedInstanceArg); err != nil || !gotArg {
-		t.Errorf("wants connection string arg %v but it was not present in proxy container args %v",
-			wantsInstanceArg, foundContainer.Args)
-	}
-
-	// now try with an empty workload list, which should remove the container
-	_, err = u.UpdateWorkloadContainers(wl, []*v1alpha1.AuthProxyWorkload{})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// test that there is now only 1 container
-	if len(wl.Deployment.Spec.Template.Spec.Containers) != 1 {
-		t.Fatalf("got %v, wants 1. deployment containers length", len(wl.Deployment.Spec.Template.Spec.Containers))
 	}
 
 }
@@ -253,9 +194,9 @@ func TestUpdateWorkloadFixedPort(t *testing.T) {
 		u = workload.NewUpdater()
 	)
 
-	// Create a deployment
-	wl := deploymentWorkload()
-	wl.Deployment.Spec.Template.Spec.Containers[0].Ports =
+	// Create a pod
+	wl := podWorkload()
+	wl.Pod.Spec.Containers[0].Ports =
 		[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
 
 	// Create a AuthProxyWorkload that matches the deployment
@@ -269,19 +210,19 @@ func TestUpdateWorkloadFixedPort(t *testing.T) {
 	}
 
 	// ensure that the new container does not exist
-	if len(wl.Deployment.Spec.Template.Spec.Containers) != 1 {
-		t.Fatalf("got %v, wants 1. deployment containers length", len(wl.Deployment.Spec.Template.Spec.Containers))
+	if len(wl.Pod.Spec.Containers) != 1 {
+		t.Fatalf("got %v, wants 1. deployment containers length", len(wl.Pod.Spec.Containers))
 	}
 
 	// update the containers
-	_, err := u.UpdateWorkloadContainers(wl, csqls)
+	err := configureProxies(u, wl, csqls)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// ensure that the new container does not exist
-	if len(wl.Deployment.Spec.Template.Spec.Containers) != 2 {
-		t.Fatalf("got %v, wants 1. deployment containers length", len(wl.Deployment.Spec.Template.Spec.Containers))
+	if len(wl.Pod.Spec.Containers) != 2 {
+		t.Fatalf("got %v, wants 1. deployment containers length", len(wl.Pod.Spec.Containers))
 	}
 
 	// test that the instancename matches the new expected instance name.
@@ -320,9 +261,9 @@ func TestWorkloadNoPortSet(t *testing.T) {
 	)
 	u := workload.NewUpdater()
 
-	// Create a deployment
-	wl := deploymentWorkload()
-	wl.Deployment.Spec.Template.Spec.Containers[0].Ports =
+	// Create a pod
+	wl := podWorkload()
+	wl.Pod.Spec.Containers[0].Ports =
 		[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
 
 	// Create a AuthProxyWorkload that matches the deployment
@@ -335,19 +276,19 @@ func TestWorkloadNoPortSet(t *testing.T) {
 	}
 
 	// ensure that the new container does not exist
-	if len(wl.Deployment.Spec.Template.Spec.Containers) != 1 {
-		t.Fatalf("got %v, wants 1. deployment containers length", len(wl.Deployment.Spec.Template.Spec.Containers))
+	if len(wl.Pod.Spec.Containers) != 1 {
+		t.Fatalf("got %v, wants 1. deployment containers length", len(wl.Pod.Spec.Containers))
 	}
 
 	// update the containers
-	_, err := u.UpdateWorkloadContainers(wl, csqls)
+	err := configureProxies(u, wl, csqls)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// ensure that the new container does not exist
-	if len(wl.Deployment.Spec.Template.Spec.Containers) != 2 {
-		t.Fatalf("got %v, wants 1. deployment containers length", len(wl.Deployment.Spec.Template.Spec.Containers))
+	if len(wl.Pod.Spec.Containers) != 2 {
+		t.Fatalf("got %v, wants 1. deployment containers length", len(wl.Pod.Spec.Containers))
 	}
 
 	// test that the instancename matches the new expected instance name.
@@ -385,9 +326,9 @@ func TestWorkloadUnixVolume(t *testing.T) {
 		u = workload.NewUpdater()
 	)
 
-	// Create a deployment
-	wl := deploymentWorkload()
-	wl.Deployment.Spec.Template.Spec.Containers[0].Ports =
+	// Create a pod
+	wl := podWorkload()
+	wl.Pod.Spec.Containers[0].Ports =
 		[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
 
 	// Create a AuthProxyWorkload that matches the deployment
@@ -400,14 +341,14 @@ func TestWorkloadUnixVolume(t *testing.T) {
 	}
 
 	// update the containers
-	_, err := u.UpdateWorkloadContainers(wl, csqls)
+	err := configureProxies(u, wl, csqls)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// ensure that the new container exists
-	if len(wl.Deployment.Spec.Template.Spec.Containers) != 2 {
-		t.Fatalf("got %v, wants 1. deployment containers length", len(wl.Deployment.Spec.Template.Spec.Containers))
+	if len(wl.Pod.Spec.Containers) != 2 {
+		t.Fatalf("got %v, wants 1. deployment containers length", len(wl.Pod.Spec.Containers))
 	}
 
 	// test that the instancename matches the new expected instance name.
@@ -432,7 +373,7 @@ func TestWorkloadUnixVolume(t *testing.T) {
 	}
 
 	// test that Volume exists
-	if want, got := 1, len(wl.Deployment.Spec.Template.Spec.Volumes); want != got {
+	if want, got := 1, len(wl.Pod.Spec.Volumes); want != got {
 		t.Fatalf("got %v, wants %v. PodSpec.Volumes", got, want)
 	}
 
@@ -447,7 +388,7 @@ func TestWorkloadUnixVolume(t *testing.T) {
 	if want, got := wantsUnixDir, busyboxContainer.VolumeMounts[0].MountPath; want != got {
 		t.Fatalf("got %v, wants %v. Busybox Container.VolumeMounts.MountPath", got, want)
 	}
-	if want, got := wl.Deployment.Spec.Template.Spec.Volumes[0].Name, busyboxContainer.VolumeMounts[0].Name; want != got {
+	if want, got := wl.Pod.Spec.Volumes[0].Name, busyboxContainer.VolumeMounts[0].Name; want != got {
 		t.Fatalf("got %v, wants %v. Busybox Container.VolumeMounts.MountPath", got, want)
 	}
 
@@ -460,9 +401,9 @@ func TestContainerImageChanged(t *testing.T) {
 		u                 = workload.NewUpdater()
 	)
 
-	// Create a deployment
-	wl := deploymentWorkload()
-	wl.Deployment.Spec.Template.Spec.Containers[0].Ports =
+	// Create a pod
+	wl := podWorkload()
+	wl.Pod.Spec.Containers[0].Ports =
 		[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
 
 	// Create a AuthProxyWorkload that matches the deployment
@@ -472,14 +413,14 @@ func TestContainerImageChanged(t *testing.T) {
 	csqls[0].Spec.AuthProxyContainer = &v1alpha1.AuthProxyContainerSpec{Image: wantImage}
 
 	// update the containers
-	_, err := u.UpdateWorkloadContainers(wl, csqls)
+	err := configureProxies(u, wl, csqls)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// ensure that the new container exists
-	if len(wl.Deployment.Spec.Template.Spec.Containers) != 2 {
-		t.Fatalf("got %v, wants 1. deployment containers length", len(wl.Deployment.Spec.Template.Spec.Containers))
+	if len(wl.Pod.Spec.Containers) != 2 {
+		t.Fatalf("got %v, wants 1. deployment containers length", len(wl.Pod.Spec.Containers))
 	}
 
 	// test that the instancename matches the new expected instance name.
@@ -514,7 +455,7 @@ func TestContainerReplaced(t *testing.T) {
 	csqls[0].Spec.AuthProxyContainer = &v1alpha1.AuthProxyContainerSpec{Container: wantContainer}
 
 	// update the containers
-	_, err := u.UpdateWorkloadContainers(wl, csqls)
+	err := configureProxies(u, wl, csqls)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -525,7 +466,7 @@ func TestContainerReplaced(t *testing.T) {
 	}
 
 	// test that the instancename matches the new expected instance name.
-	csqlContainer, err := findPodContainer(wl, fmt.Sprintf("csql-default-%s", csqls[0].GetName()))
+	csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-default-%s", csqls[0].GetName()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -745,17 +686,13 @@ func TestProxyCLIArgs(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			u := workload.NewUpdater()
 
-			// Create a deployment
-			wl := &workload.DeploymentWorkload{Deployment: &appsv1.Deployment{
+			// Create a pod
+			wl := &workload.PodWorkload{Pod: &corev1.Pod{
 				TypeMeta:   metav1.TypeMeta{Kind: "Deployment", APIVersion: "apps/v1"},
 				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "busybox", Labels: map[string]string{"app": "hello"}},
-				Spec: appsv1.DeploymentSpec{
-					Template: corev1.PodTemplateSpec{
-						Spec: corev1.PodSpec{
-							Containers: []corev1.Container{{Name: "busybox", Image: "busybox",
-								Ports: []corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}}},
-						},
-					},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{Name: "busybox", Image: "busybox",
+						Ports: []corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}}},
 				},
 			}}
 
@@ -763,7 +700,7 @@ func TestProxyCLIArgs(t *testing.T) {
 			csqls := []*v1alpha1.AuthProxyWorkload{authProxyWorkloadFromSpec("instance1", tc.proxySpec)}
 
 			// update the containers
-			_, updateErr := u.UpdateWorkloadContainers(wl, csqls)
+			updateErr := configureProxies(u, wl, csqls)
 
 			if len(tc.wantErrorCodes) > 0 {
 				assertErrorCodeContains(t, updateErr, tc.wantErrorCodes)
@@ -771,8 +708,8 @@ func TestProxyCLIArgs(t *testing.T) {
 			}
 
 			// ensure that the new container exists
-			if len(wl.Deployment.Spec.Template.Spec.Containers) != 2 {
-				t.Fatalf("got %v, wants 2. deployment containers length", len(wl.Deployment.Spec.Template.Spec.Containers))
+			if len(wl.Pod.Spec.Containers) != 2 {
+				t.Fatalf("got %v, wants 2. deployment containers length", len(wl.Pod.Spec.Containers))
 			}
 
 			// test that the instancename matches the new expected instance name.
@@ -785,153 +722,6 @@ func TestProxyCLIArgs(t *testing.T) {
 			assertContainerArgsContains(t, csqlContainer.Args, tc.wantProxyArgContains)
 
 		})
-	}
-
-}
-
-func TestProperCleanupOfEnvAndVolumes(t *testing.T) {
-	var (
-		wantsInstanceName  = "project:server:db"
-		wantsUnixDir       = "/mnt/db"
-		wantsInstanceName2 = "project:server:db2"
-		wantsPort          = int32(5000)
-		wantContainerArgs  = []string{
-			fmt.Sprintf("%s?unix-socket=%s", wantsInstanceName, wantsUnixDir),
-			fmt.Sprintf("%s?port=%d", wantsInstanceName2, wantsPort),
-		}
-		wantWorkloadEnv = map[string]string{
-			"DB_SOCKET_PATH": wantsUnixDir,
-			"DB_PORT":        "5000",
-		}
-		u = workload.NewUpdater()
-	)
-
-	// Create a deployment
-	wl := deploymentWorkload()
-	wl.Deployment.Spec.Template.Spec.Containers[0].Ports =
-		[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
-	wl.Deployment.Spec.Template.Spec.Containers[0].Env =
-		[]corev1.EnvVar{{Name: "DB_PORT", Value: "not set"}}
-
-	wl.Deployment.Spec.Template.Spec.Containers[0].VolumeMounts =
-		[]corev1.VolumeMount{{Name: "TempVol", MountPath: "/tmp/testvol"}}
-	wl.Deployment.Spec.Template.Spec.Volumes =
-		[]corev1.Volume{{Name: "TempVol", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}}
-
-	// Create a AuthProxyWorkload that matches the deployment
-	csqls := []*v1alpha1.AuthProxyWorkload{{
-		TypeMeta:   metav1.TypeMeta{Kind: "AuthProxyWorkload", APIVersion: v1alpha1.GroupVersion.String()},
-		ObjectMeta: metav1.ObjectMeta{Name: "instance1", Namespace: "default", Generation: 1},
-		Spec: v1alpha1.AuthProxyWorkloadSpec{
-			Workload: v1alpha1.WorkloadSelectorSpec{
-				Kind: "Deployment",
-				Selector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{"app": "hello"},
-				},
-			},
-			Instances: []v1alpha1.InstanceSpec{{
-				ConnectionString:      wantsInstanceName,
-				UnixSocketPath:        wantsUnixDir,
-				UnixSocketPathEnvName: "DB_SOCKET_PATH",
-			},
-				{
-					ConnectionString: wantsInstanceName2,
-					PortEnvName:      "DB_PORT",
-				}},
-		},
-		Status: v1alpha1.AuthProxyWorkloadStatus{},
-	}}
-
-	// update the containers
-	_, err := u.UpdateWorkloadContainers(wl, csqls)
-	if err != nil {
-		t.Fatal(err)
-		return
-	}
-	// do it again to make sure its idempotent
-	csqls[0].SetGeneration(csqls[0].GetGeneration() + 1)
-	_, err = u.UpdateWorkloadContainers(wl, csqls)
-	if err != nil {
-		t.Fatal(err)
-		return
-	}
-	// ensure that the new container exists
-	if len(wl.Deployment.Spec.Template.Spec.Containers) != 2 {
-		t.Fatalf("got %v, wants 1. deployment containers length", len(wl.Deployment.Spec.Template.Spec.Containers))
-	}
-
-	// test that the instancename matches the new expected instance name.
-	csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-%s-%s", csqls[0].GetNamespace(), csqls[0].GetName()))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// test that port cli args are set correctly
-	assertContainerArgsContains(t, csqlContainer.Args, wantContainerArgs)
-
-	// Test that workload has the right env vars
-	for wantKey, wantValue := range wantWorkloadEnv {
-		gotEnvVar, err := findEnvVar(wl, "busybox", wantKey)
-		if err != nil {
-			t.Error(err)
-			logPodSpec(t, wl)
-		} else if gotEnvVar.Value != wantValue {
-			t.Errorf("got %v, wants %v workload env var %v", gotEnvVar, wantValue, wantKey)
-		}
-	}
-
-	// test that Volume exists
-	if want, got := 2, len(wl.Deployment.Spec.Template.Spec.Volumes); want != got {
-		t.Fatalf("got %v, wants %v. PodSpec.Volumes", got, want)
-	}
-
-	// test that Volume mount exists on busybox
-	busyboxContainer, err := findContainer(wl, "busybox")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if want, got := 2, len(busyboxContainer.VolumeMounts); want != got {
-		t.Fatalf("got %v, wants %v. Busybox Container.VolumeMounts", got, want)
-	}
-	if want, got := wantsUnixDir, busyboxContainer.VolumeMounts[1].MountPath; want != got {
-		t.Fatalf("got %v, wants %v. Busybox Container.VolumeMounts.MountPath", got, want)
-	}
-	if want, got := wl.Deployment.Spec.Template.Spec.Volumes[1].Name, busyboxContainer.VolumeMounts[1].Name; want != got {
-		t.Fatalf("got %v, wants %v. Busybox Container.VolumeMounts.MountPath", got, want)
-	}
-
-	// Update again with an empty list
-	_, err = u.UpdateWorkloadContainers(wl, []*v1alpha1.AuthProxyWorkload{})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Test that the workload was properly cleaned up
-	busyboxContainer, _ = findContainer(wl, "busybox")
-
-	// Test that added workload vars were removed
-	_, err = findEnvVar(wl, "busybox", "DB_SOCKET_PATH")
-	if err == nil {
-		t.Errorf("got EnvVar named %v, wants no EnvVar", "DB_SOCKET_PATH")
-	}
-
-	// Test that replaced workload vars were restored
-	val, err := findEnvVar(wl, "busybox", "DB_PORT")
-	if err != nil {
-		t.Errorf("got missing EnvVar named %v, wants value for EnvVar", "DB_PORT")
-	}
-	if val.Value != "not set" {
-		t.Errorf("got EnvVar value %v=%v, wants %v", "DB_PORT", val.Value, "not set")
-	}
-
-	// Test that the VolumeMounts were removed
-	if want, got := 1, len(busyboxContainer.VolumeMounts); want != got {
-		t.Errorf("wants %d VolumeMounts, got %d", want, got)
-	}
-
-	// Test that the Volumes were removed
-	if want, got := 1, len(wl.Deployment.Spec.Template.Spec.Volumes); want != got {
-		t.Errorf("wants %d Volumes, got %d", want, got)
 	}
 
 }
