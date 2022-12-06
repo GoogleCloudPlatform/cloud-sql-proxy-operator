@@ -197,7 +197,7 @@ func TestUpdateWorkloadFixedPort(t *testing.T) {
 	// Create a pod
 	wl := podWorkload()
 	wl.Pod.Spec.Containers[0].Ports =
-			[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
+		[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
 
 	// Create a AuthProxyWorkload that matches the deployment
 	csqls := []*v1alpha1.AuthProxyWorkload{
@@ -264,7 +264,7 @@ func TestWorkloadNoPortSet(t *testing.T) {
 	// Create a pod
 	wl := podWorkload()
 	wl.Pod.Spec.Containers[0].Ports =
-			[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
+		[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
 
 	// Create a AuthProxyWorkload that matches the deployment
 	csqls := []*v1alpha1.AuthProxyWorkload{
@@ -329,7 +329,7 @@ func TestWorkloadUnixVolume(t *testing.T) {
 	// Create a pod
 	wl := podWorkload()
 	wl.Pod.Spec.Containers[0].Ports =
-			[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
+		[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
 
 	// Create a AuthProxyWorkload that matches the deployment
 	csqls := []*v1alpha1.AuthProxyWorkload{
@@ -404,7 +404,7 @@ func TestContainerImageChanged(t *testing.T) {
 	// Create a pod
 	wl := podWorkload()
 	wl.Pod.Spec.Containers[0].Ports =
-			[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
+		[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
 
 	// Create a AuthProxyWorkload that matches the deployment
 	csqls := []*v1alpha1.AuthProxyWorkload{
@@ -505,7 +505,7 @@ func TestContainerReplaced(t *testing.T) {
 	// Create a pod
 	wl := podWorkload()
 	wl.Pod.Spec.Containers[0].Ports =
-			[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
+		[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
 
 	// Create a AuthProxyWorkload that matches the deployment
 	csqls := []*v1alpha1.AuthProxyWorkload{simpleAuthProxy("instance1", wantsInstanceName)}
