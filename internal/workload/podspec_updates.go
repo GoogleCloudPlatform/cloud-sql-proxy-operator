@@ -620,7 +620,7 @@ func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, c *corev
 			if inst.HostEnvName != "" {
 				s.addWorkloadEnvVar(p, inst, corev1.EnvVar{
 					Name:  inst.HostEnvName,
-					Value: "localhost",
+					Value: "127.0.0.1",
 				})
 			}
 			if inst.PortEnvName != "" {
