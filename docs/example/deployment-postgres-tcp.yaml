@@ -21,25 +21,21 @@ spec:
     kind: "Deployment"
     name: "gke-cloud-sql-app"
   instances:
-  - connectionString: "my-project:us-central1:dbinstance"
-    portEnvName: "DB_PORT"
-    hostEnvName: "DB_HOST"
-    socketType: "tcp"
-
+    - connectionString: "my-project:us-central1:dbinstance"
+      portEnvName: "DB_PORT"
+      hostEnvName: "DB_HOST"
+      socketType: "tcp"
 ---
-
 apiVersion: v1
 kind: Secret
 metadata:
   name: gke-cloud-sql-operator-demo
 type: Opaque
 data:
-  DB_PASS: cGFzc3dvcmQ=  # "password"
-  DB_NAME: cG9zdGdyZXM=  # "postgres"
-  DB_USER: dGVzdHVzZXI=  # "testuser"
-
+  DB_PASS: cGFzc3dvcmQ= # "password"
+  DB_NAME: cG9zdGdyZXM= # "postgres"
+  DB_USER: dGVzdHVzZXI= # "testuser"
 ---
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -66,10 +62,7 @@ spec:
             - "/bin/sh"
             - "-e"
             - "-c"
-            - |
-              sleep 10
-              psql --host=$DB_HOST --port=$DB_PORT --username=$DB_USER '--command=select 1' --echo-queries --dbname=$DB_NAME 
-              sleep 3600
+            - "sleep 10 ; psql --host=$DB_HOST --port=$DB_PORT --username=$DB_USER '--command=select 1' --echo-queries --dbname=$DB_NAME ; sleep 3600"
           env:
             - name: DB_HOST
               value: "set-by-operator"
