@@ -16,6 +16,7 @@ package workload_test
 
 import (
 	"fmt"
+	"path"
 	"reflect"
 	"strconv"
 	"testing"
@@ -315,13 +316,14 @@ func TestWorkloadNoPortSet(t *testing.T) {
 
 func TestWorkloadUnixVolume(t *testing.T) {
 	var (
-		wantsInstanceName = "project:server:db"
-		wantsUnixDir      = "/mnt/db"
-		wantContainerArgs = []string{
+		wantsInstanceName   = "project:server:db"
+		wantsUnixDir        = "/mnt/db"
+		wantsUnixSocketPath = path.Join(wantsUnixDir, wantsInstanceName)
+		wantContainerArgs   = []string{
 			fmt.Sprintf("%s?unix-socket=%s", wantsInstanceName, wantsUnixDir),
 		}
 		wantWorkloadEnv = map[string]string{
-			"DB_SOCKET_PATH": wantsUnixDir,
+			"DB_SOCKET_PATH": wantsUnixSocketPath,
 		}
 		u = workload.NewUpdater()
 	)

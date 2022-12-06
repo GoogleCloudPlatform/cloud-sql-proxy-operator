@@ -16,6 +16,7 @@ package workload
 
 import (
 	"fmt"
+	"path"
 	"sort"
 	"strings"
 
@@ -515,7 +516,7 @@ func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, wl Workl
 			if inst.UnixSocketPathEnvName != "" {
 				s.addWorkloadEnvVar(p, inst, corev1.EnvVar{
 					Name:  inst.UnixSocketPathEnvName,
-					Value: inst.UnixSocketPath,
+					Value: path.Join(inst.UnixSocketPath, inst.ConnectionString),
 				})
 			}
 		}
