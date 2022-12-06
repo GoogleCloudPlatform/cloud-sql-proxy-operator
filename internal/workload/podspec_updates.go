@@ -431,10 +431,15 @@ func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWo
 	podSpec.Containers = containers
 
 	for i := range podSpec.Containers {
-		s.updateContainerEnv(&podSpec.Containers[i])
-		s.applyContainerVolumes(&podSpec.Containers[i])
+		c := &podSpec.Containers[i]
+		s.updateContainerEnv(c)
+		for _, mount := range s.mods.VolumeMounts {
+			c.VolumeMounts = append(c.VolumeMounts, mount.VolumeMount)
+		}
 	}
-	s.applyVolumes(&podSpec)
+	for _, mount := range s.mods.VolumeMounts {
+		podSpec.Volumes = append(podSpec.Volumes, mount.Volume)
+	}
 
 	// only return ConfigError if there were reported
 	// errors during processing.
@@ -568,10 +573,7 @@ func (s *updateState) applyContainerSpec(p *cloudsqlapi.AuthProxyWorkload, c *co
 	// Fuse
 	if p.Spec.AuthProxyContainer.FUSEDir != "" || p.Spec.AuthProxyContainer.FUSETempDir != "" {
 		s.addError(cloudsqlapi.ErrorCodeFUSENotSupported, "the FUSE filesystem is not yet supported", p)
-
-		// TODO fuse...
 		// if FUSE is used, we need to use the 'buster' or 'alpine' image.
-
 	}
 
 	if p.Spec.AuthProxyContainer.Image != "" {
@@ -650,53 +652,6 @@ func (s *updateState) updateContainerEnv(c *corev1.Container) {
 		}
 	}
 
-}
-
-// applyContainerVolumes applies all the VolumeMounts to this container.
-func (s *updateState) applyContainerVolumes(c *corev1.Container) {
-	nameAccessor := func(v corev1.VolumeMount) string {
-		return v.Name
-	}
-	thingAccessor := func(v *managedVolume) corev1.VolumeMount {
-		return v.VolumeMount
-	}
-	c.VolumeMounts = applyVolumeThings[corev1.VolumeMount](s, c.VolumeMounts, nameAccessor, thingAccessor)
-}
-
-// applyVolumes applies all volumes to this PodSpec.
-func (s *updateState) applyVolumes(ps *corev1.PodSpec) {
-	nameAccessor := func(v corev1.Volume) string {
-		return v.Name
-	}
-	thingAccessor := func(v *managedVolume) corev1.Volume {
-		return v.Volume
-	}
-	ps.Volumes = applyVolumeThings[corev1.Volume](s, ps.Volumes, nameAccessor, thingAccessor)
-}
-
-// applyVolumeThings implements complex reconcile logic that is duplicated for both
-// VolumeMount and Volume on containers.
-func applyVolumeThings[T corev1.VolumeMount | corev1.Volume](
-	s *updateState,
-	newVols []T,
-	nameAccessor func(T) string,
-	thingAccessor func(*managedVolume) T) []T {
-
-	// add or replace items for all new volume mounts
-	for i := 0; i < len(s.mods.VolumeMounts); i++ {
-		var found bool
-		newVol := thingAccessor(s.mods.VolumeMounts[i])
-		for j := 0; j < len(newVols); j++ {
-			if nameAccessor(newVol) == nameAccessor(newVols[j]) {
-				found = true
-				newVols[j] = newVol
-			}
-		}
-		if !found {
-			newVols = append(newVols, newVol)
-		}
-	}
-	return newVols
 }
 
 // addHealthCheck adds the health check declaration to this workload.
