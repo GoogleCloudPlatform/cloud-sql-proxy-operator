@@ -186,7 +186,7 @@ func (u *Updater) filterMatchingInstances(pl *cloudsqlapi.AuthProxyWorkloadList,
 
 // UpdateWorkloadContainers applies the proxy containers from all of the
 // instances listed in matchingAuthProxyWorkloads to the workload
-func (u *Updater) UpdateWorkloadContainers(wl Workload, matches []*cloudsqlapi.AuthProxyWorkload) (bool, error) {
+func (u *Updater) UpdateWorkloadContainers(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWorkload) (bool, error) {
 	state := updateState{
 		updater:    u,
 		nextDBPort: DefaultFirstPort,
