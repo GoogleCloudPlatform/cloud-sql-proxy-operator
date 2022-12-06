@@ -1,7 +1,5 @@
 # Development
 
-
-
 # How this project was created
 This project was initially scaffolded by `kubebuilder` 3.6.0. These are the 
 commands initially used to set up the project.

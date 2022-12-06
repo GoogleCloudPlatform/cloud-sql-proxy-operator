@@ -136,4 +136,10 @@ Note that there are now two containers on the pods, while there is only one
 container on the deployment. The operator adds a second proxy container configured
 using the settings in the `AuthProxyWorkload` resource. 
 
-# Developing this project
+# Additional Documentation
+
+- [Developer Getting Started](docs/dev.md)
+- [Developing End-to-End tests](docs/e2e-tests.md)
+- [Contributing](docs/contributing.md)
+- [Code of Conduct](docs/code-of-conduct.md)
+- [Examples](docs/examples/)
