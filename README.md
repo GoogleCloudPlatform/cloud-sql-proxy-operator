@@ -137,6 +137,9 @@ container on the deployment. The operator adds a second proxy container configur
 using the settings in the `AuthProxyWorkload` resource. 
 
 # Additional Documentation
+- [Kubernetes Operator for Cloud SQL Proxy](https://docs.google.com/presentation/d/1Zb20y-oyRUBMn6qRjJe0e7_AEPewu1sr-uWX4ac2SpU/edit?resourcekey=0-eVSy_QoAjXkW68hapOOP-Q#slide=id.g4c499b7a9e_0_0) (Google Slides)
+
+## For Developers
 
 - [Developer Getting Started](docs/dev.md)
 - [Developing End-to-End tests](docs/e2e-tests.md)
