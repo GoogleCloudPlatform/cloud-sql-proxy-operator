@@ -188,7 +188,7 @@ func TestUpdateWorkloadFixedPort(t *testing.T) {
 			fmt.Sprintf("%s?port=%d", wantsInstanceName, wantsPort),
 		}
 		wantWorkloadEnv = map[string]string{
-			"DB_HOST": "localhost",
+			"DB_HOST": "127.0.0.1",
 			"DB_PORT": strconv.Itoa(int(wantsPort)),
 		}
 		u = workload.NewUpdater()
@@ -255,7 +255,7 @@ func TestWorkloadNoPortSet(t *testing.T) {
 			fmt.Sprintf("%s?port=%d", wantsInstanceName, wantsPort),
 		}
 		wantWorkloadEnv = map[string]string{
-			"DB_HOST": "localhost",
+			"DB_HOST": "127.0.0.1",
 			"DB_PORT": strconv.Itoa(int(wantsPort)),
 		}
 	)
