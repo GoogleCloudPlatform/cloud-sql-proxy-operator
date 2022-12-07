@@ -20,7 +20,7 @@ jobs:
   build:
     name: "Code Generation"
     runs-on: ubuntu-latest
-    if: "${{ github.actor == 'release-please' }}"
+#    if: "${{ github.actor == 'release-please' }}"
     steps:
       - name: Setup Go
         uses: actions/setup-go@v3
@@ -31,5 +31,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
+      - name: Print actor
+        run: echo "$GITHUB_ACTOR"
       - name: Generate code and commit differences
         run: tools/release-pr-generate.sh
