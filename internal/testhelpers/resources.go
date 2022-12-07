@@ -116,11 +116,17 @@ func BuildJob(name types.NamespacedName, appLabel string) *batchv1.Job {
 			Labels:    map[string]string{"app": appLabel},
 		},
 		Spec: batchv1.JobSpec{
-			Template: buildPodTemplateSpec(60),
+			Template:    buildPodTemplateSpec(30),
+			Parallelism: ptr(int32(1)), // run the pod 20 times, 1 at a time
+			Completions: ptr(int32(20)),
 		},
 	}
 	job.Spec.Template.Spec.RestartPolicy = corev1.RestartPolicyNever
 	return job
+}
+
+func ptr[T any](i T) *T {
+	return &i
 }
 
 func BuildCronJob(name types.NamespacedName, appLabel string) *batchv1.CronJob {
@@ -132,6 +138,7 @@ func BuildCronJob(name types.NamespacedName, appLabel string) *batchv1.CronJob {
 			Labels:    map[string]string{"app": appLabel},
 		},
 		Spec: batchv1.CronJobSpec{
+			Schedule: "* * * * *",
 			JobTemplate: batchv1.JobTemplateSpec{
 				Spec: batchv1.JobSpec{
 					Template: buildPodTemplateSpec(60),
@@ -232,7 +239,7 @@ func (cc *TestCaseClient) ExpectPodContainerCount(ctx context.Context, podSelect
 		countPods    int
 	)
 
-	err := RetryUntilSuccess(12, DefaultRetryInterval, func() error {
+	err := RetryUntilSuccess(24, DefaultRetryInterval, func() error {
 		countBadPods = 0
 		pods, err := ListPods(ctx, cc.Client, cc.Namespace, podSelector)
 		if err != nil {

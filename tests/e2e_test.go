@@ -67,28 +67,34 @@ func TestProxyAppliedOnNewWorkload(t *testing.T) {
 	skipCleanup := loadValue("SKIP_CLEANUP", "", "false") == "true"
 
 	tests := []struct {
-		name string
-		o    client.Object
+		name     string
+		o        client.Object
+		allOrAny string
 	}{
 		{
-			name: "deployment",
-			o:    testhelpers.BuildDeployment(types.NamespacedName{}, "busybox"),
+			name:     "deployment",
+			o:        testhelpers.BuildDeployment(types.NamespacedName{}, "busybox"),
+			allOrAny: "all",
 		},
 		{
-			name: "statefulset",
-			o:    testhelpers.BuildStatefulSet(types.NamespacedName{}, "busybox"),
+			name:     "statefulset",
+			o:        testhelpers.BuildStatefulSet(types.NamespacedName{}, "busybox"),
+			allOrAny: "all",
 		},
 		{
-			name: "daemonset",
-			o:    testhelpers.BuildDaemonSet(types.NamespacedName{}, "busybox"),
+			name:     "daemonset",
+			o:        testhelpers.BuildDaemonSet(types.NamespacedName{}, "busybox"),
+			allOrAny: "all",
 		},
 		{
-			name: "job",
-			o:    testhelpers.BuildJob(types.NamespacedName{}, "busybox"),
+			name:     "job",
+			o:        testhelpers.BuildJob(types.NamespacedName{}, "busybox"),
+			allOrAny: "any",
 		},
 		{
-			name: "cronjob",
-			o:    testhelpers.BuildCronJob(types.NamespacedName{}, "busybox"),
+			name:     "cronjob",
+			o:        testhelpers.BuildCronJob(types.NamespacedName{}, "busybox"),
+			allOrAny: "any",
 		},
 	}
 	for i := range tests {
@@ -144,7 +150,7 @@ func TestProxyAppliedOnNewWorkload(t *testing.T) {
 				MatchLabels: map[string]string{"app": "busyboxon"},
 			}
 			t.Log("Checking for container counts", kind)
-			err = tp.ExpectPodContainerCount(ctx, selector, 2, "all")
+			err = tp.ExpectPodContainerCount(ctx, selector, 2, test.allOrAny)
 			if err != nil {
 				t.Error(err)
 			}
@@ -248,15 +254,8 @@ func TestProxyAppliedOnExistingWorkload(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			t.Log("Pod container count remains unmodified for existing workload")
-			err = tp.ExpectPodContainerCount(ctx, selector, 1, test.allOrAny)
-			if err != nil {
-				t.Fatal(err)
-			}
-
 			// if this is an apps/v1 resource with a mutable pod template,
 			// force a rolling update.
-
 			if wl, ok := test.o.(workload.WithMutablePodTemplate); ok {
 				// patch the workload, add an annotation to the podspec
 				t.Log("Customer updates the workload triggering a rollout")
