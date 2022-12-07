@@ -38,6 +38,9 @@ spec:
 ##
 # Put the database name, username, and password into a kubernetes secret
 # Update the values below as needed for your environment
+#
+# WARNING: Do not store passwords in a source code file. It is a bad
+# way to keep your secrets safe.  
 
 apiVersion: v1
 kind: Secret
