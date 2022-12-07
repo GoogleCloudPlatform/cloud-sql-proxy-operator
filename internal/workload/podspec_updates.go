@@ -127,7 +127,7 @@ var defaultContainerResources = corev1.ResourceRequirements{
 
 // ConfigurePodProxies finds all AuthProxyWorkload resources matching this workload and then
 // updates the workload's containers. This does not save the updated workload.
-func (u *Updater) ConfigurePodProxies(pl *cloudsqlapi.AuthProxyWorkloadList, wl *PodWorkload, owners []Workload) (bool, []*cloudsqlapi.AuthProxyWorkload, error) {
+func (u *Updater) FindMatchingAuthProxyWorkloads(pl *cloudsqlapi.AuthProxyWorkloadList, wl *PodWorkload, owners []Workload) []*cloudsqlapi.AuthProxyWorkload {
 
 	// if a wl has an owner, then ignore it.
 	wls := u.filterMatchingInstances(pl, wl.Object())
@@ -144,22 +144,8 @@ func (u *Updater) ConfigurePodProxies(pl *cloudsqlapi.AuthProxyWorkloadList, wl 
 	for _, w := range m {
 		wls = append(wls, w)
 	}
-
-	updated, err := u.UpdateWorkloadContainers(wl, wls)
-	// if there was an error updating workloads, return the error
-	if err != nil {
-		return false, nil, err
-	}
-
-	// if this was not updated, then return nil and an empty array because
-	// no DBInstances were applied
-	if !updated {
-		return updated, nil, nil
-	}
-
 	// if this was updated return matching DBInstances
-	return updated, wls, nil
-
+	return wls
 }
 
 // filterMatchingInstances returns a list of AuthProxyWorkload whose selectors match
@@ -185,9 +171,9 @@ func (u *Updater) filterMatchingInstances(pl *cloudsqlapi.AuthProxyWorkloadList,
 	return matchingAuthProxyWorkloads
 }
 
-// UpdateWorkloadContainers applies the proxy containers from all of the
+// ConfigureWorkload applies the proxy containers from all of the
 // instances listed in matchingAuthProxyWorkloads to the workload
-func (u *Updater) UpdateWorkloadContainers(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWorkload) (bool, error) {
+func (u *Updater) ConfigureWorkload(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWorkload) error {
 	state := updateState{
 		updater:    u,
 		nextDBPort: DefaultFirstPort,
@@ -397,12 +383,11 @@ func (s *updateState) initState(pl []*cloudsqlapi.AuthProxyWorkload) {
 
 // update Reconciles the state of a workload, applying the matching DBInstances
 // and removing any out-of-date configuration related to deleted DBInstances
-func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWorkload) (bool, error) {
+func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWorkload) error {
 
 	s.initState(matches)
 	podSpec := wl.PodSpec()
 	containers := podSpec.Containers
-	var updated bool
 
 	var nonAuthProxyContainers []corev1.Container
 	for i := 0; i < len(containers); i++ {
@@ -425,26 +410,30 @@ func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWo
 		newContainer := corev1.Container{}
 		s.updateContainer(inst, wl, &newContainer)
 		containers = append(containers, newContainer)
-		updated = true
 	}
 
 	podSpec.Containers = containers
 
 	for i := range podSpec.Containers {
-		s.updateContainerEnv(&podSpec.Containers[i])
-		s.applyContainerVolumes(&podSpec.Containers[i])
+		c := &podSpec.Containers[i]
+		s.updateContainerEnv(c)
+		for _, mount := range s.mods.VolumeMounts {
+			c.VolumeMounts = append(c.VolumeMounts, mount.VolumeMount)
+		}
 	}
-	s.applyVolumes(&podSpec)
+	for _, mount := range s.mods.VolumeMounts {
+		podSpec.Volumes = append(podSpec.Volumes, mount.Volume)
+	}
 
 	// only return ConfigError if there were reported
 	// errors during processing.
 	if len(s.err.details) > 0 {
-		return updated, &s.err
+		return &s.err
 	}
 
 	wl.SetPodSpec(podSpec)
 
-	return updated, nil
+	return nil
 }
 
 // updateContainer Creates or updates the proxy container in the workload's PodSpec
@@ -568,10 +557,7 @@ func (s *updateState) applyContainerSpec(p *cloudsqlapi.AuthProxyWorkload, c *co
 	// Fuse
 	if p.Spec.AuthProxyContainer.FUSEDir != "" || p.Spec.AuthProxyContainer.FUSETempDir != "" {
 		s.addError(cloudsqlapi.ErrorCodeFUSENotSupported, "the FUSE filesystem is not yet supported", p)
-
-		// TODO fuse...
 		// if FUSE is used, we need to use the 'buster' or 'alpine' image.
-
 	}
 
 	if p.Spec.AuthProxyContainer.Image != "" {
@@ -650,53 +636,6 @@ func (s *updateState) updateContainerEnv(c *corev1.Container) {
 		}
 	}
 
-}
-
-// applyContainerVolumes applies all the VolumeMounts to this container.
-func (s *updateState) applyContainerVolumes(c *corev1.Container) {
-	nameAccessor := func(v corev1.VolumeMount) string {
-		return v.Name
-	}
-	thingAccessor := func(v *managedVolume) corev1.VolumeMount {
-		return v.VolumeMount
-	}
-	c.VolumeMounts = applyVolumeThings[corev1.VolumeMount](s, c.VolumeMounts, nameAccessor, thingAccessor)
-}
-
-// applyVolumes applies all volumes to this PodSpec.
-func (s *updateState) applyVolumes(ps *corev1.PodSpec) {
-	nameAccessor := func(v corev1.Volume) string {
-		return v.Name
-	}
-	thingAccessor := func(v *managedVolume) corev1.Volume {
-		return v.Volume
-	}
-	ps.Volumes = applyVolumeThings[corev1.Volume](s, ps.Volumes, nameAccessor, thingAccessor)
-}
-
-// applyVolumeThings implements complex reconcile logic that is duplicated for both
-// VolumeMount and Volume on containers.
-func applyVolumeThings[T corev1.VolumeMount | corev1.Volume](
-	s *updateState,
-	newVols []T,
-	nameAccessor func(T) string,
-	thingAccessor func(*managedVolume) T) []T {
-
-	// add or replace items for all new volume mounts
-	for i := 0; i < len(s.mods.VolumeMounts); i++ {
-		var found bool
-		newVol := thingAccessor(s.mods.VolumeMounts[i])
-		for j := 0; j < len(newVols); j++ {
-			if nameAccessor(newVol) == nameAccessor(newVols[j]) {
-				found = true
-				newVols[j] = newVol
-			}
-		}
-		if !found {
-			newVols = append(newVols, newVol)
-		}
-	}
-	return newVols
 }
 
 // addHealthCheck adds the health check declaration to this workload.

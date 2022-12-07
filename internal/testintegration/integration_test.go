@@ -70,7 +70,6 @@ func TestCreateAndDeleteResource(t *testing.T) {
 }
 
 func TestModifiesNewDeployment(t *testing.T) {
-	t.Skip("Reenable after new reconcile implementation is complete")
 	ctx := testintegration.TestContext()
 	tcc := newTestCaseClient("modifynew")
 
@@ -123,7 +122,6 @@ func TestModifiesNewDeployment(t *testing.T) {
 }
 
 func TestModifiesExistingDeployment(t *testing.T) {
-	t.Skip("Reenable after new reconcile implementation is complete")
 	const (
 		pwlName            = "db-mod"
 		deploymentName     = "deploy-mod"
@@ -146,36 +144,60 @@ func TestModifiesExistingDeployment(t *testing.T) {
 	d := testhelpers.BuildDeployment(dKey, deploymentAppLabel)
 	err = tcc.CreateWorkload(ctx, d)
 	if err != nil {
-		t.Error(err)
-		return
+		t.Fatal(err)
 	}
-	_, _, err = tcc.CreateDeploymentReplicaSetAndPods(ctx, d)
+	rs1, pods, err := tcc.CreateDeploymentReplicaSetAndPods(ctx, d)
 	if err != nil {
-		t.Errorf("Unable to create pods and replicaset for deployment, %v", err)
-		return
+		t.Fatalf("Unable to create pods and replicaset for deployment, %v", err)
 	}
 
 	// expect 1 container... no cloudsql instance yet
 	err = tcc.ExpectPodContainerCount(ctx, d.Spec.Selector, 1, "all")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	t.Log("Creating cloud sql instance")
 	err = tcc.CreateAuthProxyWorkload(ctx, pKey, deploymentAppLabel, tcc.ConnectionString, "Deployment")
 	if err != nil {
-		t.Error(err)
-		return
+		t.Fatal(err)
 	}
 
 	t.Log("Waiting for cloud sql instance to begin the reconcile loop ")
 	_, err = tcc.GetAuthProxyWorkloadAfterReconcile(ctx, pKey)
 	if err != nil {
-		t.Error(err)
-		return
+		t.Fatal(err)
+	}
+	// user must manually trigger the pods to be recreated.
+	// so we simulate that by asserting that after the update, there is only
+	// 1 container on the pods.
+
+	// expect 1 container... no cloudsql instance yet
+	err = tcc.ExpectPodContainerCount(ctx, d.Spec.Selector, 1, "all")
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	//TODO implement the new reconcile algorithm before finishing this test.
-	// Then, we should assert 2 containers on all pods.
+	// Then we simulate the deployment pods being replaced
+	err = tcc.Client.Delete(ctx, rs1)
+	if err != nil {
+		t.Fatal(err)
+	}
 
+	for i := 0; i < len(pods); i++ {
+		err = tcc.Client.Delete(ctx, pods[i])
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	_, _, err = tcc.CreateDeploymentReplicaSetAndPods(ctx, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// and check for 2 containers
+	err = tcc.ExpectPodContainerCount(ctx, d.Spec.Selector, 2, "all")
+	if err != nil {
+		t.Fatal(err)
+	}
 }
