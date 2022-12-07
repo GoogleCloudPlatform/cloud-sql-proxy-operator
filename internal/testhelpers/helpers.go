@@ -69,7 +69,6 @@ func RetryUntilSuccess(attempts int, d time.Duration, f func() error) (err error
 	for i := 0; i < attempts; i++ {
 		if i > 0 {
 			time.Sleep(d)
-			d *= 2
 		}
 		err = f()
 		if err == nil {
