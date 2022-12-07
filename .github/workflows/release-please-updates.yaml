@@ -24,7 +24,7 @@ jobs:
       - name: Print Actor
         uses: actions/github-script@v6
         with:
-          script: console.log("The github actor is ", github.actor);
+          script: console.log("The github actor is ${{github.actor}}");
       - name: Setup Go
         uses: actions/setup-go@v3
         with:
