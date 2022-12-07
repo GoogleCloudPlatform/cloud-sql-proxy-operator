@@ -465,7 +465,7 @@ func TestContainerImageEmpty(t *testing.T) {
 			// Create a pod
 			wl := podWorkload()
 			wl.Pod.Spec.Containers[0].Ports =
-					[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
+				[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
 			csqls := []*v1alpha1.AuthProxyWorkload{test.proxy}
 
 			// update the containers
