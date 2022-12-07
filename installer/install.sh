@@ -16,7 +16,7 @@
 
 set -euxo # exit 1 from the script when command fails
 
-VERSION="v0.0.2-dev"
+VERSION="v0.0.3"
 CERT_MANAGER_VERSION="v1.9.1"
 
 if ! which kubectl ; then
