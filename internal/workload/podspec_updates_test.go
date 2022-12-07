@@ -436,6 +436,63 @@ func TestContainerImageChanged(t *testing.T) {
 
 }
 
+func TestContainerImageEmpty(t *testing.T) {
+	var (
+		wantsInstanceName = "project:server:db"
+		wantImage         = workload.DefaultProxyImage
+		u                 = workload.NewUpdater()
+	)
+	// Create a AuthProxyWorkload that matches the deployment
+
+	// create an AuthProxyContainer that has a value, but Image is empty.
+	p1 := simpleAuthProxy("instance1", wantsInstanceName)
+	p1.Spec.AuthProxyContainer = &v1alpha1.AuthProxyContainerSpec{MaxConnections: ptr(int64(5))}
+
+	// create an AuthProxyContainer where AuthProxyContainer is nil
+	p2 := simpleAuthProxy("instance1", wantsInstanceName)
+	p2.Spec.AuthProxyContainer = nil
+
+	tests := []struct {
+		name  string
+		proxy *v1alpha1.AuthProxyWorkload
+	}{
+		{name: "Image is empty", proxy: p1},
+		{name: "AuthProxyContainer is nil", proxy: p2},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// Create a pod
+			wl := podWorkload()
+			wl.Pod.Spec.Containers[0].Ports =
+				[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
+			csqls := []*v1alpha1.AuthProxyWorkload{test.proxy}
+
+			// update the containers
+			err := configureProxies(u, wl, csqls)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// ensure that the new container exists
+			if len(wl.Pod.Spec.Containers) != 2 {
+				t.Fatalf("got %v, wants 1. deployment containers length", len(wl.Pod.Spec.Containers))
+			}
+
+			// test that the instancename matches the new expected instance name.
+			csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-default-%s", csqls[0].GetName()))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// test that image was set
+			if csqlContainer.Image != wantImage {
+				t.Errorf("got %v, want %v for proxy container image", csqlContainer.Image, wantImage)
+			}
+
+		})
+	}
+}
+
 func TestContainerReplaced(t *testing.T) {
 	var (
 		wantsInstanceName = "project:server:db"

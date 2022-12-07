@@ -34,6 +34,7 @@ import (
 // package and documented here so that they appear in the godoc. These also
 // need to be documented in the CRD
 const (
+	DefaultProxyImage = "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.0.0-preview.2"
 
 	// DefaultFirstPort is the first port number chose for an instance listener by the
 	// proxy.
@@ -557,6 +558,9 @@ func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, wl Workl
 // applyContainerSpec applies settings from cloudsqlapi.AuthProxyContainerSpec
 // to the container
 func (s *updateState) applyContainerSpec(p *cloudsqlapi.AuthProxyWorkload, c *corev1.Container, cliArgs []string) []string {
+	c.Image = s.defaultProxyImage()
+	c.Resources = defaultContainerResources
+
 	if p.Spec.AuthProxyContainer == nil {
 		return cliArgs
 	}
@@ -570,12 +574,10 @@ func (s *updateState) applyContainerSpec(p *cloudsqlapi.AuthProxyWorkload, c *co
 
 	}
 
-	c.Image = s.defaultProxyImage()
 	if p.Spec.AuthProxyContainer.Image != "" {
 		c.Image = p.Spec.AuthProxyContainer.Image
 	}
 
-	c.Resources = defaultContainerResources
 	if p.Spec.AuthProxyContainer.Resources != nil {
 		c.Resources = *p.Spec.AuthProxyContainer.Resources.DeepCopy()
 	}
@@ -755,5 +757,5 @@ func (s *updateState) applyAuthenticationSpec(proxy *cloudsqlapi.AuthProxyWorklo
 }
 
 func (s *updateState) defaultProxyImage() string {
-	return "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.0.0-preview.2"
+	return DefaultProxyImage
 }
