@@ -16,7 +16,7 @@ Run the following command to install the cloud sql proxy operator into
 your kuberentes cluster:
 
 ```shell
-curl https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator-dev/0.0.5/install.sh | bash
+curl https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator-dev/0.0.2-dev/install.sh | bash
 ```
 
 Confirm that the operator is installed and running by listing its pods:
@@ -126,6 +126,6 @@ for the application to see the proxy container.
 kubectl describe pods -l app=gke-cloud-sql-app
 ```
 
-Note that there are now two containers on the pods, while there is only one
-container on the deployment. The operator adds a second proxy container configured
+Note that there are now two containers in the pods, while there is only one
+container in the deployment. The operator adds a second proxy container configured
 using the settings in the `AuthProxyWorkload` resource. 
