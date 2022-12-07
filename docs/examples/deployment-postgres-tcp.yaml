@@ -26,22 +26,20 @@ metadata:
   name: authproxyworkload-sample
 spec:
   workloadSelector:
-    kind: "Deployment"           # Applies to a "Deployment"
-    name: "gke-cloud-sql-app"    # named 'gke-cloud-sql-app'
+    kind: "Deployment" # Applies to a "Deployment"
+    name: "gke-cloud-sql-app" # named 'gke-cloud-sql-app'
   instances:
-    - connectionString: "my-project:us-central1:instance"   # from your Cloud SQL Database instance
-      socketType: "tcp"       # Proxy will open a TCP socket for this instance
-      portEnvName: "DB_PORT"  # Will set an env var named 'DB_PORT' to the database port
-      hostEnvName: "DB_HOST"  # Will set an env var named 'DB_HOST' to the proxy's host, 127.0.0.1
+    - connectionString: "my-project:us-central1:instance" # from your Cloud SQL Database instance
+      socketType: "tcp" # Proxy will open a TCP socket for this instance
+      portEnvName: "DB_PORT" # Will set an env var named 'DB_PORT' to the database port
+      hostEnvName: "DB_HOST" # Will set an env var named 'DB_HOST' to the proxy's host, 127.0.0.1
 ---
-
 ##
 # Put the database name, username, and password into a kubernetes secret
 # Update the values below as needed for your environment
 #
 # WARNING: Do not store passwords in a source code file. It is a bad
 # way to keep your secrets safe.  
-
 apiVersion: v1
 kind: Secret
 metadata:
@@ -51,9 +49,7 @@ data:
   DB_PASS: cGFzc3dvcmQ= # "password"
   DB_NAME: cG9zdGdyZXM= # "postgres"
   DB_USER: dGVzdHVzZXI= # "testuser"
-
 ---
-
 ##
 # Create a deployment for your application that uses environment variables
 # set by the proxy to connect to the database.
