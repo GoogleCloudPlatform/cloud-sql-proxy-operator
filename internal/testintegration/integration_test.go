@@ -144,33 +144,29 @@ func TestModifiesExistingDeployment(t *testing.T) {
 	d := testhelpers.BuildDeployment(dKey, deploymentAppLabel)
 	err = tcc.CreateWorkload(ctx, d)
 	if err != nil {
-		t.Error(err)
-		return
+		t.Fatal(err)
 	}
 	rs1, pods, err := tcc.CreateDeploymentReplicaSetAndPods(ctx, d)
 	if err != nil {
-		t.Errorf("Unable to create pods and replicaset for deployment, %v", err)
-		return
+		t.Fatalf("Unable to create pods and replicaset for deployment, %v", err)
 	}
 
 	// expect 1 container... no cloudsql instance yet
 	err = tcc.ExpectPodContainerCount(ctx, d.Spec.Selector, 1, "all")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	t.Log("Creating cloud sql instance")
 	err = tcc.CreateAuthProxyWorkload(ctx, pKey, deploymentAppLabel, tcc.ConnectionString, "Deployment")
 	if err != nil {
-		t.Error(err)
-		return
+		t.Fatal(err)
 	}
 
 	t.Log("Waiting for cloud sql instance to begin the reconcile loop ")
 	_, err = tcc.GetAuthProxyWorkloadAfterReconcile(ctx, pKey)
 	if err != nil {
-		t.Error(err)
-		return
+		t.Fatal(err)
 	}
 	// user must manually trigger the pods to be recreated.
 	// so we simulate that by asserting that after the update, there is only
@@ -179,7 +175,7 @@ func TestModifiesExistingDeployment(t *testing.T) {
 	// expect 1 container... no cloudsql instance yet
 	err = tcc.ExpectPodContainerCount(ctx, d.Spec.Selector, 1, "all")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	// Then we simulate the deployment pods being replaced
@@ -202,6 +198,6 @@ func TestModifiesExistingDeployment(t *testing.T) {
 	// and check for 2 containers
 	err = tcc.ExpectPodContainerCount(ctx, d.Spec.Selector, 2, "all")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 }

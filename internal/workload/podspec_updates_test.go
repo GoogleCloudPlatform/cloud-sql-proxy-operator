@@ -125,7 +125,8 @@ func configureProxies(u *workload.Updater, wl *workload.PodWorkload, proxies []*
 	for i := 0; i < len(proxies); i++ {
 		l.Items[i] = *proxies[i]
 	}
-	_, _, err := u.ConfigurePodProxies(l, wl, nil)
+	apws := u.FindMatchingAuthProxyWorkloads(l, wl, nil)
+	err := u.ConfigureWorkload(wl, apws)
 	return err
 }
 

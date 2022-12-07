@@ -256,8 +256,8 @@ func TestProxyAppliedOnExistingWorkload(t *testing.T) {
 
 			// if this is an apps/v1 resource with a mutable pod template,
 			// force a rolling update.
-			wl, ok := test.o.(workload.WithMutablePodTemplate)
-			if ok {
+
+			if wl, ok := test.o.(workload.WithMutablePodTemplate); ok {
 				// patch the workload, add an annotation to the podspec
 				t.Log("Customer updates the workload triggering a rollout")
 				controllerutil.CreateOrPatch(ctx, tp.Client, test.o.Object(), func() error {

@@ -127,7 +127,7 @@ var defaultContainerResources = corev1.ResourceRequirements{
 
 // ConfigurePodProxies finds all AuthProxyWorkload resources matching this workload and then
 // updates the workload's containers. This does not save the updated workload.
-func (u *Updater) ConfigurePodProxies(pl *cloudsqlapi.AuthProxyWorkloadList, wl *PodWorkload, owners []Workload) (bool, []*cloudsqlapi.AuthProxyWorkload, error) {
+func (u *Updater) FindMatchingAuthProxyWorkloads(pl *cloudsqlapi.AuthProxyWorkloadList, wl *PodWorkload, owners []Workload) []*cloudsqlapi.AuthProxyWorkload {
 
 	// if a wl has an owner, then ignore it.
 	wls := u.filterMatchingInstances(pl, wl.Object())
@@ -144,22 +144,8 @@ func (u *Updater) ConfigurePodProxies(pl *cloudsqlapi.AuthProxyWorkloadList, wl 
 	for _, w := range m {
 		wls = append(wls, w)
 	}
-
-	updated, err := u.UpdateWorkloadContainers(wl, wls)
-	// if there was an error updating workloads, return the error
-	if err != nil {
-		return false, nil, err
-	}
-
-	// if this was not updated, then return nil and an empty array because
-	// no DBInstances were applied
-	if !updated {
-		return updated, nil, nil
-	}
-
 	// if this was updated return matching DBInstances
-	return updated, wls, nil
-
+	return wls
 }
 
 // filterMatchingInstances returns a list of AuthProxyWorkload whose selectors match
@@ -185,9 +171,9 @@ func (u *Updater) filterMatchingInstances(pl *cloudsqlapi.AuthProxyWorkloadList,
 	return matchingAuthProxyWorkloads
 }
 
-// UpdateWorkloadContainers applies the proxy containers from all of the
+// ConfigureWorkload applies the proxy containers from all of the
 // instances listed in matchingAuthProxyWorkloads to the workload
-func (u *Updater) UpdateWorkloadContainers(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWorkload) (bool, error) {
+func (u *Updater) ConfigureWorkload(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWorkload) error {
 	state := updateState{
 		updater:    u,
 		nextDBPort: DefaultFirstPort,
@@ -397,12 +383,11 @@ func (s *updateState) initState(pl []*cloudsqlapi.AuthProxyWorkload) {
 
 // update Reconciles the state of a workload, applying the matching DBInstances
 // and removing any out-of-date configuration related to deleted DBInstances
-func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWorkload) (bool, error) {
+func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWorkload) error {
 
 	s.initState(matches)
 	podSpec := wl.PodSpec()
 	containers := podSpec.Containers
-	var updated bool
 
 	var nonAuthProxyContainers []corev1.Container
 	for i := 0; i < len(containers); i++ {
@@ -425,7 +410,6 @@ func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWo
 		newContainer := corev1.Container{}
 		s.updateContainer(inst, wl, &newContainer)
 		containers = append(containers, newContainer)
-		updated = true
 	}
 
 	podSpec.Containers = containers
@@ -444,12 +428,12 @@ func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWo
 	// only return ConfigError if there were reported
 	// errors during processing.
 	if len(s.err.details) > 0 {
-		return updated, &s.err
+		return &s.err
 	}
 
 	wl.SetPodSpec(podSpec)
 
-	return updated, nil
+	return nil
 }
 
 // updateContainer Creates or updates the proxy container in the workload's PodSpec

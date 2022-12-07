@@ -60,10 +60,9 @@ func (a *PodAdmissionWebhook) Handle(ctx context.Context, req admission.Request)
 	}
 
 	var (
-		updated           bool
-		instList          = &cloudsqlapi.AuthProxyWorkloadList{}
-		matchingInstances []*cloudsqlapi.AuthProxyWorkload
-		wlConfigErr       error
+		instList    = &cloudsqlapi.AuthProxyWorkloadList{}
+		proxies     []*cloudsqlapi.AuthProxyWorkload
+		wlConfigErr error
 	)
 
 	// List all the AuthProxyWorkloads in the same namespace.
@@ -84,8 +83,14 @@ func (a *PodAdmissionWebhook) Handle(ctx context.Context, req admission.Request)
 			fmt.Errorf("there is an AuthProxyWorkloadConfiguration error reconciling this workload %v", err))
 	}
 
-	// Reconfigure the PodSpec
-	updated, matchingInstances, wlConfigErr = a.updater.ConfigurePodProxies(instList, wl, owners)
+	// Find matching AuthProxyWorkloads for this pod
+	proxies = a.updater.FindMatchingAuthProxyWorkloads(instList, wl, owners)
+	if len(proxies) == 0 {
+		return admission.PatchResponseFromRaw(req.Object.Raw, req.Object.Raw)
+	}
+
+	// Configure the pod, adding containers for each of the proxies
+	wlConfigErr = a.updater.ConfigureWorkload(wl, proxies)
 
 	if wlConfigErr != nil {
 		l.Error(wlConfigErr, "Unable to reconcile workload result in webhook: "+wlConfigErr.Error(),
@@ -94,16 +99,14 @@ func (a *PodAdmissionWebhook) Handle(ctx context.Context, req admission.Request)
 			fmt.Errorf("there is an AuthProxyWorkloadConfiguration error reconciling this workload %v", wlConfigErr))
 	}
 
-	// If the pod was updated, log some information
-	if updated {
-		l.Info(fmt.Sprintf("Workload operation %s on kind %s named %s/%s required an update",
-			req.Operation, req.Kind, req.Namespace, req.Name))
-		for _, inst := range matchingInstances {
-			l.Info(fmt.Sprintf("inst %v %v/%v updated at instance resource version %v",
-				wl.Object().GetObjectKind().GroupVersionKind().String(),
-				wl.Object().GetNamespace(), wl.Object().GetName(),
-				inst.GetResourceVersion()))
-		}
+	// Log some information about the pod update
+	l.Info(fmt.Sprintf("Workload operation %s on kind %s named %s/%s required an update",
+		req.Operation, req.Kind, req.Namespace, req.Name))
+	for _, inst := range proxies {
+		l.Info(fmt.Sprintf("inst %v %v/%v updated at instance resource version %v",
+			wl.Object().GetObjectKind().GroupVersionKind().String(),
+			wl.Object().GetNamespace(), wl.Object().GetName(),
+			inst.GetResourceVersion()))
 	}
 
 	// Marshal the updated Pod and prepare to send a response
@@ -119,7 +122,8 @@ func (a *PodAdmissionWebhook) Handle(ctx context.Context, req admission.Request)
 	return admission.PatchResponseFromRaw(req.Object.Raw, marshaledRes)
 }
 
-// listOwners returns the list of this object's owners and its extended owners
+// listOwners returns the list of this object's owners and its extended owners.
+// Warning: this is a recursive function
 func (a *PodAdmissionWebhook) listOwners(ctx context.Context, object client.Object) ([]workload.Workload, error) {
 	l := logf.FromContext(ctx)
 	var owners []workload.Workload
@@ -149,16 +153,17 @@ func (a *PodAdmissionWebhook) listOwners(ctx context.Context, object client.Obje
 			}
 
 			l.Info("could not get owner ", "owner", r.String(), "err", err)
-			return owners, err
+			return nil, err
 		}
 
 		// recursively call for the owners of the owner, and append those.
 		// So that we reach Pod --> ReplicaSet --> Deployment
 		ownerOwners, err := a.listOwners(ctx, owner)
-		owners = append(owners, ownerOwners...)
 		if err != nil {
-			return owners, err
+			return nil, err
 		}
+
+		owners = append(owners, ownerOwners...)
 	}
 	return owners, nil
 }
