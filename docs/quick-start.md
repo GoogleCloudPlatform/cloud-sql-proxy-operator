@@ -16,7 +16,7 @@ Run the following command to install the cloud sql proxy operator into
 your kuberentes cluster:
 
 ```shell
-curl https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator-dev/0.0.2-dev/install.sh | bash
+curl https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/v0.0.2-dev/install.sh | bash
 ```
 
 Confirm that the operator is installed and running by listing its pods:
