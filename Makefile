@@ -16,7 +16,7 @@
 # Global settings
 
 ## RELEASE_TAG is the public image tag for the operator
-RELEASE_TAG_PATH=cloud-sql-connectors/cloud-sql-operator-dev/cloud-sql-proxy-operator:$(VERSION)
+RELEASE_TAG_PATH=cloud-sql-connectors/cloud-sql-operator/cloud-sql-proxy-operator:$(VERSION)
 RELEASE_TAG=gcr.io/$(RELEASE_TAG_PATH)
 
 # When the environment variable IS_RELEASE_BUILD is set, the IMG will be set
