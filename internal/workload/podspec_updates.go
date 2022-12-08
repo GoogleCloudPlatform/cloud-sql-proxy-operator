@@ -121,7 +121,7 @@ func (e *ConfigErrorDetail) Error() string {
 var defaultContainerResources = corev1.ResourceRequirements{
 	Requests: corev1.ResourceList{
 		"cpu":    resource.MustParse("1.0"),
-		"memory": resource.MustParse("1Gi"),
+		"memory": resource.MustParse("2Gi"),
 	},
 }
 
