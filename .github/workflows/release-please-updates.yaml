@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: Release PRs
+name: Release PR
 on:
   pull_request:
     types: [opened, synchronize, reopened, labeled]
@@ -20,11 +20,8 @@ jobs:
   build:
     name: "Code Generation"
     runs-on: ubuntu-latest
+    if: "${{ github.actor == 'release-please[bot]' }}"
     steps:
-      - name: Print Actor
-        uses: actions/github-script@v6
-        with:
-          script: console.log("The github actor is ${{github.actor}}");
       - name: Setup Go
         uses: actions/setup-go@v3
         with:
@@ -35,5 +32,4 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
       - name: Generate code and commit differences
-        if: "${{ github.actor == 'release-please[bot]' }}"
         run: tools/release-pr-generate.sh
