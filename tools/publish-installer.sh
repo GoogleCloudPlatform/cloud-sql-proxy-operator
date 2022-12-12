@@ -13,14 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-RELEASE_PROJECT_ID="cloud-sql-connectors"
-BUCKET_PATH="gs://cloud-sql-connectors/cloud-sql-proxy-operator-dev"
-
 set -euxo
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 PROJECT_DIR=$( dirname "$SCRIPT_DIR")
 
 cd "$PROJECT_DIR"
+
+
+RELEASE_PROJECT_ID="cloud-sql-connectors"
+if [[ -n "${IS_RELEASE_BUILD:-}" ]] ; then
+  BUCKET_PATH="gs://cloud-sql-connectors/cloud-sql-proxy-operator"
+else
+  BUCKET_PATH="gs://cloud-sql-connectors/cloud-sql-proxy-operator-dev"
+fi
 
 ##
 # Release Process
