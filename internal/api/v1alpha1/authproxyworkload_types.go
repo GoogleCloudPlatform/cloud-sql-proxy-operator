@@ -28,10 +28,6 @@ const (
 	// ErrorCodeEnvConflict occurs when an the environment code does not work.
 	ErrorCodeEnvConflict = "EnvVarConflict"
 
-	// ErrorCodeFUSENotSupported occurs when any FUSE configuration is set,
-	// because fuse is not yet supported.
-	ErrorCodeFUSENotSupported = "FUSENotSupported"
-
 	// AnnotationPrefix is used as the prefix for all annotations added to a domain object.
 	// to hold metadata related to this operator.
 	AnnotationPrefix = "cloudsql.cloud.google.com"
@@ -57,10 +53,6 @@ const (
 	// has properly processed the latest generation of an AuthProxyInstance
 	ConditionWorkloadUpToDate = "WorkloadUpToDate"
 
-	// ReasonNeedsUpdate relates to condition WorkloadUpToDate, this reason is set
-	// when there are no workloads related to this AuthProxyWorkload resource.
-	ReasonNeedsUpdate = "NeedsUpdate"
-
 	// ReasonUpToDate relates to condition WorkloadUpToDate, this reason is set
 	// when there are no workloads related to this AuthProxyWorkload resource.
 	ReasonUpToDate = "UpToDate"
@@ -71,10 +63,6 @@ type AuthProxyWorkloadSpec struct {
 	// Workload selects the workload to
 	//+kubebuilder:validation:Required
 	Workload WorkloadSelectorSpec `json:"workloadSelector"`
-
-	// Authentication describes how to authenticate the Auth Proxy container to Google Cloud
-	//+kubebuilder:validation:Optional
-	Authentication *AuthenticationSpec `json:"authentication,omitempty"`
 
 	// AuthProxyContainer describes the resources and config for the Auth Proxy container
 	//+kubebuilder:validation:Optional
@@ -124,32 +112,6 @@ func (s *WorkloadSelectorSpec) LabelsSelector() (labels.Selector, error) {
 	return metav1.LabelSelectorAsSelector(s.Selector)
 }
 
-// AuthenticationSpec describes how the proxy should get its Google Cloud identity
-// to authenticate to the Google Cloud api. The proxy can get its Google Cloud
-// identity in one of two ways:
-//
-//  1. Using the Google Cloud metadata server, in which case the AuthenticationSpec
-//     would set the GCloudAuth field to true. e.g. `{gcloudAuth:true}`
-//  2. Using a IAM credential key file stored in a kubernetes secret, in which
-//     case the AuthenticationSpec would set CredentialFileSecret and CredentialFileKey.
-//     e.g. `{credentialFileSecret: "default/gcloud-cred", credentialFileKey="gcloud.json"}`
-type AuthenticationSpec struct {
-	// CredentialsFileSecret the "name" or "namespace/name" for the secret.
-	// This sets the Cloud SQL Proxy container's CLI argument `--credentials-file`
-	//+kubebuilder:validation:Optional
-	CredentialsFileSecret string `json:"credentialsFileSecret,omitempty"`
-
-	// CredentialsFileKey The key within the kubernetes secret containing the credentials file.
-	// This sets the Cloud SQL Proxy container's CLI argument `--credentials-file`
-	//+kubebuilder:validation:Optional
-	CredentialsFileKey string `json:"credentialsFileKey,omitempty"`
-
-	// GCloudAuth true when we should use the Google Cloud metadata server to authenticate.
-	// This sets the Cloud SQL Proxy container's CLI argument `--gcloud-auth`
-	//+kubebuilder:validation:Optional
-	GCloudAuth bool `json:"gcloudAuth,omitempty"`
-}
-
 // AuthProxyContainerSpec specifies configuration for the proxy container.
 type AuthProxyContainerSpec struct {
 
@@ -162,11 +124,6 @@ type AuthProxyContainerSpec struct {
 	//+kubebuilder:validation:Optional
 	Resources *v1.ResourceRequirements `json:"resources,omitempty"`
 
-	// Telemetry specifies how the proxy should expose telemetry.
-	// Optional, by default
-	//+kubebuilder:validation:Optional
-	Telemetry *TelemetrySpec `json:"telemetry,omitempty"`
-
 	// MaxConnections limits the number of connections. Default value is no limit.
 	// This sets the proxy container's CLI argument `--max-connections`
 	//+kubebuilder:validation:Optional
@@ -178,77 +135,15 @@ type AuthProxyContainerSpec struct {
 	//+kubebuilder:validation:Optional
 	MaxSigtermDelay *int64 `json:"maxSigtermDelay,omitempty"`
 
-	// FUSEDir is the path where the FUSE volume will be mounted.
-	// This sets the proxy container's CLI argument `--fuse` and
-	// will mount the FUSE volume at this path on all containers in the workload.
-	//+kubebuilder:validation:Optional
-	FUSEDir string `json:"fuseDir,omitempty"`
-
-	// FUSETempDir is the path for the temp dir for Unix sockets created with FUSE.
-	// This sets the proxy container's CLI argument `--fuse-tmp-dir` and
-	// will mount the FUSE temp volume at this path on all containers in the workload.
-	//+kubebuilder:validation:Optional
-	FUSETempDir string `json:"fuseTempDir,omitempty"`
-	// Image is the URL to the proxy image. Optional, by default the operator
-	// will use the latest known compatible proxy image.
-	//+kubebuilder:validation:Optional
-	Image string `json:"image,omitempty"`
-
 	// SQLAdminAPIEndpoint is a debugging parameter that when specified will
 	// change the Google Cloud api endpoint used by the proxy.
 	//+kubebuilder:validation:Optional
 	SQLAdminAPIEndpoint string `json:"sqlAdminAPIEndpoint,omitempty"`
-}
 
-// TelemetrySpec specifies how the proxy container will expose telemetry.
-type TelemetrySpec struct {
-	// QuotaProject Specifies the project to use for Cloud SQL Admin API quota tracking.
-	// The IAM principal must have the "serviceusage.services.use" permission
-	// for the given project. See https://cloud.google.com/service-usage/docs/overview and
-	// https://cloud.google.com/storage/docs/requester-pays
-	// This sets the proxy container's CLI argument `--quota-project`
+	// Image is the URL to the proxy image. Optional, by default the operator
+	// will use the latest known compatible proxy image.
 	//+kubebuilder:validation:Optional
-	QuotaProject *string `json:"quotaProject,omitempty"`
-
-	// Prometheus Enables Prometheus HTTP endpoint /metrics on localhost
-	// This sets the proxy container's CLI argument `--prometheus`
-	//+kubebuilder:validation:Optional
-	Prometheus *bool `json:"prometheus,omitempty"`
-
-	// PrometheusNamespace is used the provided Prometheus namespace for metrics
-	// This sets the proxy container's CLI argument `--prometheus-namespace`
-	//+kubebuilder:validation:Optional
-	PrometheusNamespace *string `json:"prometheusNamespace,omitempty"`
-
-	// TelemetryProject enables Cloud Monitoring and Cloud Trace with the provided project ID.
-	// This sets the proxy container's CLI argument `--telemetry-project`
-	//+kubebuilder:validation:Optional
-	TelemetryProject *string `json:"telemetryProject,omitempty"`
-
-	// TelemetryPrefix is the prefix for Cloud Monitoring metrics.
-	// This sets the proxy container's CLI argument `--telemetry-prefix`
-	//+kubebuilder:validation:Optional
-	TelemetryPrefix *string `json:"telemetryPrefix,omitempty"`
-
-	// TelemetrySampleRate is the Cloud Trace sample rate. A smaller number means more traces.
-	// This sets the proxy container's CLI argument `--telemetry-sample-rate`
-	//+kubebuilder:validation:Optional
-	TelemetrySampleRate *int `json:"telemetrySampleRate,omitempty"`
-
-	// HTTPPort the port for Prometheus and health check server.
-	// This sets the proxy container's CLI argument `--http-port`
-	//+kubebuilder:validation:Optional
-	HTTPPort *int32 `json:"httpPort,omitempty"`
-
-	// DisableTraces disables Cloud Trace testintegration (used with telemetryProject)
-	// This sets the proxy container's CLI argument `--disable-traces`
-	//+kubebuilder:validation:Optional
-	DisableTraces *bool `json:"disableTraces,omitempty"`
-
-	// DisableMetrics disables Cloud Monitoring testintegration (used with telemetryProject)
-	// This sets the proxy container's CLI argument `--disable-metrics`
-	//+kubebuilder:validation:Optional
-	DisableMetrics *bool `json:"disableMetrics,omitempty"`
+	Image string `json:"image,omitempty"`
 }
 
 // InstanceSpec describes the configuration for how the proxy should expose
@@ -293,23 +188,12 @@ type InstanceSpec struct {
 	//+kubebuilder:validation:Required
 	ConnectionString string `json:"connectionString,omitempty"`
 
-	// SocketType declares what type of socket to create for this database. Allowed
-	// values: "tcp" or "unix"
-	//+kubebuilder:validation:Enum=tcp;unix
-	//+kubebuilder:validation:Optional
-	SocketType string `json:"socketType,omitempty"`
-
 	// Port sets the tcp port for this instance. Optional, if not set, a value will
 	// be automatically assigned by the operator and set as an environment variable
 	// on all containers in the workload named according to PortEnvName. The operator will choose
 	// a port so that it does not conflict with other ports on the workload.
 	//+kubebuilder:validation:Optional
 	Port *int32 `json:"port,omitempty"`
-
-	// UnixSocketPath is the directory to mount the unix socket for this instance.
-	// When set, this directory will be mounted on all containers in the workload.
-	//+kubebuilder:validation:Optional
-	UnixSocketPath string `json:"unixSocketPath,omitempty"`
 
 	// AutoIAMAuthN Enables IAM Authentication for this instance. Optional, default
 	// false.
@@ -330,11 +214,6 @@ type InstanceSpec struct {
 	// Optional, when set this environment variable will be added to all containers in the workload.
 	//+kubebuilder:validation:Optional
 	HostEnvName string `json:"hostEnvName,omitempty"`
-
-	// UnixSocketPathEnvName the name of the environment variable containing the unix socket path
-	// Optional, when set this environment variable will be added to all containers in the workload.
-	//+kubebuilder:validation:Optional
-	UnixSocketPathEnvName string `json:"unixSocketPathEnvName,omitempty"`
 }
 
 // AuthProxyWorkloadStatus presents the observed state of AuthProxyWorkload using
