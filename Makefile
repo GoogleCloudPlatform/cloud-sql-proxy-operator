@@ -222,7 +222,9 @@ E2E_KUBECTL = $(E2E_KUBECTL_ENV) $(KUBECTL)
 # This is the file where Terraform will write the URL to the e2e container registry
 E2E_DOCKER_URL_FILE :=$(PWD)/bin/gcloud-docker-repo.url
 E2E_DOCKER_URL=$(shell cat $(E2E_DOCKER_URL_FILE) | tr -d '\n')
-E2E_PROXY_URL ?= "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.0.0-preview.2"
+
+# Default value in the Makefile blank. When blank tests will use workload.DefaultProxyImage
+E2E_PROXY_URL ?= ""
 
 E2E_WORK_DIR=$(PWD)/bin/e2e
 $(E2E_WORK_DIR):

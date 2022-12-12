@@ -26,6 +26,7 @@ import (
 
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/controller"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
 	"github.com/go-logr/logr"
 	"go.uber.org/zap/zapcore"
 	appsv1 "k8s.io/api/apps/v1"
@@ -96,7 +97,7 @@ func setupTests() (func(), error) {
 	}
 
 	// Read e2e test configuration
-	proxyImageURL = loadValue("PROXY_IMAGE_URL", "../bin/last-proxy-image-url.txt", "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.0.0-preview.2")
+	proxyImageURL = loadValue("PROXY_IMAGE_URL", "../bin/last-proxy-image-url.txt", workload.DefaultProxyImage)
 	operatorURL = loadValue("OPERATOR_IMAGE_URL", "../bin/last-gcloud-operator-url.txt", "operator:latest")
 	testInfraPath := loadValue("TEST_INFRA_JSON", "", "../bin/testinfra.json")
 	ti, err := loadTestInfra(testInfraPath)
