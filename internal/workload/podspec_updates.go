@@ -34,7 +34,7 @@ import (
 // package and documented here so that they appear in the godoc. These also
 // need to be documented in the CRD
 const (
-	DefaultProxyImage = "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.0.0-preview.2"
+	DefaultProxyImage = "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.0.0-preview.4"
 
 	// DefaultFirstPort is the first port number chose for an instance listener by the
 	// proxy.
@@ -472,7 +472,7 @@ func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, wl Workl
 
 		// if it is a TCP socket
 		if inst.SocketType == "tcp" ||
-			(inst.SocketType == "" && inst.UnixSocketPath == "") {
+				(inst.SocketType == "" && inst.UnixSocketPath == "") {
 			port := s.useInstancePort(p, inst)
 			params["port"] = fmt.Sprint(port)
 			if inst.HostEnvName != "" {
@@ -572,11 +572,11 @@ func (s *updateState) applyContainerSpec(p *cloudsqlapi.AuthProxyWorkload, c *co
 		cliArgs = append(cliArgs, "--sqladmin-api-endpoint="+p.Spec.AuthProxyContainer.SQLAdminAPIEndpoint)
 	}
 	if p.Spec.AuthProxyContainer.MaxConnections != nil &&
-		*p.Spec.AuthProxyContainer.MaxConnections != 0 {
+			*p.Spec.AuthProxyContainer.MaxConnections != 0 {
 		cliArgs = append(cliArgs, fmt.Sprintf("--max-connections=%d", *p.Spec.AuthProxyContainer.MaxConnections))
 	}
 	if p.Spec.AuthProxyContainer.MaxSigtermDelay != nil &&
-		*p.Spec.AuthProxyContainer.MaxSigtermDelay != 0 {
+			*p.Spec.AuthProxyContainer.MaxSigtermDelay != 0 {
 		cliArgs = append(cliArgs, fmt.Sprintf("--max-sigterm-delay=%d", *p.Spec.AuthProxyContainer.MaxSigtermDelay))
 	}
 
