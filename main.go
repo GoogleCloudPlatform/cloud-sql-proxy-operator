@@ -32,10 +32,11 @@ import (
 )
 
 var (
-	scheme   = k8sruntime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
-	version  = "unknown"
-	buildID  = "unknown"
+	scheme    = k8sruntime.NewScheme()
+	setupLog  = ctrl.Log.WithName("setup")
+	version   = "unknown"
+	buildID   = "unknown"
+	userAgent = "cloud-sql-proxy-operator/" + version
 )
 
 func init() {
@@ -86,7 +87,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = controller.SetupManagers(mgr)
+	err = controller.SetupManagers(mgr, userAgent)
 	if err != nil {
 		setupLog.Error(err, "unable to set up the controllers")
 		os.Exit(1)

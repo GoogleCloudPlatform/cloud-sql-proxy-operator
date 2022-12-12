@@ -256,7 +256,7 @@ func reconciler(p *v1alpha1.AuthProxyWorkload, cb client.Client) (*AuthProxyWork
 	r := &AuthProxyWorkloadReconciler{
 		Client:          cb,
 		recentlyDeleted: &recentlyDeletedCache{},
-		updater:         workload.NewUpdater(),
+		updater:         workload.NewUpdater("cloud-sql-proxy-operator/dev"),
 	}
 	req := ctrl.Request{
 		NamespacedName: types.NamespacedName{
