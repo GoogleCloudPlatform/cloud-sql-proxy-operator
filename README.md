@@ -9,34 +9,78 @@ which specifies the Cloud SQL Auth Proxy configuration for a workload. The opera
 reads this resource and adds a properly configured Cloud SQL Auth Proxy container
 to the matching workload pods. 
 
-## Setting up the initial project
-These commands will be run to initialize the kubebuilder project 
+## Installation
 
+Check for the latest version on the [releases page][releases] and use the
+following instructions. 
 
-```
-# Get the kubebuilder binary
-mkdir -p .bin
-curl -L -o .bin/kubebuilder "https://github.com/kubernetes-sigs/kubebuilder/releases/download/v3.6.0/kubebuilder_$(go env GOOS)_$(go env GOARCH)"
-chmod a+x .bin/kubebuilder
+Confirm that kubectl can connect to your kubernetes cluster.
 
-# Clean up the root dir for kubebuilder
-rm -rf Makefile main.go go.mod go.sum cover.out 
-
-mkdir -p .bin/tmp/
-mv docs .bin/tmp/
-mv version.txt .bin/tmp/
-
-rm -rf bin
-.bin/kubebuilder init --owner "Google LLC" --project-name "cloud-sql-proxy-operator" --domain cloud.google.com --repo github.com/GoogleCloudPlatform/cloud-sql-proxy-operator
-
-mv .bin/tmp/* .
-
+```shell
+kubectl cluster-info
 ```
 
-Then, to create the CRD for Workload
-```
-.bin/kubebuilder create api --group cloudsql --version v1alpha1 --kind AuthProxyWorkload --controller --resource --force
-.bin/kubebuilder create webhook --group cloudsql --version v1alpha1 --kind AuthProxyWorkload --defaulting --programmatic-validation
+Run the following command to install the cloud sql proxy operator into
+your kubernetes cluster:
+
+```shell
+curl https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/v0.0.4-dev/install.sh | bash
 ```
 
+Confirm that the operator is installed and running by listing its pods:
+
+```shell
+kubectl get pods -n cloud-sql-proxy-operator-system
+```
+
+## Usage
+
+See the [Quick Start Guide](docs/quick-start.md) for a description of basic usage.
+Additional usage may be found in the [Examples](docs/examples/).
+
+## Frequently Asked Questions
+
+### Why would I use the Cloud SQL Auth Proxy Operator?
+
+The Cloud SQL Auth Proxy Operator gives you an easy way to add a proxy container
+to your kubernetes workloads, configured correctly for production use. 
+
+Writing the kubernetes configuration for a proxy to the production level requires
+a great deal of deep kubernetes and proxy knowledge. The Cloud SQL Proxy team has
+worked to encapsulate that knowledge in this operator. This saves you from having
+to know all the details to configure your proxy.
+
+## Reference Documentation
+- [Quick Start Guide](docs/quick-start.md)
+- [Cloud SQL Proxy](/GoogleCloudPlatform/cloud-sql-proxy)
+- [Developer Getting Started](docs/dev.md)
+- [Developing End-to-End tests](docs/e2e-tests.md)
+- [Contributing](docs/contributing.md)
+- [Code of Conduct](docs/code-of-conduct.md)
+- [Examples](docs/examples/)
+
+## Support policy
+
+### Major version lifecycle
+
+This project uses [semantic versioning](https://semver.org/), and uses the
+following lifecycle regarding support for a major version:
+
+**Active** - Active versions get all new features and security fixes (that
+wouldn’t otherwise introduce a breaking change). New major versions are
+guaranteed to be "active" for a minimum of 1 year.
+**Deprecated** - Deprecated versions continue to receive security and critical
+bug fixes, but do not receive new features. Deprecated versions will be publicly
+supported for 1 year.
+**Unsupported** - Any major version that has been deprecated for >=1 year is
+considered publicly unsupported.
+
+## Contributing
+
+Contributions are welcome. Please, see the [CONTRIBUTING][contributing] document
+for details.
+
+Please note that this project is released with a Contributor Code of Conduct.
+By participating in this project you agree to abide by its terms.  See
+[Contributor Code of Conduct][code-of-conduct] for more information.
 

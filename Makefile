@@ -85,7 +85,7 @@ help: ## Display this help.
 install_tools: remove_tools all_tools ## Installs all development tools
 
 .PHONY: generate
-generate:  ctrl_generate ctrl_manifests go_lint tf_lint installer reset_image add_copyright_header go_fmt yaml_fmt ## Runs code generation, format, and validation tools
+generate:  ctrl_generate ctrl_manifests go_lint tf_lint installer reset_image add_copyright_header update_version_in_docs go_fmt yaml_fmt ## Runs code generation, format, and validation tools
 
 .PHONY: build
 build: generate build_push_docker ## Builds and pushes the docker image to tag defined in envvar IMG
@@ -124,6 +124,12 @@ yaml_fmt: # Automatically formats all yaml files
 .PHONY: add_copyright_header
 add_copyright_header: # Add the copyright header
 	go run github.com/google/addlicense@latest *
+
+.PHONY: update_version_in_docs
+update_version_in_docs:  # Fix version numbers that appear in the markdown documentation
+	# Update links to the install script
+	find . -name '*.md' | xargs sed -i.bak -E 's|storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/[^/]+/install.sh|storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/v$(VERSION)/install.sh|g' && \
+	find . -name '*.md.bak' | xargs rm -f
 
 .PHONY: build_push_docker
 build_push_docker: # Build docker image with the operator. set IMG env var before running: `IMG=example.com/img:1.0 make build`
