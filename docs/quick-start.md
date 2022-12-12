@@ -1,6 +1,10 @@
-# Quick Start                                                                                                    -# Quick Start
-Follow the instructions in the Quick Start Guide for Cloud SQL: [Connect to Cloud SQL for PostgreSQL from Google Kubernetes Engine](https://cloud.google.com/sql/docs/postgres/connect-instance-kubernetes)
-through the end of the step named [Build the Sample App](https://cloud.google.com/sql/docs/postgres/connect-instance-kubernetes#build_the_sample_app).
+# Quick Start
+
+Follow the instructions in the Quick Start Guide for Cloud SQL: 
+[Connect to Cloud SQL for PostgreSQL from Google Kubernetes Engine](
+https://cloud.google.com/sql/docs/postgres/connect-instance-kubernetes)
+through the end of the step named [Build the Sample App](
+https://cloud.google.com/sql/docs/postgres/connect-instance-kubernetes#build_the_sample_app).
 
 Then, continue following these instructions:
 
@@ -16,7 +20,7 @@ Run the following command to install the cloud sql proxy operator into
 your kuberentes cluster:
 
 ```shell
-curl https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/v0.0.2-dev/install.sh | bash
+curl https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/v0.0.4-dev/install.sh | bash
 ```
 
 Confirm that the operator is installed and running by listing its pods:
@@ -48,7 +52,6 @@ metadata:
     - connectionString: "<INSTANCE_CONNECTION_NAME>"
       portEnvName: "DB_PORT"
       hostEnvName: "INSTANCE_HOST"
-      socketType: "tcp"
 ```
 
 Update <INSTANCE_CONNECTION_NAME> with the Cloud SQL instance connection name
@@ -64,7 +67,8 @@ kubectl apply -f authproxyworkload.yaml
 
 ### Deploy the sample app
 
-Proceed with the quickstart guide step [Deploy the sample app](https://cloud.google.com/sql/docs/postgres/connect-instance-kubernetes#deploy_the_sample_app).
+Proceed with the quickstart guide step [Deploy the sample app](
+https://cloud.google.com/sql/docs/postgres/connect-instance-kubernetes#deploy_the_sample_app).
 In step 2, use this YAML as your template.
 
 Note that this template has only one container for the application. In the published
