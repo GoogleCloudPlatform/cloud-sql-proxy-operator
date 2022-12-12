@@ -314,6 +314,87 @@ func TestWorkloadNoPortSet(t *testing.T) {
 
 }
 
+func TestWorkloadUnixVolume(t *testing.T) {
+	var (
+		wantsInstanceName = "project:server:db"
+		wantsUnixDir      = "/mnt/db"
+		wantContainerArgs = []string{
+			fmt.Sprintf("%s?unix-socket=%s", wantsInstanceName, wantsUnixDir),
+		}
+		wantWorkloadEnv = map[string]string{
+			"DB_SOCKET_PATH": wantsUnixDir,
+		}
+		u = workload.NewUpdater("cloud-sql-proxy-operator/dev")
+	)
+
+	// Create a pod
+	wl := podWorkload()
+	wl.Pod.Spec.Containers[0].Ports =
+		[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
+
+	// Create a AuthProxyWorkload that matches the deployment
+	csqls := []*v1alpha1.AuthProxyWorkload{
+		authProxyWorkload("instance1", []v1alpha1.InstanceSpec{{
+			ConnectionString:      wantsInstanceName,
+			UnixSocketPath:        wantsUnixDir,
+			UnixSocketPathEnvName: "DB_SOCKET_PATH",
+		}}),
+	}
+
+	// update the containers
+	err := configureProxies(u, wl, csqls)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// ensure that the new container exists
+	if len(wl.Pod.Spec.Containers) != 2 {
+		t.Fatalf("got %v, wants 1. deployment containers length", len(wl.Pod.Spec.Containers))
+	}
+
+	// test that the instancename matches the new expected instance name.
+	csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-default-%s", csqls[0].GetName()))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// test that port cli args are set correctly
+	assertContainerArgsContains(t, csqlContainer.Args, wantContainerArgs)
+
+	// Test that workload has the right env vars
+	for wantKey, wantValue := range wantWorkloadEnv {
+		gotEnvVar, err := findEnvVar(wl, "busybox", wantKey)
+		if err != nil {
+			t.Error(err)
+			logPodSpec(t, wl)
+		} else if gotEnvVar.Value != wantValue {
+			t.Errorf("got %v, wants %v workload env var %v", gotEnvVar, wantValue, wantKey)
+
+		}
+	}
+
+	// test that Volume exists
+	if want, got := 1, len(wl.Pod.Spec.Volumes); want != got {
+		t.Fatalf("got %v, wants %v. PodSpec.Volumes", got, want)
+	}
+
+	// test that Volume mount exists on busybox
+	busyboxContainer, err := findContainer(wl, "busybox")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want, got := 1, len(busyboxContainer.VolumeMounts); want != got {
+		t.Fatalf("got %v, wants %v. Busybox Container.VolumeMounts", got, want)
+	}
+	if want, got := wantsUnixDir, busyboxContainer.VolumeMounts[0].MountPath; want != got {
+		t.Fatalf("got %v, wants %v. Busybox Container.VolumeMounts.MountPath", got, want)
+	}
+	if want, got := wl.Pod.Spec.Volumes[0].Name, busyboxContainer.VolumeMounts[0].Name; want != got {
+		t.Fatalf("got %v, wants %v. Busybox Container.VolumeMounts.MountPath", got, want)
+	}
+
+}
+
 func TestContainerImageChanged(t *testing.T) {
 	var (
 		wantsInstanceName = "project:server:db"
@@ -505,6 +586,19 @@ func TestProxyCLIArgs(t *testing.T) {
 			wantProxyArgContains: []string{"hello:world:db?port=5000"},
 		},
 		{
+			desc: "fuse not supported error",
+			proxySpec: v1alpha1.AuthProxyWorkloadSpec{
+				Instances: []v1alpha1.InstanceSpec{{
+					ConnectionString: "hello:world:db",
+				}},
+				AuthProxyContainer: &v1alpha1.AuthProxyContainerSpec{
+					FUSEDir: "/fuse/db",
+				},
+			},
+			wantProxyArgContains: []string{"hello:world:db?port=5000"},
+			wantErrorCodes:       []string{v1alpha1.ErrorCodeFUSENotSupported},
+		},
+		{
 			desc: "port implicitly set and increments",
 			proxySpec: v1alpha1.AuthProxyWorkloadSpec{
 				Instances: []v1alpha1.InstanceSpec{{
@@ -574,12 +668,23 @@ func TestProxyCLIArgs(t *testing.T) {
 				fmt.Sprintf("hello:world:two?port=%d&private-ip=false", workload.DefaultFirstPort+1)},
 		},
 		{
-			desc: "global flags",
+			desc: "telemetry flags",
 			proxySpec: v1alpha1.AuthProxyWorkloadSpec{
 				AuthProxyContainer: &v1alpha1.AuthProxyContainerSpec{
 					SQLAdminAPIEndpoint: "https://example.com",
-					MaxConnections:      ptr(int64(10)),
-					MaxSigtermDelay:     ptr(int64(20)),
+					Telemetry: &v1alpha1.TelemetrySpec{
+						PrometheusNamespace: ptr("hello"),
+						TelemetryPrefix:     ptr("telprefix"),
+						TelemetryProject:    ptr("telproject"),
+						TelemetrySampleRate: ptr(200),
+						HTTPPort:            ptr(int32(9091)),
+						DisableTraces:       &wantTrue,
+						DisableMetrics:      &wantTrue,
+						Prometheus:          &wantTrue,
+						QuotaProject:        ptr("qp"),
+					},
+					MaxConnections:  ptr(int64(10)),
+					MaxSigtermDelay: ptr(int64(20)),
 				},
 				Instances: []v1alpha1.InstanceSpec{{
 					ConnectionString: "hello:world:one",
@@ -588,6 +693,16 @@ func TestProxyCLIArgs(t *testing.T) {
 			wantProxyArgContains: []string{
 				fmt.Sprintf("hello:world:one?port=%d", workload.DefaultFirstPort),
 				"--sqladmin-api-endpoint=https://example.com",
+				"--telemetry-sample-rate=200",
+				"--prometheus-namespace=hello",
+				"--telemetry-project=telproject",
+				"--telemetry-prefix=telprefix",
+				"--http-port=9091",
+				"--health-check",
+				"--disable-traces",
+				"--disable-metrics",
+				"--prometheus",
+				"--quota-project=qp",
 				"--max-connections=10",
 				"--max-sigterm-delay=20",
 			},

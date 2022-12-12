@@ -239,6 +239,23 @@ type workloadMods struct {
 	Ports        []*managedPort   `json:"ports"`
 }
 
+func (s *updateState) addVolumeMount(p *cloudsqlapi.AuthProxyWorkload, is *cloudsqlapi.InstanceSpec, m corev1.VolumeMount, v corev1.Volume) {
+	key := dbInst(p.Namespace, p.Name, is.ConnectionString)
+	vol := &managedVolume{
+		Instance:    key,
+		Volume:      v,
+		VolumeMount: m,
+	}
+
+	for i, mount := range s.mods.VolumeMounts {
+		if mount.Instance == key {
+			s.mods.VolumeMounts[i] = vol
+			return
+		}
+	}
+	s.mods.VolumeMounts = append(s.mods.VolumeMounts, vol)
+}
+
 func (s *updateState) addInUsePort(p int32, containerName string) {
 	s.addPort(p, containerName, types.NamespacedName{}, "")
 }
@@ -402,6 +419,12 @@ func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWo
 	for i := range podSpec.Containers {
 		c := &podSpec.Containers[i]
 		s.updateContainerEnv(c)
+		for _, mount := range s.mods.VolumeMounts {
+			c.VolumeMounts = append(c.VolumeMounts, mount.VolumeMount)
+		}
+	}
+	for _, mount := range s.mods.VolumeMounts {
+		podSpec.Volumes = append(podSpec.Volumes, mount.Volume)
 	}
 
 	// only return ConfigError if there were reported
@@ -430,15 +453,21 @@ func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, wl Workl
 	var cliArgs []string
 
 	// always enable http port healthchecks on 0.0.0.0 and structured logs
-	cliArgs = s.addHealthCheck(p, c, cliArgs)
-
-	// add the user agent
-	cliArgs = append(cliArgs, fmt.Sprintf("--user-agent=%v", s.updater.userAgent))
+	healthcheckPort := s.addHealthCheck(p, c)
+	cliArgs = append(cliArgs,
+		fmt.Sprintf("--http-port=%d", healthcheckPort),
+		"--http-address=0.0.0.0",
+		"--health-check",
+		"--structured-logs",
+		fmt.Sprintf("--user-agent=%v", s.updater.userAgent),
+	)
 
 	c.Name = ContainerName(p)
 	c.ImagePullPolicy = "IfNotPresent"
 
 	cliArgs = s.applyContainerSpec(p, c, cliArgs)
+	cliArgs = s.applyTelemetrySpec(p, cliArgs)
+	cliArgs = s.applyAuthenticationSpec(p, c, cliArgs)
 
 	// Instances
 	for i := range p.Spec.Instances {
@@ -446,20 +475,43 @@ func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, wl Workl
 		params := map[string]string{}
 
 		// if it is a TCP socket
+		if inst.SocketType == "tcp" ||
+			(inst.SocketType == "" && inst.UnixSocketPath == "") {
+			port := s.useInstancePort(p, inst)
+			params["port"] = fmt.Sprint(port)
+			if inst.HostEnvName != "" {
+				s.addWorkloadEnvVar(p, inst, corev1.EnvVar{
+					Name:  inst.HostEnvName,
+					Value: "127.0.0.1",
+				})
+			}
+			if inst.PortEnvName != "" {
+				s.addWorkloadEnvVar(p, inst, corev1.EnvVar{
+					Name:  inst.PortEnvName,
+					Value: fmt.Sprint(port),
+				})
+			}
+		} else {
+			// else if it is a unix socket
+			params["unix-socket"] = inst.UnixSocketPath
+			mountName := VolumeName(p, inst, "unix")
+			s.addVolumeMount(p, inst,
+				corev1.VolumeMount{
+					Name:      mountName,
+					ReadOnly:  false,
+					MountPath: inst.UnixSocketPath,
+				},
+				corev1.Volume{
+					Name:         mountName,
+					VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+				})
 
-		port := s.useInstancePort(p, inst)
-		params["port"] = fmt.Sprint(port)
-		if inst.HostEnvName != "" {
-			s.addWorkloadEnvVar(p, inst, corev1.EnvVar{
-				Name:  inst.HostEnvName,
-				Value: "127.0.0.1",
-			})
-		}
-		if inst.PortEnvName != "" {
-			s.addWorkloadEnvVar(p, inst, corev1.EnvVar{
-				Name:  inst.PortEnvName,
-				Value: fmt.Sprint(port),
-			})
+			if inst.UnixSocketPathEnvName != "" {
+				s.addWorkloadEnvVar(p, inst, corev1.EnvVar{
+					Name:  inst.UnixSocketPathEnvName,
+					Value: inst.UnixSocketPath,
+				})
+			}
 		}
 
 		if inst.AutoIAMAuthN != nil {
@@ -506,6 +558,12 @@ func (s *updateState) applyContainerSpec(p *cloudsqlapi.AuthProxyWorkload, c *co
 		return cliArgs
 	}
 
+	// Fuse
+	if p.Spec.AuthProxyContainer.FUSEDir != "" || p.Spec.AuthProxyContainer.FUSETempDir != "" {
+		s.addError(cloudsqlapi.ErrorCodeFUSENotSupported, "the FUSE filesystem is not yet supported", p)
+		// if FUSE is used, we need to use the 'buster' or 'alpine' image.
+	}
+
 	if p.Spec.AuthProxyContainer.Image != "" {
 		c.Image = p.Spec.AuthProxyContainer.Image
 	}
@@ -524,6 +582,42 @@ func (s *updateState) applyContainerSpec(p *cloudsqlapi.AuthProxyWorkload, c *co
 	if p.Spec.AuthProxyContainer.MaxSigtermDelay != nil &&
 		*p.Spec.AuthProxyContainer.MaxSigtermDelay != 0 {
 		cliArgs = append(cliArgs, fmt.Sprintf("--max-sigterm-delay=%d", *p.Spec.AuthProxyContainer.MaxSigtermDelay))
+	}
+
+	return cliArgs
+}
+
+// applyTelemetrySpec applies settings from cloudsqlapi.TelemetrySpec
+// to the container
+func (s *updateState) applyTelemetrySpec(p *cloudsqlapi.AuthProxyWorkload, cliArgs []string) []string {
+	if p.Spec.AuthProxyContainer == nil || p.Spec.AuthProxyContainer.Telemetry == nil {
+		return cliArgs
+	}
+	tel := p.Spec.AuthProxyContainer.Telemetry
+
+	if tel.TelemetrySampleRate != nil {
+		cliArgs = append(cliArgs, fmt.Sprintf("--telemetry-sample-rate=%d", *tel.TelemetrySampleRate))
+	}
+	if tel.DisableTraces != nil && *tel.DisableTraces {
+		cliArgs = append(cliArgs, "--disable-traces")
+	}
+	if tel.DisableMetrics != nil && *tel.DisableMetrics {
+		cliArgs = append(cliArgs, "--disable-metrics")
+	}
+	if tel.PrometheusNamespace != nil || (tel.Prometheus != nil && *tel.Prometheus) {
+		cliArgs = append(cliArgs, "--prometheus")
+	}
+	if tel.PrometheusNamespace != nil {
+		cliArgs = append(cliArgs, fmt.Sprintf("--prometheus-namespace=%s", *tel.PrometheusNamespace))
+	}
+	if tel.TelemetryProject != nil {
+		cliArgs = append(cliArgs, fmt.Sprintf("--telemetry-project=%s", *tel.TelemetryProject))
+	}
+	if tel.TelemetryPrefix != nil {
+		cliArgs = append(cliArgs, fmt.Sprintf("--telemetry-prefix=%s", *tel.TelemetryPrefix))
+	}
+	if tel.QuotaProject != nil {
+		cliArgs = append(cliArgs, fmt.Sprintf("--quota-project=%s", *tel.QuotaProject))
 	}
 
 	return cliArgs
@@ -549,10 +643,22 @@ func (s *updateState) updateContainerEnv(c *corev1.Container) {
 }
 
 // addHealthCheck adds the health check declaration to this workload.
-func (s *updateState) addHealthCheck(_ *cloudsqlapi.AuthProxyWorkload, c *corev1.Container, cliArgs []string) []string {
-	port := DefaultHealthCheckPort
-	for s.isPortInUse(port) {
-		port++
+func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1.Container) int32 {
+	var port int32
+
+	cs := p.Spec.AuthProxyContainer
+	// if the TelemetrySpec.HTTPPort is explicitly set
+	if cs != nil && cs.Telemetry != nil && cs.Telemetry.HTTPPort != nil {
+		port = *cs.Telemetry.HTTPPort
+		if s.isPortInUse(port) {
+			s.addError(cloudsqlapi.ErrorCodePortConflict,
+				fmt.Sprintf("telemetry httpPort %d is already in use", port), p)
+		}
+	} else {
+		port = DefaultHealthCheckPort
+		for s.isPortInUse(port) {
+			port++
+		}
 	}
 
 	c.StartupProbe = &corev1.Probe{
@@ -576,16 +682,21 @@ func (s *updateState) addHealthCheck(_ *cloudsqlapi.AuthProxyWorkload, c *corev1
 		}},
 		PeriodSeconds: 30,
 	}
-	cliArgs = append(cliArgs,
-		fmt.Sprintf("--http-port=%d", port),
-		"--http-address=0.0.0.0",
-		"--health-check",
-		"--structured-logs")
-	return cliArgs
+	return port
 }
 
 func (s *updateState) addError(errorCode, description string, p *cloudsqlapi.AuthProxyWorkload) {
 	s.err.add(errorCode, description, p)
+}
+
+func (s *updateState) applyAuthenticationSpec(proxy *cloudsqlapi.AuthProxyWorkload, _ *corev1.Container, args []string) []string {
+	if proxy.Spec.Authentication == nil {
+		return args
+	}
+	// Authentication needs end-to-end test in place before we can check
+	// that it is implemented correctly.
+	// --credentials-file
+	return args
 }
 
 func (s *updateState) defaultProxyImage() string {
