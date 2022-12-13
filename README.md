@@ -1,5 +1,8 @@
 # Cloud SQL Proxy Operator
 
+*Warning*: This project is in Public Preview, and may contain breaking changes
+before it becomes Generally Available.
+
 Cloud SQL Proxy Operator is an open-source Kubernetes operator that automates
 most of the intricate steps needed to connect a workload in a kubernetes cluster
 to Cloud SQL databases. 
