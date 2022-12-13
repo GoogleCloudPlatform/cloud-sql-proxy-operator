@@ -474,7 +474,7 @@ func TestResourcesFromSpec(t *testing.T) {
 			},
 		}
 
-		u = workload.NewUpdater()
+		u = workload.NewUpdater("cloud-sql-proxy-operator/dev")
 	)
 
 	// Create a pod
