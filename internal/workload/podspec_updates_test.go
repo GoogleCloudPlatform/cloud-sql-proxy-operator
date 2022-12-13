@@ -23,6 +23,7 @@ import (
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 )
@@ -461,6 +462,52 @@ func TestContainerReplaced(t *testing.T) {
 
 func ptr[T int | int32 | int64 | string](i T) *T {
 	return &i
+}
+
+func TestResourcesFromSpec(t *testing.T) {
+	var (
+		wantsInstanceName = "project:server:db"
+		wantResources     = &corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				"cpu":    resource.MustParse("4.0"),
+				"memory": resource.MustParse("4Gi"),
+			},
+		}
+
+		u = workload.NewUpdater("cloud-sql-proxy-operator/dev")
+	)
+
+	// Create a pod
+	wl := podWorkload()
+	wl.Pod.Spec.Containers[0].Ports =
+		[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
+
+	// Create a AuthProxyWorkload that matches the deployment
+	csqls := []*v1alpha1.AuthProxyWorkload{simpleAuthProxy("instance1", wantsInstanceName)}
+	csqls[0].Spec.AuthProxyContainer = &v1alpha1.AuthProxyContainerSpec{Resources: wantResources}
+
+	// update the containers
+	err := configureProxies(u, wl, csqls)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// ensure that the new container exists
+	if len(wl.Pod.Spec.Containers) != 2 {
+		t.Fatalf("got %v, wants 1. deployment containers length", len(wl.Pod.Spec.Containers))
+	}
+
+	// test that the instancename matches the new expected instance name.
+	csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-default-%s", csqls[0].GetName()))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// test that resources was set
+	if !reflect.DeepEqual(csqlContainer.Resources.Requests, wantResources.Requests) {
+		t.Errorf("got %v, want %v for proxy container command", csqlContainer.Resources.Requests, wantResources.Requests)
+	}
+
 }
 
 func TestProxyCLIArgs(t *testing.T) {
