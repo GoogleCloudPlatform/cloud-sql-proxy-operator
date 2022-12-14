@@ -16,11 +16,33 @@ Confirm that kubectl can connect to the cluster.
 kubectl cluster-info
 ```
 
-Run the following command to install the cloud sql proxy operator into
-your kuberentes cluster:
+Install cert-manager using helm. Note that because you are using a GKE
+Autopilot cluster, you need to use this particular version with these specific
+cli arguments to make cert-manager work on your GKE Autopilot cluster. 
 
 ```shell
-curl https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/v0.1.0/install.sh | bash
+helm repo add jetstack https://charts.jetstack.io
+helm repo update
+helm install \
+  cert-manager jetstack/cert-manager \
+  --namespace cert-manager \
+  --version "v1.9.1" \
+  --create-namespace \
+  --set global.leaderElection.namespace=cert-manager \
+  --set installCRDs=true
+```
+
+Run the following command to install the cloud sql proxy operator into
+your kubernetes cluster:
+
+```shell
+curl https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/v0.1.0/cloud-sql-proxy-operator.yaml | bash
+```
+
+Wait for the Cloud SQL Auth Proxy Operator to start.
+
+```shell
+kubectl rollout status deployment -n cloud-sql-proxy-operator-system cloud-sql-proxy-operator-controller-manager --timeout=90s
 ```
 
 Confirm that the operator is installed and running by listing its pods:
@@ -44,22 +66,22 @@ apiVersion: cloudsql.cloud.google.com/v1alpha1
 kind: AuthProxyWorkload
 metadata:
   name: authproxyworkload-sample
-  -spec:
+spec:
   workloadSelector:
     kind: "Deployment"
     name: "gke-cloud-sql-quickstart"
   instances:
-    - connectionString: "<INSTANCE_CONNECTION_NAME>"
-      portEnvName: "DB_PORT"
-      hostEnvName: "INSTANCE_HOST"
+  - connectionString: "<INSTANCE_CONNECTION_NAME>"
+    portEnvName: "DB_PORT"
+    hostEnvName: "INSTANCE_HOST"
 ```
 
 Update <INSTANCE_CONNECTION_NAME> with the Cloud SQL instance connection name
-retrieved from the gcloud command on the previous step. The format is
+retrieved from the gcloud command on the previous step. This should follow the format
 project_id:region:instance_name. The instance connection name is also visible
-in the Cloud SQL instance Overview page.
+in the Google Cloud Console on the Cloud SQL Instance Overview page.
 
-Apply the proxy configuration to to kubernetes:
+Apply the proxy configuration to kubernetes:
 
 ```shell
 kubectl apply -f authproxyworkload.yaml
