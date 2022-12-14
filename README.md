@@ -80,10 +80,10 @@ considered publicly unsupported.
 
 ## Contributing
 
-Contributions are welcome. Please, see the [CONTRIBUTING][contributing] document
+Contributions are welcome. Please, see the [Contributing](docs/contributing.md) document
 for details.
 
 Please note that this project is released with a Contributor Code of Conduct.
 By participating in this project you agree to abide by its terms.  See
-[Contributor Code of Conduct][code-of-conduct] for more information.
+[Code of Conduct](docs/code-of-conduct.md) for more information.
 
