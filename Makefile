@@ -176,9 +176,17 @@ update_image: kustomize # Update the image used in the kubernetes config to $(IM
 deploy_with_kubeconfig: install_certmanager install_crd deploy_operator
 
 .PHONY: install_certmanager
-install_certmanager: kubectl # Install the cert-manager operator to manage the certificates for the operator webhooks
-	$(KUBECTL) apply -f "https://github.com/cert-manager/cert-manager/releases/download/$(CERT_MANAGER_VERSION)/cert-manager.yaml"
-	$(KUBECTL) rollout status deployment -n cloud-sql-proxy-operator-system cloud-sql-proxy-operator-controller-manager --timeout=90s
+install_certmanager: helm # Install the cert-manager operator to manage the certificates for the operator webhooks
+	helm repo add jetstack https://charts.jetstack.io
+	helm repo update
+	helm get all -n cert-manager cert-manager || \
+		helm install \
+			cert-manager jetstack/cert-manager \
+			--namespace cert-manager \
+			--version "$(CERT_MANAGER_VERSION)" \
+			--create-namespace \
+			--set global.leaderElection.namespace=cert-manager \
+			--set installCRDs=true
 
 .PHONY: install_crd
 install_crd: kustomize kubectl # Install CRDs into the K8s cluster using the kubectl default behavior
@@ -268,10 +276,18 @@ e2e_cluster_destroy: e2e_project terraform # Destroy the infrastructure for e2e 
   		testinfra/run.sh destroy
 
 .PHONY: e2e_cert_manager_deploy
-e2e_cert_manager_deploy: e2e_project kubectl # Deploy the certificate manager
-	$(E2E_KUBECTL) apply -f https://github.com/cert-manager/cert-manager/releases/download/$(CERT_MANAGER_VERSION)/cert-manager.yaml
-	# wait for cert manager to become available before continuing
-	$(E2E_KUBECTL) rollout status deployment cert-manager -n cert-manager --timeout=90s
+e2e_cert_manager_deploy: e2e_project helm # Deploy the certificate manager
+	helm repo add jetstack https://charts.jetstack.io --kubeconfig=$(KUBECONFIG_E2E)
+	helm repo update --kubeconfig=$(KUBECONFIG_E2E)
+	helm get all -n cert-manager cert-manager --kubeconfig=$(KUBECONFIG_E2E)  || \
+		helm --kubeconfig=$(KUBECONFIG_E2E) install \
+			cert-manager jetstack/cert-manager \
+			--kubeconfig=$(KUBECONFIG_E2E) \
+			--namespace cert-manager \
+			--version "$(CERT_MANAGER_VERSION)" \
+			--create-namespace \
+			--set global.leaderElection.namespace=cert-manager \
+			--set installCRDs=true
 
 
 .PHONY: e2e_install_crd
@@ -405,5 +421,12 @@ gcloud:
 	@which gcloud > /dev/null || \
 		(echo "Google Cloud API command line tools are not available in your path" ;\
 		 echo "Instructions on how to install https://cloud.google.com/sdk/docs/install " ; \
+		 exit 1)
+
+.PHONY: helm
+helm:
+	@which helm > /dev/null || \
+		(echo "Helm command line tools are not available in your path" ; \
+		 echo "Instructions on how to install https://helm.sh/docs/helm/helm_install/ " ; \
 		 exit 1)
 
