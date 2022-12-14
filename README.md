@@ -1,8 +1,5 @@
 # Cloud SQL Proxy Operator
 
-*Warning*: This project is in Public Preview, and may contain breaking changes
-before it becomes Generally Available.
-
 Cloud SQL Proxy Operator is an open-source Kubernetes operator that automates
 most of the intricate steps needed to connect a workload in a kubernetes cluster
 to Cloud SQL databases. 
@@ -23,11 +20,27 @@ Confirm that kubectl can connect to your kubernetes cluster.
 kubectl cluster-info
 ```
 
+Install cert-manager using helm. Note that you need to use this particular 
+version with these specific cli arguments to make cert-manager work on 
+your GKE cluster.
+
+```shell
+helm repo add jetstack https://charts.jetstack.io
+helm repo update
+helm install \
+  cert-manager jetstack/cert-manager \
+  --namespace cert-manager \
+  --version "v1.9.1" \
+  --create-namespace \
+  --set global.leaderElection.namespace=cert-manager \
+  --set installCRDs=true
+```
+
 Run the following command to install the cloud sql proxy operator into
 your kubernetes cluster:
 
 ```shell
-curl https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/v0.1.0/install.sh | bash
+kubectl apply -f https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/v0.1.0/cloud-sql-proxy-operator.yaml
 ```
 
 Confirm that the operator is installed and running by listing its pods:
@@ -80,10 +93,10 @@ considered publicly unsupported.
 
 ## Contributing
 
-Contributions are welcome. Please, see the [Contributing](docs/contributing.md) document
+Contributions are welcome. Please, see the [CONTRIBUTING][contributing] document
 for details.
 
 Please note that this project is released with a Contributor Code of Conduct.
 By participating in this project you agree to abide by its terms.  See
-[Code of Conduct](docs/code-of-conduct.md) for more information.
+[Contributor Code of Conduct][code-of-conduct] for more information.
 
