@@ -19,7 +19,7 @@ PROJECT_DIR=$( dirname "$SCRIPT_DIR")
 
 cd "$PROJECT_DIR"
 
-make generate
+make update_version_in_docs generate
 
 if git diff --exit-code ; then
   echo "Generate did not cause any changes to the code. OK to proceed with the release"
