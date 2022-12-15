@@ -74,7 +74,6 @@ spec:
     - connectionString: "<INSTANCE_CONNECTION_NAME>"
       portEnvName: "DB_PORT"
       hostEnvName: "INSTANCE_HOST"
-      autoIAMAuthN: True
 ```
 
 Update <INSTANCE_CONNECTION_NAME> with the Cloud SQL instance connection name
