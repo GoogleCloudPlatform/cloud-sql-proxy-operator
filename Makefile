@@ -85,7 +85,7 @@ help: ## Display this help.
 install_tools: remove_tools all_tools ## Installs all development tools
 
 .PHONY: generate
-generate:  ctrl_generate ctrl_manifests go_lint tf_lint installer reset_image add_copyright_header update_version_in_docs go_fmt yaml_fmt ## Runs code generation, format, and validation tools
+generate:  ctrl_generate ctrl_manifests go_lint tf_lint installer reset_image add_copyright_header go_fmt yaml_fmt ## Runs code generation, format, and validation tools
 
 .PHONY: build
 build: generate build_push_docker ## Builds and pushes the docker image to tag defined in envvar IMG

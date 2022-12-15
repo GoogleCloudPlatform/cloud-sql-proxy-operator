@@ -20,11 +20,27 @@ Confirm that kubectl can connect to your kubernetes cluster.
 kubectl cluster-info
 ```
 
+Install cert-manager using helm. Note that you need to use this particular 
+version with these specific cli arguments to make cert-manager work on 
+your GKE cluster.
+
+```shell
+helm repo add jetstack https://charts.jetstack.io
+helm repo update
+helm install \
+  cert-manager jetstack/cert-manager \
+  --namespace cert-manager \
+  --version "v1.9.1" \
+  --create-namespace \
+  --set global.leaderElection.namespace=cert-manager \
+  --set installCRDs=true
+```
+
 Run the following command to install the cloud sql proxy operator into
 your kubernetes cluster:
 
 ```shell
-curl https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/v0.0.4-dev/install.sh | bash
+kubectl apply -f https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/v0.1.0/cloud-sql-proxy-operator.yaml
 ```
 
 Confirm that the operator is installed and running by listing its pods:

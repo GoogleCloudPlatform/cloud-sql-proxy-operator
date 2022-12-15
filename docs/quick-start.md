@@ -78,11 +78,11 @@ spec:
 ```
 
 Update <INSTANCE_CONNECTION_NAME> with the Cloud SQL instance connection name
-retrieved from the gcloud command on the previous step. The format is
+retrieved from the gcloud command on the previous step. This should follow the format
 project_id:region:instance_name. The instance connection name is also visible
-in the Cloud SQL instance Overview page.
+in the Google Cloud Console on the Cloud SQL Instance Overview page.
 
-Apply the proxy configuration to to kubernetes:
+Apply the proxy configuration to kubernetes:
 
 ```shell
 kubectl apply -f authproxyworkload.yaml

@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v0.0.3...v0.1.0) (2022-12-13)
+
+
+### Features
+
+* add user agent to proxy invocation ([#122](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/122)) ([803446d](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/803446d4766fe556cb149725100f7e955bd8c8d0))
+
+
+### Bug Fixes
+
+* change memory resource to match recommendations Cloud SQL Proxy ([#139](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/139)) ([a475dd9](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/a475dd934a59469e9ef38fd9934593d7d7c3b0e6))
+* remove unsupported CRD fields and associated code from the project. ([#141](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/141)) ([3867621](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/386762120f386a459c57c6e3e090e6795f53886f))
+
 ## [0.0.3](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v0.0.1...v0.0.3) (2022-12-07)
 
 
