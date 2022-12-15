@@ -71,9 +71,9 @@ spec:
     kind: "Deployment"
     name: "gke-cloud-sql-quickstart"
   instances:
-    - connectionString: "<INSTANCE_CONNECTION_NAME>"
-      portEnvName: "DB_PORT"
-      hostEnvName: "INSTANCE_HOST"
+  - connectionString: "<INSTANCE_CONNECTION_NAME>"
+    portEnvName: "DB_PORT"
+    hostEnvName: "INSTANCE_HOST"
 ```
 
 Update <INSTANCE_CONNECTION_NAME> with the Cloud SQL instance connection name
