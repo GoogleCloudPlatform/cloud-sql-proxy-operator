@@ -71,9 +71,8 @@ func TestReconcileDeleted(t *testing.T) {
 	}, "project:region:db")
 	p.Finalizers = []string{finalizerName}
 	p.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
-		Kind:      "Pod",
-		Namespace: "default",
-		Name:      "thing",
+		Kind: "Pod",
+		Name: "thing",
 	}
 
 	cb, err := clientBuilder()
@@ -117,9 +116,8 @@ func TestReconcileState21ByName(t *testing.T) {
 	}, "project:region:db")
 	p.Finalizers = []string{finalizerName}
 	p.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
-		Kind:      "Pod",
-		Name:      "testpod",
-		Namespace: "default",
+		Kind: "Pod",
+		Name: "testpod",
 	}
 
 	err := runReconcileTestcase(p, []client.Object{p}, false, metav1.ConditionTrue, v1alpha1.ReasonNoWorkloadsFound)
@@ -135,8 +133,7 @@ func TestReconcileState21BySelector(t *testing.T) {
 	}, "project:region:db")
 	p.Finalizers = []string{finalizerName}
 	p.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
-		Kind:      "Pod",
-		Namespace: "default",
+		Kind: "Pod",
 		Selector: &metav1.LabelSelector{
 			MatchLabels: map[string]string{"app": "things"},
 		},
@@ -161,8 +158,7 @@ func TestReconcileState31(t *testing.T) {
 	p.Generation = 1
 	p.Finalizers = []string{finalizerName}
 	p.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
-		Kind:      "Deployment",
-		Namespace: "default",
+		Kind: "Deployment",
 		Selector: &metav1.LabelSelector{
 			MatchLabels: map[string]string{"app": "things"},
 		},

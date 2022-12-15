@@ -398,9 +398,6 @@ func newStatus(wl workload.Workload) *cloudsqlapi.WorkloadStatus {
 // listWorkloads produces a list of Workload's that match the WorkloadSelectorSpec
 // in the specified namespace.
 func (r *AuthProxyWorkloadReconciler) listWorkloads(ctx context.Context, workloadSelector cloudsqlapi.WorkloadSelectorSpec, ns string) ([]workload.Workload, error) {
-	if workloadSelector.Namespace != "" {
-		ns = workloadSelector.Namespace
-	}
 
 	if workloadSelector.Name != "" {
 		return r.loadByName(ctx, workloadSelector, ns)
