@@ -72,7 +72,9 @@ _Appears in:_
 
 InstanceSpec describes the configuration for how the proxy should expose a Cloud SQL database instance to a workload. 
  In the minimum recommended configuration, the operator will choose a non-conflicting TCP port and set environment variables MY_DB_SERVER_PORT MY_DB_SERVER_HOST with the value of the TCP port and hostname. The application can read these values to connect to the database through the proxy. 
- ``` {    "connectionString":"my-project:us-central1:my-db-server",    "portEnvName":"MY_DB_SERVER_PORT"    "hostEnvName":"MY_DB_SERVER_HOST" } ``` 
+ ``` 
+ 	{ 	   "connectionString":"my-project:us-central1:my-db-server", 	   "portEnvName":"MY_DB_SERVER_PORT" 	   "hostEnvName":"MY_DB_SERVER_HOST" 	} 
+ ``` 
  If you want to assign a specific port number for a database, set the `port` field. For example: 
  	``` 	{ "connectionString":"my-project:us-central1:my-db-server", "port":5000 } 	```
 
