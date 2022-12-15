@@ -26,6 +26,10 @@ processor:
   ignoreFields:
     - "status$"
     - "TypeMeta$"
+    # skip debug fields on AuthProxyContainerSpec
+    - "^Container$"
+    - "^SQLAdminAPIEndpoint"
+  useRawDocstring: true
 render:
   # Version of Kubernetes to use when generating links to Kubernetes API documentation.
   kubernetesVersion: 1.24

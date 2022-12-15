@@ -15,7 +15,7 @@
 package v1alpha1
 
 import (
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -58,25 +58,38 @@ const (
 	ReasonUpToDate = "UpToDate"
 )
 
-// AuthProxyWorkloadSpec defines the desired state of AuthProxyWorkload
+// AuthProxyWorkload declares how a Cloud SQL Proxy container should be applied
+// to a matching set of workloads, and shows the status of those proxy containers.
+//
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+type AuthProxyWorkload struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   AuthProxyWorkloadSpec   `json:"spec,omitempty"`
+	Status AuthProxyWorkloadStatus `json:"status,omitempty"`
+}
+
+// AuthProxyWorkloadSpec describes where and how to configure the proxy.
 type AuthProxyWorkloadSpec struct {
-	// Workload selects the workload to
+	// Workload selects the workload where the proxy container will be added.
 	//+kubebuilder:validation:Required
 	Workload WorkloadSelectorSpec `json:"workloadSelector"`
 
-	// AuthProxyContainer describes the resources and config for the Auth Proxy container
-	//+kubebuilder:validation:Optional
-	AuthProxyContainer *AuthProxyContainerSpec `json:"authProxyContainer,omitempty"`
-
-	// Instances lists the Cloud SQL instances to connect
+	// Instances describes the Cloud SQL instances to configure on the proxy container.
 	//+kubebuilder:validation:Required
 	//+kubebuilder:validation:MinItems=1
 	Instances []InstanceSpec `json:"instances"`
+
+	// AuthProxyContainer describes the resources and config for the Auth Proxy container.
+	//+kubebuilder:validation:Optional
+	AuthProxyContainer *AuthProxyContainerSpec `json:"authProxyContainer,omitempty"`
 }
 
 // WorkloadSelectorSpec describes which workloads should be configured with this
-// proxy configuration. To be valid, WorkloadSelectorSpec must specify Kind
-// and either Name or Selector.
+// proxy configuration. To be valid, WorkloadSelectorSpec must specify `Kind`
+// and either `Name` or `Selector`.
 type WorkloadSelectorSpec struct {
 	// Selector selects resources using labels. See "Label selectors" in the kubernetes docs
 	// https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors
@@ -106,108 +119,100 @@ func (s *WorkloadSelectorSpec) LabelsSelector() (labels.Selector, error) {
 	return metav1.LabelSelectorAsSelector(s.Selector)
 }
 
-// AuthProxyContainerSpec specifies configuration for the proxy container.
+// AuthProxyContainerSpec describes how to configure global proxy configuration and
+// kubernetes-specific container configuration.
 type AuthProxyContainerSpec struct {
-
-	// Container is debugging parameter that when specified will override the
-	// proxy container with a completely custom Container spec.
-	//+kubebuilder:validation:Optional
-	Container *v1.Container `json:"container,omitempty"`
-
-	// Resources specifies the resources required for the proxy pod.
-	//+kubebuilder:validation:Optional
-	Resources *v1.ResourceRequirements `json:"resources,omitempty"`
-
 	// MaxConnections limits the number of connections. Default value is no limit.
 	// This sets the proxy container's CLI argument `--max-connections`
 	//+kubebuilder:validation:Optional
 	MaxConnections *int64 `json:"maxConnections,omitempty"`
 
-	// MaxSigtermDelay is the maximum number of seconds to wait for connections to close after receiving a TERM signal.
-	// This sets the proxy container's CLI argument `--max-sigterm-delay` and
+	// MaxSigtermDelay is the maximum number of seconds to wait for connections to
+	// close after receiving a TERM signal. This sets the proxy container's
+	// CLI argument `--max-sigterm-delay` and
 	// configures `terminationGracePeriodSeconds` on the workload's PodSpec.
 	//+kubebuilder:validation:Optional
 	MaxSigtermDelay *int64 `json:"maxSigtermDelay,omitempty"`
 
-	// SQLAdminAPIEndpoint is a debugging parameter that when specified will
-	// change the Google Cloud api endpoint used by the proxy.
+	// Resources specifies the resources required for the proxy pod.
 	//+kubebuilder:validation:Optional
-	SQLAdminAPIEndpoint string `json:"sqlAdminAPIEndpoint,omitempty"`
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 
 	// Image is the URL to the proxy image. Optional, by default the operator
 	// will use the latest known compatible proxy image.
 	//+kubebuilder:validation:Optional
 	Image string `json:"image,omitempty"`
+
+	// Container is debugging parameter that when specified will override the
+	// proxy container with a completely custom Container spec.
+	//+kubebuilder:validation:Optional
+	Container *corev1.Container `json:"container,omitempty"`
+
+	// SQLAdminAPIEndpoint is a debugging parameter that when specified will
+	// change the Google Cloud api endpoint used by the proxy.
+	//+kubebuilder:validation:Optional
+	SQLAdminAPIEndpoint string `json:"sqlAdminAPIEndpoint,omitempty"`
 }
 
 // InstanceSpec describes the configuration for how the proxy should expose
-// a Cloud SQL database instance to a workload. The simplest possible configuration
-// declares just the connection string and the port number or unix socket.
+// a Cloud SQL database instance to a workload.
 //
-// For example, for a TCP port:
+// In the minimum recommended configuration, the operator will choose
+// a non-conflicting TCP port and set environment
+// variables MY_DB_SERVER_PORT MY_DB_SERVER_HOST with the value of the TCP port
+// and hostname. The application can read these values to connect to the
+// database through the proxy.
 //
+// ```
+//
+//	{
+//	   "connectionString":"my-project:us-central1:my-db-server",
+//	   "portEnvName":"MY_DB_SERVER_PORT"
+//	   "hostEnvName":"MY_DB_SERVER_HOST"
+//	}
+//
+// ```
+//
+// If you want to assign a specific port number for a database, set the `port`
+// field. For example:
+//
+//	```
 //	{ "connectionString":"my-project:us-central1:my-db-server", "port":5000 }
-//
-// or for a unix socket:
-//
-//	{ "connectionString":"my-project:us-central1:my-db-server",
-//	  "unixSocketPath" : "/mnt/db/my-db-server" }
-//
-// You may allow the operator to choose a non-conflicting TCP port or unix socket
-// instead of explicitly setting the port or socket path. This may be easier to
-// manage when workload needs to connect to many databases.
-//
-// For example, for a TCP port:
-//
-//	{ "connectionString":"my-project:us-central1:my-db-server",
-//	  "portEnvName":"MY_DB_SERVER_PORT"
-//	  "hostEnvName":"MY_DB_SERVER_HOST"
-//	 }
-//
-// will set environment variables MY_DB_SERVER_PORT MY_DB_SERVER_HOST with the
-// value of the TCP port and hostname. Then, the application can read these values
-// to connect to the database through the proxy.
-//
-// or for a unix socket:
-//
-//	{ "connectionString":"my-project:us-central1:my-db-server",
-//	  "unixSocketPathEnvName" : "MY_DB_SERVER_SOCKET_DIR" }
-//
-// will set environment variables MY_DB_SERVER_SOCKET_DIR with the
-// value of the unix socket path. Then, the application can read this value
-// to connect to the database through the proxy.
+//	```
 type InstanceSpec struct {
 
-	// ConnectionString is the Cloud SQL instance.
+	// ConnectionString is the connection string for the Cloud SQL Instance
+	// in the format `project_id:region:instance_name`
 	//+kubebuilder:validation:Required
 	ConnectionString string `json:"connectionString,omitempty"`
 
-	// Port sets the tcp port for this instance. Optional, if not set, a value will
+	// PortEnvName (optional) is name of the environment variable containing this instance's tcp port.
+	// When set this environment variable will be added to all containers in the workload.
+	//+kubebuilder:validation:Optional
+	PortEnvName string `json:"portEnvName,omitempty"`
+
+	// HostEnvName (optional) The name of the environment variable containing this
+	// instances tcp hostname. When set this environment variable will be added to
+	// all containers in the workload.
+	//+kubebuilder:validation:Optional
+	HostEnvName string `json:"hostEnvName,omitempty"`
+
+	// Port (optional) sets the tcp port for this instance. If not set, a value will
 	// be automatically assigned by the operator and set as an environment variable
 	// on all containers in the workload named according to PortEnvName. The operator will choose
 	// a port so that it does not conflict with other ports on the workload.
 	//+kubebuilder:validation:Optional
 	Port *int32 `json:"port,omitempty"`
 
-	// AutoIAMAuthN Enables IAM Authentication for this instance. Optional, default
-	// false.
+	// AutoIAMAuthN (optional) Enables IAM Authentication for this instance.
+	// Default value is false.
 	//+kubebuilder:validation:Optional
 	AutoIAMAuthN *bool `json:"autoIAMAuthN,omitempty"`
 
-	// PrivateIP Enable connection to the Cloud SQL instance's private ip for this instance.
-	// Optional, default false.
+	// PrivateIP (optional) Enable connection to the Cloud SQL instance's private ip for this instance.
+	// Default value is false.
 	//+kubebuilder:validation:Optional
 	PrivateIP *bool `json:"privateIP,omitempty"`
-
-	// PortEnvName is name of the environment variable containing this instance's tcp port.
-	// Optional, when set this environment variable will be added to all containers in the workload.
-	//+kubebuilder:validation:Optional
-	PortEnvName string `json:"portEnvName,omitempty"`
-
-	// HostEnvName The name of the environment variable containing this instances tcp hostname
-	// Optional, when set this environment variable will be added to all containers in the workload.
-	//+kubebuilder:validation:Optional
-	HostEnvName string `json:"hostEnvName,omitempty"`
 }
 
 // AuthProxyWorkloadStatus presents the observed state of AuthProxyWorkload using
@@ -243,20 +248,6 @@ type WorkloadStatus struct {
 	// The "UpToDate" condition indicates that the proxy was successfully
 	// applied to all matching workloads. See ConditionUpToDate.
 	Conditions []*metav1.Condition `json:"conditions"`
-}
-
-// AuthProxyWorkload declares how a Cloud SQL Proxy container should be applied
-// to a matching set of workloads, and shows the status of those proxy containers.
-// This is the Schema for the authproxyworkloads API.
-//
-// +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
-type AuthProxyWorkload struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Spec   AuthProxyWorkloadSpec   `json:"spec,omitempty"`
-	Status AuthProxyWorkloadStatus `json:"status,omitempty"`
 }
 
 // AuthProxyWorkloadList contains a list of AuthProxyWorkload and is part of the
