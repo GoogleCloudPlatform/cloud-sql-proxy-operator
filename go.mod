@@ -1,6 +1,6 @@
 module github.com/GoogleCloudPlatform/cloud-sql-proxy-operator
 
-go 1.18
+go 1.19
 
 require (
 	github.com/go-logr/logr v1.2.0
