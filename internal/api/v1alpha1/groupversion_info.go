@@ -12,9 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package v1alpha1 contains API Schema definitions for the cloudsql v1alpha1 API group:
-// the custom resource AuthProxyWorkload version v1alpha1
-// This follows the kubebuilder pattern for defining custom resources.
+// Package v1alpha1 contains the API Schema definitions for the
+// the custom resource AuthProxyWorkload version v1alpha1.
 //
 // +kubebuilder:object:generate=true
 // +groupName=cloudsql.cloud.google.com
