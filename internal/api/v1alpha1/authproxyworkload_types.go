@@ -106,10 +106,10 @@ type AuthProxyWorkloadSpec struct {
 }
 
 // WorkloadSelectorSpec describes which workloads should be configured with this
-// proxy configuration. To be valid, WorkloadSelectorSpec must specify `Kind`
-// and either `Name` or `Selector`.
+// proxy configuration. To be valid, WorkloadSelectorSpec must specify `kind`
+// and either `name` or `selector`.
 type WorkloadSelectorSpec struct {
-	// Selector selects resources using labels. See "Label selectors" in the kubernetes docs
+	// Selector (optional) selects resources using labels. See "Label selectors" in the kubernetes docs
 	// https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors
 	//+kubebuilder:validation:Optional
 	Selector *metav1.LabelSelector `json:"selector,omitempty"`
@@ -205,25 +205,19 @@ type TelemetrySpec struct {
 // In the minimum recommended configuration, the operator will choose
 // a non-conflicting TCP port and set environment
 // variables MY_DB_SERVER_PORT MY_DB_SERVER_HOST with the value of the TCP port
-// and hostname. The application can read these values to connect to the
-// database through the proxy.
+// and hostname. The application can read these values to connect to the database
+// through the proxy. For example:
 //
-// ```
-//
-//	{
-//	   "connectionString":"my-project:us-central1:my-db-server",
-//	   "portEnvName":"MY_DB_SERVER_PORT"
-//	   "hostEnvName":"MY_DB_SERVER_HOST"
-//	}
-//
-// ```
+//	`{
+//			   "connectionString":"my-project:us-central1:my-db-server",
+//			   "portEnvName":"MY_DB_SERVER_PORT"
+//			   "hostEnvName":"MY_DB_SERVER_HOST"
+//	}`
 //
 // If you want to assign a specific port number for a database, set the `port`
 // field. For example:
 //
-//	```
-//	{ "connectionString":"my-project:us-central1:my-db-server", "port":5000 }
-//	```
+//	`{ "connectionString":"my-project:us-central1:my-db-server", "port":5000 }`
 type InstanceSpec struct {
 
 	// ConnectionString is the connection string for the Cloud SQL Instance

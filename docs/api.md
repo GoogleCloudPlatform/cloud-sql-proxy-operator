@@ -73,12 +73,10 @@ _Appears in:_
 
 
 InstanceSpec describes the configuration for how the proxy should expose a Cloud SQL database instance to a workload. 
- In the minimum recommended configuration, the operator will choose a non-conflicting TCP port and set environment variables MY_DB_SERVER_PORT MY_DB_SERVER_HOST with the value of the TCP port and hostname. The application can read these values to connect to the database through the proxy. 
- ``` 
- 	{ 	   "connectionString":"my-project:us-central1:my-db-server", 	   "portEnvName":"MY_DB_SERVER_PORT" 	   "hostEnvName":"MY_DB_SERVER_HOST" 	} 
- ``` 
+ In the minimum recommended configuration, the operator will choose a non-conflicting TCP port and set environment variables MY_DB_SERVER_PORT MY_DB_SERVER_HOST with the value of the TCP port and hostname. The application can read these values to connect to the database through the proxy. For example: 
+ 	`{ 			   "connectionString":"my-project:us-central1:my-db-server", 			   "portEnvName":"MY_DB_SERVER_PORT" 			   "hostEnvName":"MY_DB_SERVER_HOST" 	}` 
  If you want to assign a specific port number for a database, set the `port` field. For example: 
- 	``` 	{ "connectionString":"my-project:us-central1:my-db-server", "port":5000 } 	```
+ 	`{ "connectionString":"my-project:us-central1:my-db-server", "port":5000 }`
 
 _Appears in:_
 - [AuthProxyWorkloadSpec](#authproxyworkloadspec)
@@ -113,14 +111,14 @@ _Appears in:_
 
 
 
-WorkloadSelectorSpec describes which workloads should be configured with this proxy configuration. To be valid, WorkloadSelectorSpec must specify `Kind` and either `Name` or `Selector`.
+WorkloadSelectorSpec describes which workloads should be configured with this proxy configuration. To be valid, WorkloadSelectorSpec must specify `kind` and either `name` or `selector`.
 
 _Appears in:_
 - [AuthProxyWorkloadSpec](#authproxyworkloadspec)
 
 | Field | Description |
 | --- | --- |
-| `selector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#labelselector-v1-meta)_ | Selector selects resources using labels. See "Label selectors" in the kubernetes docs https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors |
+| `selector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#labelselector-v1-meta)_ | Selector (optional) selects resources using labels. See "Label selectors" in the kubernetes docs https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors |
 | `kind` _string_ | Kind specifies what kind of workload Supported kinds: Deployment, StatefulSet, Pod, ReplicaSet,DaemonSet, Job, CronJob Example: "Deployment" "Deployment.v1" or "Deployment.v1.apps". |
 | `name` _string_ | Name specifies the name of the resource to select. |
 
