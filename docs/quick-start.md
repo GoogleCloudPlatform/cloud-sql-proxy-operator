@@ -36,7 +36,7 @@ Run the following command to install the cloud sql proxy operator into
 your kubernetes cluster:
 
 ```shell
-curl https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/v0.1.0/cloud-sql-proxy-operator.yaml | bash
+kubectl apply -f  https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/v0.1.0/cloud-sql-proxy-operator.yaml
 ```
 
 Wait for the Cloud SQL Auth Proxy Operator to start.
@@ -66,7 +66,7 @@ apiVersion: cloudsql.cloud.google.com/v1alpha1
 kind: AuthProxyWorkload
 metadata:
   name: authproxyworkload-sample
-  -spec:
+spec:
   workloadSelector:
     kind: "Deployment"
     name: "gke-cloud-sql-quickstart"
@@ -74,6 +74,7 @@ metadata:
     - connectionString: "<INSTANCE_CONNECTION_NAME>"
       portEnvName: "DB_PORT"
       hostEnvName: "INSTANCE_HOST"
+      autoIAMAuthN: True
 ```
 
 Update <INSTANCE_CONNECTION_NAME> with the Cloud SQL instance connection name
@@ -102,7 +103,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: gke-cloud-sql-quickstart
-  -spec:
+spec:
   selector:
     matchLabels:
       app: gke-cloud-sql-app
