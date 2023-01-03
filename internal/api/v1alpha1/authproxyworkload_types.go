@@ -90,12 +90,6 @@ type WorkloadSelectorSpec struct {
 	//+kubebuilder:validation:Pattern=\w+(\.\w+)*
 	Kind string `json:"kind"`
 
-	// Namespace specifies namespace in which to select the resource.
-	// Optional, defaults to the namespace of the AuthProxyWorkload resource.
-	// All or Wildcard namespaces are not supported.
-	//+kubebuilder:validation:Optional
-	Namespace string `json:"namespace,omitempty"`
-
 	// Name specifies the name of the resource to select.
 	//+kubebuilder:validation:Optional
 	Name string `json:"name,omitempty"`
