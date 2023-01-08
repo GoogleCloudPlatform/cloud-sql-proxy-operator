@@ -847,6 +847,12 @@ spec:
                       required:
                         - name
                       type: object
+                    fuseDir:
+                      description: FUSEDir is the path where the FUSE volume will be mounted. This sets the proxy container's CLI argument `--fuse` and will mount the FUSE volume at this path on all containers in the workload.
+                      type: string
+                    fuseTempDir:
+                      description: FUSETempDir is the path for the temp dir for Unix sockets created with FUSE. This sets the proxy container's CLI argument `--fuse-tmp-dir` and will mount the FUSE temp volume at this path on all containers in the workload.
+                      type: string
                     image:
                       description: Image is the URL to the proxy image. Optional, by default the operator will use the latest known compatible proxy image.
                       type: string
@@ -883,6 +889,51 @@ spec:
                     sqlAdminAPIEndpoint:
                       description: SQLAdminAPIEndpoint is a debugging parameter that when specified will change the Google Cloud api endpoint used by the proxy.
                       type: string
+                    telemetry:
+                      description: Telemetry specifies how the proxy should expose telemetry. Optional, by default
+                      properties:
+                        disableMetrics:
+                          description: DisableMetrics disables Cloud Monitoring testintegration (used with telemetryProject) This sets the proxy container's CLI argument `--disable-metrics`
+                          type: boolean
+                        disableTraces:
+                          description: DisableTraces disables Cloud Trace testintegration (used with telemetryProject) This sets the proxy container's CLI argument `--disable-traces`
+                          type: boolean
+                        httpPort:
+                          description: HTTPPort the port for Prometheus and health check server. This sets the proxy container's CLI argument `--http-port`
+                          format: int32
+                          type: integer
+                        prometheus:
+                          description: Prometheus Enables Prometheus HTTP endpoint /metrics on localhost This sets the proxy container's CLI argument `--prometheus`
+                          type: boolean
+                        prometheusNamespace:
+                          description: PrometheusNamespace is used the provided Prometheus namespace for metrics This sets the proxy container's CLI argument `--prometheus-namespace`
+                          type: string
+                        quotaProject:
+                          description: QuotaProject Specifies the project to use for Cloud SQL Admin API quota tracking. The IAM principal must have the "serviceusage.services.use" permission for the given project. See https://cloud.google.com/service-usage/docs/overview and https://cloud.google.com/storage/docs/requester-pays This sets the proxy container's CLI argument `--quota-project`
+                          type: string
+                        telemetryPrefix:
+                          description: TelemetryPrefix is the prefix for Cloud Monitoring metrics. This sets the proxy container's CLI argument `--telemetry-prefix`
+                          type: string
+                        telemetryProject:
+                          description: TelemetryProject enables Cloud Monitoring and Cloud Trace with the provided project ID. This sets the proxy container's CLI argument `--telemetry-project`
+                          type: string
+                        telemetrySampleRate:
+                          description: TelemetrySampleRate is the Cloud Trace sample rate. A smaller number means more traces. This sets the proxy container's CLI argument `--telemetry-sample-rate`
+                          type: integer
+                      type: object
+                  type: object
+                authentication:
+                  description: Authentication describes how to authenticate the Auth Proxy container to Google Cloud
+                  properties:
+                    credentialsFileKey:
+                      description: CredentialsFileKey The key within the kubernetes secret containing the credentials file. This sets the Cloud SQL Proxy container's CLI argument `--credentials-file`
+                      type: string
+                    credentialsFileSecret:
+                      description: CredentialsFileSecret the "name" or "namespace/name" for the secret. This sets the Cloud SQL Proxy container's CLI argument `--credentials-file`
+                      type: string
+                    gcloudAuth:
+                      description: GCloudAuth true when we should use the Google Cloud metadata server to authenticate. This sets the Cloud SQL Proxy container's CLI argument `--gcloud-auth`
+                      type: boolean
                   type: object
                 instances:
                   description: Instances lists the Cloud SQL instances to connect
@@ -908,6 +959,18 @@ spec:
                       privateIP:
                         description: PrivateIP Enable connection to the Cloud SQL instance's private ip for this instance. Optional, default false.
                         type: boolean
+                      socketType:
+                        description: 'SocketType declares what type of socket to create for this database. Allowed values: "tcp" or "unix"'
+                        enum:
+                          - tcp
+                          - unix
+                        type: string
+                      unixSocketPath:
+                        description: UnixSocketPath is the directory to mount the unix socket for this instance. When set, this directory will be mounted on all containers in the workload.
+                        type: string
+                      unixSocketPathEnvName:
+                        description: UnixSocketPathEnvName the name of the environment variable containing the unix socket path Optional, when set this environment variable will be added to all containers in the workload.
+                        type: string
                     type: object
                   minItems: 1
                   type: array
