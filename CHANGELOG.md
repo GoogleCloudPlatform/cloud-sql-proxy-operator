@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.2.0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v0.1.0...v0.2.0) (2023-01-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove Namespace field from AuthProxyWorkloadSelector ([#168](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/168))
+
+### Bug Fixes
+
+* remove Namespace field from AuthProxyWorkloadSelector ([#168](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/168)) ([7bcc27d](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/7bcc27d080f0f848da80740a2e4bbe75c0397031))
+* Update installer.sh to use helm for cert-manager ([#163](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/163)) ([62fc5dc](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/62fc5dc49a7e373fc468a512c5e54f6adfcedde4)), closes [#157](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/157)
+
+
+### Miscellaneous Chores
+
+* release 0.2.0 ([#175](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/175)) ([44babcd](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/44babcd3dbe703f55b9bc464597a79bdf6adb718))
+
 ## [0.1.0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v0.0.3...v0.1.0) (2022-12-13)
 
 
