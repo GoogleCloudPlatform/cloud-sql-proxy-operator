@@ -20,3 +20,4 @@ sourceFileExtensions:
   - 'go'
   - 'yaml'
   - 'yml'
+  - 'tf'
