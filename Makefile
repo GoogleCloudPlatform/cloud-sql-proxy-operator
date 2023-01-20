@@ -119,7 +119,7 @@ go_fmt: # Automatically formats go files
 	go run golang.org/x/tools/cmd/goimports@latest -w .
 
 yaml_fmt: # Automatically formats all yaml files
-	go run github.com/UltiRequiem/yamlfmt@latest -w $(shell find . -iname '*.yaml' -or -iname '*.yml')
+	go run github.com/UltiRequiem/yamlfmt@latest -w $(shell find . -iname '*.yaml' -or -iname '*.yml' | grep -v -e '^./bin/')
 
 .PHONY: add_copyright_header
 add_copyright_header: # Add the copyright header
@@ -223,6 +223,10 @@ installer/install.sh: ## Build install shell script to deploy the operator
 # GKE cluster.
 KUBECONFIG_E2E ?= $(PWD)/bin/e2e-kubeconfig.yaml
 
+# This is the file where Terraform will write the kubeconfig.yaml for the
+# GKE cluster.
+ENVIRONMENT_NAME ?= $(shell whoami)
+
 # kubectl command with proper environment vars set
 E2E_KUBECTL_ENV = USE_GKE_E2E_AUTH_PLUGIN=True KUBECONFIG=$(KUBECONFIG_E2E)
 E2E_KUBECTL = $(E2E_KUBECTL_ENV) $(KUBECTL)
@@ -254,13 +258,40 @@ e2e_test_clean: e2e_cleanup_test_namespaces e2e_undeploy ## Remove all operator 
 .PHONY: e2e_teardown
 e2e_teardown: e2e_cluster_destroy ## Remove the test infrastructure for e2e tests from the Google Cloud Project
 
+.PHONY: e2e_test_job
+e2e_test_job: e2e_setup_job e2e_build_deploy e2e_test_run
+
+.PHONY: e2e_setup_job
+e2e_setup_job: e2e_project e2e_cluster_job e2e_cert_manager_deploy
+
 .PHONY: e2e_project
 e2e_project: gcloud # Check that the Google Cloud project exists
 	@gcloud projects describe $(E2E_PROJECT_ID) 2>/dev/null || \
 		( echo "No Google Cloud Project $(E2E_PROJECT_ID) found"; exit 1 )
 
+.PHONY: e2e_cluster_job
+e2e_cluster_job: e2e_project terraform # Build infrastructure for e2e tests in the test job
+	PROJECT_DIR=$(PWD) \
+  		E2E_PROJECT_ID=$(E2E_PROJECT_ID) \
+  		KUBECONFIG_E2E=$(KUBECONFIG_E2E) \
+  		E2E_DOCKER_URL_FILE=$(E2E_DOCKER_URL_FILE) \
+  		ENVIRONMENT_NAME=$(ENVIRONMENT_NAME) \
+  		NODEPOOL_SERVICEACCOUNT_EMAIL=$(NODEPOOL_SERVICEACCOUNT_EMAIL) \
+  		WORKLOAD_ID_SERVICEACCOUNT_EMAIL=$(WORKLOAD_ID_SERVICEACCOUNT_EMAIL) \
+  		TFSTATE_STORAGE_BUCKET=$(TFSTATE_STORAGE_BUCKET) \
+  		infra/run.sh apply_e2e_job
+
+.PHONY: e2e_cluster_new
+e2e_cluster_new: e2e_project terraform # Build infrastructure for e2e tests
+	PROJECT_DIR=$(PWD) \
+  		E2E_PROJECT_ID=$(E2E_PROJECT_ID) \
+  		KUBECONFIG_E2E=$(KUBECONFIG_E2E) \
+  		E2E_DOCKER_URL_FILE=$(E2E_DOCKER_URL_FILE) \
+  		ENVIRONMENT_NAME=$(ENVIRONMENT_NAME) \
+  		infra/run.sh apply
+
 .PHONY: e2e_cluster
-e2e_cluster: e2e_project terraform # Build infrastructure for e2e tests
+e2e_cluster: e2e_project terraform # Build infrastructure for e2e tests (soon to be replaced with e2e_cluster_new implementation)
 	PROJECT_DIR=$(PWD) \
   		E2E_PROJECT_ID=$(E2E_PROJECT_ID) \
   		KUBECONFIG_E2E=$(KUBECONFIG_E2E) \
@@ -366,8 +397,8 @@ KUSTOMIZE_VERSION ?= v4.5.2
 ENVTEST_VERSION ?= latest
 GOLANGCI_LINT_VERSION ?= latest
 
-GOOS=$(shell go env GOOS | tr -d '\n')
-GOARCH=$(shell go env GOARCH | tr -d '\n')
+GOOS?=$(shell go env GOOS | tr -d '\n')
+GOARCH?=$(shell go env GOARCH | tr -d '\n')
 
 remove_tools:
 	rm -rf $(LOCALBIN)/*
