@@ -13,6 +13,46 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+###
+# run.sh is used by make to launch the terraform scripts as part of the
+# end-to-end testing process. This is not intended to be a stand-alone shell
+# script.
+#
+# Usage:
+# $ run.sh <command>
+#
+# This script will do these command:
+#
+# apply - Builds an e2e test environment for the local developer to use while
+#         writing and runnign e2e tests locally. This will run `terraform apply` on
+#         the ./permissions terraform project and then on ./resources project,
+#         passing the values between projects.
+#
+# destroy - Run `terraform destroy` on ./resources project, removing resources
+#         from the google cloud project used by the e2e tests.
+#
+# apply_e2e_job - Builds an e2e test environment for the e2e CI jobs to use.
+#         CI jobs for e2e testing use pre-configured Google Cloud accounts
+#         that require a slightly different configuration than the e2e environment
+#         for local development.
+#
+# This script accepts inputs as environment variables:
+#   PROJECT_DIR - the directory containing the Makefile
+#   ENVIRONMENT_NAME - The name of the e2e test environment to act upon. There
+#     may be many e2e test environments in the same Google Cloud project.
+#   E2E_PROJECT_ID - The Google Cloud project ID to act upon.
+#   KUBECONFIG_E2E - The output filename to write the kubeconfig json file
+#     for the kubernetes cluster for the e2e environment
+#   E2E_DOCKER_URL_FILE - The output filename to write the URL to the docker
+#     contianer registry for the e2e test environment
+#
+#  These additional environment variable are used by apply_e2e_job for E2E CI jobs:
+#   NODEPOOL_SERVICEACCOUNT_EMAIL - the name of the service account to assign
+#     to the kubernetes cluster node pool.
+#   WORKLOAD_ID_SERVICEACCOUNT_EMAIL - the name of the service account to use
+#     when testing workload identity.
+#   TFSTATE_STORAGE_BUCKET - the name of the Google Cloud Storage bucket to use
+#     to store the terraform state.
 
 # Run terraform with appropriate settings
 function run_tf() {
