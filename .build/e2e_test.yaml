@@ -36,9 +36,9 @@ substitutions:
   _TEST_BUILD_ID: ""
 availableSecrets:
   secretManager:
-  - versionName: projects/cloud-sql-operator-testing/secrets/NODEPOOL_SERVICEACCOUNT_EMAIL/versions/1
-    env: 'NODEPOOL_SERVICEACCOUNT_EMAIL'
-  - versionName: projects/cloud-sql-operator-testing/secrets/WORKLOAD_ID_SERVICEACCOUNT_EMAIL/versions/1
-    env: 'WORKLOAD_ID_SERVICEACCOUNT_EMAIL'
-  - versionName: projects/cloud-sql-operator-testing/secrets/TFSTATE_STORAGE_BUCKET/versions/1
-    env: 'TFSTATE_STORAGE_BUCKET'
+    - versionName: projects/cloud-sql-operator-testing/secrets/NODEPOOL_SERVICEACCOUNT_EMAIL/versions/1
+      env: 'NODEPOOL_SERVICEACCOUNT_EMAIL'
+    - versionName: projects/cloud-sql-operator-testing/secrets/WORKLOAD_ID_SERVICEACCOUNT_EMAIL/versions/1
+      env: 'WORKLOAD_ID_SERVICEACCOUNT_EMAIL'
+    - versionName: projects/cloud-sql-operator-testing/secrets/TFSTATE_STORAGE_BUCKET/versions/1
+      env: 'TFSTATE_STORAGE_BUCKET'

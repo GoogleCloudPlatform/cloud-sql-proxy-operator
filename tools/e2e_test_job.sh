@@ -17,16 +17,19 @@
 # This script is used by the E2E test job defined in .build/e2e_test.yaml
 # to prepare the Cloud Build environment and run the end-to-end tests.
 #
-
+echo "TIME: $(date) Begin Script"
 set -euxo
 
 E2E_PROJECT_ID=cloud-sql-operator-testing
 
+echo "TIME: $(date) Install GCC"
 # Install GCC and other essential build tools
 apt-get update
 apt-get install -y zip unzip build-essential
 
+
 # Install and configure GCloud CLI
+echo "TIME: $(date) Install GCloud CLI"
 mkdir -p bin
 curl -L -o bin/gcloud-cli.tar.gz https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-413.0.0-linux-x86_64.tar.gz
 ( cd bin && tar -zxf gcloud-cli.tar.gz )
@@ -37,12 +40,14 @@ which gcloud
 gcloud components install --quiet gke-gcloud-auth-plugin
 
 # Install helm
+echo "TIME: $(date) Install Helm"
 curl -L -o bin/helm.tar.gz https://get.helm.sh/helm-v3.10.3-linux-amd64.tar.gz
 ( cd bin && tar -zxf helm.tar.gz && ls -al)
 export PATH=$PATH:$PWD/bin/linux-amd64
 which helm
 
 # Install go
+echo "TIME: $(date) Install Go"
 curl -L -o bin/go.tar.gz https://go.dev/dl/go1.18.10.linux-amd64.tar.gz
 rm -rf /usr/local/go && tar -C /usr/local -xzf bin/go.tar.gz
 export PATH=$PATH:/usr/local/go/bin
@@ -50,6 +55,8 @@ go version
 
 # Set the e2e test project id and other params from
 # the Cloud Build environment
+echo "TIME: $(date) Configure Make Env"
+
 cat > build.env <<EOF
 E2E_PROJECT_ID=$E2E_PROJECT_ID
 NODEPOOL_SERVICEACCOUNT_EMAIL=$NODEPOOL_SERVICEACCOUNT_EMAIL
@@ -57,7 +64,8 @@ WORKLOAD_ID_SERVICEACCOUNT_EMAIL=$WORKLOAD_ID_SERVICEACCOUNT_EMAIL
 TFSTATE_STORAGE_BUCKET=$TFSTATE_STORAGE_BUCKET
 EOF
 
-echo "Running tests on landscape ${ENVIRONMENT_NAME:-undefined}"
+echo "TIME: $(date) Run Tests"
+echo "Running tests on environment ${ENVIRONMENT_NAME:-undefined}"
 
 # Run e2e test
 if make e2e_test_job ; then
@@ -68,4 +76,5 @@ else
   test_exit_code=1
 fi
 
+echo "TIME: $(date) Done"
 exit $test_exit_code
