@@ -279,6 +279,7 @@ e2e_cluster_job: e2e_project terraform # Build infrastructure for e2e tests in t
   		NODEPOOL_SERVICEACCOUNT_EMAIL=$(NODEPOOL_SERVICEACCOUNT_EMAIL) \
   		WORKLOAD_ID_SERVICEACCOUNT_EMAIL=$(WORKLOAD_ID_SERVICEACCOUNT_EMAIL) \
   		TFSTATE_STORAGE_BUCKET=$(TFSTATE_STORAGE_BUCKET) \
+  		TESTINFRA_JSON_FILE=$(LOCALBIN)/testinfra.json \
   		infra/run.sh apply_e2e_job
 
 .PHONY: e2e_cluster_new
@@ -288,6 +289,7 @@ e2e_cluster_new: e2e_project terraform # Build infrastructure for e2e tests
   		KUBECONFIG_E2E=$(KUBECONFIG_E2E) \
   		E2E_DOCKER_URL_FILE=$(E2E_DOCKER_URL_FILE) \
   		ENVIRONMENT_NAME=$(ENVIRONMENT_NAME) \
+  		TESTINFRA_JSON_FILE=$(LOCALBIN)/testinfra.json \
   		infra/run.sh apply
 
 .PHONY: e2e_cluster

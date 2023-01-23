@@ -23,28 +23,29 @@
 #
 # This script will do these command:
 #
-# apply - Builds an e2e test environment for the local developer to use while
-#         writing and runnign e2e tests locally. This will run `terraform apply` on
-#         the ./permissions terraform project and then on ./resources project,
-#         passing the values between projects.
+# apply - Build an e2e test environment for the local developer to run e2e tests.
+#         This will run `terraform apply` on the ./permissions terraform project
+#         and then on ./resources project, passing the values between projects.
 #
-# destroy - Run `terraform destroy` on ./resources project, removing resources
+# destroy - Tear down the e2e test environment for the local developer.
+#         This runs `terraform destroy` on ./resources project, removing resources
 #         from the google cloud project used by the e2e tests.
 #
-# apply_e2e_job - Builds an e2e test environment for the e2e CI jobs to use.
+# apply_e2e_job - Build an e2e test environment for the e2e CI jobs to use.
 #         CI jobs for e2e testing use pre-configured Google Cloud accounts
 #         that require a slightly different configuration than the e2e environment
 #         for local development.
 #
 # This script accepts inputs as environment variables:
-#   PROJECT_DIR - the directory containing the Makefile
+#
+#   PROJECT_DIR - The directory containing the Makefile.
 #   ENVIRONMENT_NAME - The name of the e2e test environment to act upon. There
 #     may be many e2e test environments in the same Google Cloud project.
 #   E2E_PROJECT_ID - The Google Cloud project ID to act upon.
-#   KUBECONFIG_E2E - The output filename to write the kubeconfig json file
-#     for the kubernetes cluster for the e2e environment
-#   E2E_DOCKER_URL_FILE - The output filename to write the URL to the docker
-#     contianer registry for the e2e test environment
+#   KUBECONFIG_E2E - The output filename for the kubeconfig json file
+#     for the kubernetes cluster for the e2e environment.
+#   E2E_DOCKER_URL_FILE - The output filename for a text file containing the
+#     URL to the docker container registry for the e2e test environment.
 #
 #  These additional environment variable are used by apply_e2e_job for E2E CI jobs:
 #   NODEPOOL_SERVICEACCOUNT_EMAIL - the name of the service account to assign
@@ -79,7 +80,7 @@ function apply() {
     # Read nodepool_service_acount from the output of the permissions project
     nodepool_serviceaccount_email=$(jq -r .nodepool_serviceaccount_email < "$DATA_DIR/permissions_out.json")
 
-    run_tf resources "$PROJECT_DIR/bin/testinfra.json" \
+    run_tf resources "$TESTINFRA_JSON_FILE" \
         -var "gcloud_docker_url_file=$E2E_DOCKER_URL_FILE" \
         -var "project_id=$E2E_PROJECT_ID" \
         -var "kubeconfig_path=$KUBECONFIG_E2E" \
@@ -92,7 +93,7 @@ function apply() {
 # Destroy the local development terraform resources
 function destroy() {
     nodepool_serviceaccount_email=$(jq -r .nodepool_serviceaccount_email < "$DATA_DIR/permissions_out.json")
-    run_tf resources "$PROJECT_DIR/bin/testinfra.json" -destroy \
+    run_tf resources TESTINFRA_JSON_FILE -destroy \
         -var "gcloud_docker_url_file=$E2E_DOCKER_URL_FILE" \
         -var "project_id=$E2E_PROJECT_ID" \
         -var "kubeconfig_path=$KUBECONFIG_E2E" \
@@ -180,6 +181,12 @@ fi
 #expects $E2E_DOCKER_URL_FILE
 if [[ -z "$E2E_DOCKER_URL_FILE" ]]; then
   echo "expects E2E_DOCKER_URL_FILE to be set the location where docker url should be written."
+  FAIL=1
+fi
+
+#expects TESTINFRA_JSON_FILE
+if [[ -z "$TESTINFRA_JSON_FILE" ]]; then
+  echo "expects TESTINFRA_JSON_FILE to be set the location where test infrastructure output file be written."
   FAIL=1
 fi
 
