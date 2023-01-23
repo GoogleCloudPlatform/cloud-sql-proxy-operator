@@ -1,4 +1,4 @@
-# Copyright 2022 Google LLC
+# Copyright 2023 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,8 @@
 
 #
 # Run this from your dev environment:
-#  gcloud builds submit --project=cloud-sql-operator-testing --config=.build/e2e_test.yaml --substitutions=_ENVIRONMENT_NAME=adhoc-$USER,_TEST_BUILD_ID=$(tools/build-identifier.sh)
+#  gcloud builds submit --project=$E2E_TEST_PROJECT --config=.build/e2e_test.yaml --substitutions=_ENVIRONMENT_NAME=adhoc-$USER,_TEST_BUILD_ID=$(tools/build-identifier.sh)
+#
 steps:
   - name: 'gcr.io/cloud-builders/docker'
     entrypoint: bash
