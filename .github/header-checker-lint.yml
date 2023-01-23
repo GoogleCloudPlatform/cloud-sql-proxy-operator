@@ -21,3 +21,4 @@ sourceFileExtensions:
   - 'yaml'
   - 'yml'
   - 'tf'
+  - 'sh'
