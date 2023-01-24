@@ -83,27 +83,27 @@ help: ## Display this help.
 
 .PHONY: install_tools
 install_tools: remove_tools all_tools ## Installs all development tools
-	@echo "TIME: $(date) end install tools"
+	@echo "TIME: $(shell date) end install tools"
 
 .PHONY: generate
 generate:  ctrl_generate ctrl_manifests go_lint tf_lint installer reset_image add_copyright_header go_fmt yaml_fmt ## Runs code generation, format, and validation tools
-	@echo "TIME: $(date) end make generate"
+	@echo "TIME: $(shell date) end make generate"
 
 .PHONY: build
 build: generate build_push_docker ## Builds and pushes the docker image to tag defined in envvar IMG
-	@echo "TIME: $(date) end make build"
+	@echo "TIME: $(shell date) end make build"
 
 .PHONY: test
 test: generate go_test ## Run tests (but not internal/teste2e)
-	@echo "TIME: $(date) end make test"
+	@echo "TIME: $(shell date) end make test"
 
 .PHONY: deploy
 deploy:  build deploy_with_kubeconfig ## Deploys the operator to the kubernetes cluster using envvar KUBECONFIG. Set $IMG envvar to the image tag.
-	@echo "TIME: $(date) end make deploy"
+	@echo "TIME: $(shell date) end make deploy"
 
 .PHONY: e2e_test
 e2e_test: e2e_setup e2e_build_deploy e2e_test_run e2e_test_clean ## Run end-to-end tests on Google Cloud GKE
-	@echo "TIME: $(date) end make e2e_test"
+	@echo "TIME: $(shell date) end make e2e_test"
 
 ##
 # Development targets
