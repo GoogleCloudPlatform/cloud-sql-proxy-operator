@@ -221,6 +221,8 @@ DATA_DIR="$PROJECT_DIR/bin/tf-new"
 mkdir -p "$DATA_DIR"
 cp -r $SCRIPT_DIR/* "$DATA_DIR"
 
+echo "TIME: $(date) Start terraform reconcile action $ACTION"
+
 case $ACTION in
 "apply")
     apply
@@ -237,3 +239,8 @@ case $ACTION in
   ;;
 esac
 
+echo "TIME: $(date) End terraform reconcile action $ACTION"
+
+if [[ -n "$FAIL" ]] ; then
+  exit 1
+fi
