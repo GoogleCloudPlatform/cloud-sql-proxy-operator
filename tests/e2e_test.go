@@ -278,3 +278,65 @@ func TestProxyAppliedOnExistingWorkload(t *testing.T) {
 		})
 	}
 }
+func TestConnectionCheckDeployment(t *testing.T) {
+	// When running tests during development, set the SKIP_CLEANUP=true envvar so that
+	// the test namespace remains after the test ends. By default, the test
+	// namespace will be deleted when the test exits.
+	skipCleanup := loadValue("SKIP_CLEANUP", "", "false") == "true"
+
+	ctx := testContext()
+
+	tp := newTestCaseClient("connectionCheckDeployment")
+
+	err := tp.CreateOrPatchNamespace(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if skipCleanup {
+			return
+		}
+
+		err = tp.DeleteNamespace(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	const (
+		pwlName  = "newss"
+		appLabel = "busybox"
+		kind     = "Deployment"
+	)
+	key := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
+	wl := &workload.DeploymentWorkload{Deployment: testhelpers.BuildDeployment(types.NamespacedName{}, "pgsql")}
+	wl.Deployment.Spec.Template.Spec = testhelpers.Build
+	t.Log("Creating AuthProxyWorkload")
+	err = tp.CreateAuthProxyWorkload(ctx, key, appLabel, tp.ConnectionString, kind)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log("Waiting for AuthProxyWorkload operator to begin the reconcile loop")
+	_, err = tp.GetAuthProxyWorkloadAfterReconcile(ctx, key)
+	if err != nil {
+		t.Fatal("unable to create AuthProxyWorkload", err)
+	}
+
+	t.Log("Creating ", kind)
+	wl.Object().SetNamespace(tp.Namespace)
+	wl.Object().SetName(pwlName)
+	err = tp.CreateWorkload(ctx, wl.Object())
+	if err != nil {
+		t.Fatal("unable to create ", kind, err)
+	}
+	selector := &metav1.LabelSelector{
+		MatchLabels: map[string]string{"app": "busyboxon"},
+	}
+	t.Log("Checking for container counts", kind)
+	err = tp.ExpectPodContainerCount(ctx, selector, 2, "all")
+	if err != nil {
+		t.Error(err)
+	}
+	t.Log("Done, OK", kind)
+}

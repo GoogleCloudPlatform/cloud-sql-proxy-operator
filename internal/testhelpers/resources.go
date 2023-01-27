@@ -49,6 +49,85 @@ func buildPodTemplateSpec(mainPodSleep int) corev1.PodTemplateSpec {
 	}
 }
 
+func buildSecret(secretName, userKey, user, passwordKey, password, dbNameKey, dbName string) corev1.Secret {
+	return corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: secretName,
+		},
+		Type: "Opaque",
+		Data: map[string][]byte{
+			userKey:     []byte(user),
+			passwordKey: []byte(password),
+			dbNameKey:   []byte(dbName),
+		},
+	}
+}
+
+func buildPgPodSpec(mainPodSleep int, secretName, userKey, passwordKey, dbNameKey string) corev1.PodTemplateSpec {
+	podCmd := fmt.Sprintf(`echo Container 1 is Running;
+	sleep 10 ; 
+	psql --host=$DB_HOST --port=$DB_PORT --username=$DB_USER '--command=select 1' 
+		--echo-queries 
+		--dbname=$DB_NAME ; 
+	sleep %d`, mainPodSleep)
+
+	livenessCmd := "psql --host=$DB_HOST --port=$DB_PORT --username=$DB_USER '--command=select 1' --echo-queries --dbname=$DB_NAME"
+
+	return corev1.PodTemplateSpec{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{"app": "busyboxon"},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Name:            "busybox",
+				Image:           "postgres",
+				ImagePullPolicy: "IfNotPresent",
+				Command:         []string{"/bin/sh", "-c", "-e", podCmd},
+				LivenessProbe: &corev1.Probe{InitialDelaySeconds: 60, PeriodSeconds: 30, FailureThreshold: 3,
+					ProbeHandler: corev1.ProbeHandler{
+						Exec: &corev1.ExecAction{
+							Command: []string{"/bin/sh", "-c", "-e", livenessCmd},
+						},
+					},
+				},
+				Env: []corev1.EnvVar{
+					{
+						Name: "DB_USER",
+						ValueFrom: &corev1.EnvVarSource{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
+								Key:                  userKey,
+							},
+						},
+					},
+					{
+						Name: "PGPASSWORD",
+						ValueFrom: &corev1.EnvVarSource{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
+								Key:                  passwordKey,
+							},
+						},
+					},
+					{
+						Name: "DB_NAME",
+						ValueFrom: &corev1.EnvVarSource{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
+								Key:                  dbNameKey,
+							},
+						},
+					},
+				},
+			}},
+		},
+	}
+}
+
 func BuildDeployment(name types.NamespacedName, appLabel string) *appsv1.Deployment {
 	var two int32 = 2
 	return &appsv1.Deployment{
