@@ -155,7 +155,8 @@ go_lint: golangci-lint # Run go lint tools, fail if unchecked errors
 
 .PHONY: tf_lint
 tf_lint: terraform # Run terraform fmt to ensure terraform code is consistent
-	$(TERRAFORM) -chdir=testinfra fmt
+	$(TERRAFORM) -chdir=infra/permissions fmt
+	$(TERRAFORM) -chdir=infra/resources fmt
 
 .PHONY: go_test
 go_test: ctrl_manifests envtest # Run tests (but not internal/teste2e)
@@ -288,8 +289,8 @@ e2e_cluster_job: e2e_project terraform # Build infrastructure for e2e tests in t
   		TESTINFRA_JSON_FILE=$(LOCALBIN)/testinfra.json \
   		infra/run.sh apply_e2e_job
 
-.PHONY: e2e_cluster_new
-e2e_cluster_new: e2e_project terraform # Build infrastructure for e2e tests
+.PHONY: e2e_cluster
+e2e_cluster: e2e_project terraform # Build infrastructure for e2e tests
 	PROJECT_DIR=$(PWD) \
   		E2E_PROJECT_ID=$(E2E_PROJECT_ID) \
   		KUBECONFIG_E2E=$(KUBECONFIG_E2E) \
@@ -298,21 +299,15 @@ e2e_cluster_new: e2e_project terraform # Build infrastructure for e2e tests
   		TESTINFRA_JSON_FILE=$(LOCALBIN)/testinfra.json \
   		infra/run.sh apply
 
-.PHONY: e2e_cluster
-e2e_cluster: e2e_project terraform # Build infrastructure for e2e tests (soon to be replaced with e2e_cluster_new implementation)
-	PROJECT_DIR=$(PWD) \
-  		E2E_PROJECT_ID=$(E2E_PROJECT_ID) \
-  		KUBECONFIG_E2E=$(KUBECONFIG_E2E) \
-  		E2E_DOCKER_URL_FILE=$(E2E_DOCKER_URL_FILE) \
-  		testinfra/run.sh apply
-
 .PHONY: e2e_cluster_destroy
 e2e_cluster_destroy: e2e_project terraform # Destroy the infrastructure for e2e tests
 	PROJECT_DIR=$(PWD) \
   		E2E_PROJECT_ID=$(E2E_PROJECT_ID) \
   		KUBECONFIG_E2E=$(KUBECONFIG_E2E) \
   		E2E_DOCKER_URL_FILE=$(E2E_DOCKER_URL_FILE) \
-  		testinfra/run.sh destroy
+  		ENVIRONMENT_NAME=$(ENVIRONMENT_NAME) \
+  		TESTINFRA_JSON_FILE=$(LOCALBIN)/testinfra.json \
+  		infra/run.sh destroy
 
 .PHONY: e2e_cert_manager_deploy
 e2e_cert_manager_deploy: e2e_project helm # Deploy the certificate manager
