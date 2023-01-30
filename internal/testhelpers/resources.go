@@ -32,11 +32,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func buildPodTemplateSpec(mainPodSleep int) corev1.PodTemplateSpec {
+func buildPodTemplateSpec(mainPodSleep int, appLabel string) corev1.PodTemplateSpec {
 	podCmd := fmt.Sprintf("echo Container 1 is Running ; sleep %d", mainPodSleep)
 	return corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
-			Labels: map[string]string{"app": "busyboxon"},
+			Labels: map[string]string{"app": appLabel},
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{{
@@ -49,7 +49,7 @@ func buildPodTemplateSpec(mainPodSleep int) corev1.PodTemplateSpec {
 	}
 }
 
-func buildSecret(secretName, userKey, user, passwordKey, password, dbNameKey, dbName string) corev1.Secret {
+func BuildSecret(secretName, userKey, user, passwordKey, password, dbNameKey, dbName string) corev1.Secret {
 	return corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
@@ -67,26 +67,24 @@ func buildSecret(secretName, userKey, user, passwordKey, password, dbNameKey, db
 	}
 }
 
-func buildPgPodSpec(mainPodSleep int, secretName, userKey, passwordKey, dbNameKey string) corev1.PodTemplateSpec {
-	podCmd := fmt.Sprintf(`echo Container 1 is Running;
-	sleep 10 ; 
-	psql --host=$DB_HOST --port=$DB_PORT --username=$DB_USER '--command=select 1' 
-		--echo-queries 
-		--dbname=$DB_NAME ; 
-	sleep %d`, mainPodSleep)
+func BuildPgPodSpec(mainPodSleep int, appLabel, secretName, userKey, passwordKey, dbNameKey string) corev1.PodTemplateSpec {
+	podCmd := fmt.Sprintf(`echo Container 1 is Running
+sleep 10 
+psql --host=$DB_HOST --port=$DB_PORT --username=$DB_USER '--command=select 1' --echo-queries  --dbname=$DB_NAME  
+sleep %d`, mainPodSleep)
 
 	livenessCmd := "psql --host=$DB_HOST --port=$DB_PORT --username=$DB_USER '--command=select 1' --echo-queries --dbname=$DB_NAME"
 
 	return corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
-			Labels: map[string]string{"app": "busyboxon"},
+			Labels: map[string]string{"app": appLabel},
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:            "busybox",
+				Name:            "db-client-app",
 				Image:           "postgres",
 				ImagePullPolicy: "IfNotPresent",
-				Command:         []string{"/bin/sh", "-c", "-e", podCmd},
+				Command:         []string{"/bin/sh", "-e", "-x", "-c", podCmd},
 				LivenessProbe: &corev1.Probe{InitialDelaySeconds: 60, PeriodSeconds: 30, FailureThreshold: 3,
 					ProbeHandler: corev1.ProbeHandler{
 						Exec: &corev1.ExecAction{
@@ -141,9 +139,9 @@ func BuildDeployment(name types.NamespacedName, appLabel string) *appsv1.Deploym
 			Replicas: &two,
 			Strategy: appsv1.DeploymentStrategy{Type: "RollingUpdate"},
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"app": "busyboxon"},
+				MatchLabels: map[string]string{"app": appLabel},
 			},
-			Template: buildPodTemplateSpec(3600),
+			Template: buildPodTemplateSpec(3600, appLabel),
 		},
 	}
 }
@@ -161,9 +159,9 @@ func BuildStatefulSet(name types.NamespacedName, appLabel string) *appsv1.Statef
 			Replicas:       &two,
 			UpdateStrategy: appsv1.StatefulSetUpdateStrategy{Type: "RollingUpdate"},
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"app": "busyboxon"},
+				MatchLabels: map[string]string{"app": appLabel},
 			},
-			Template: buildPodTemplateSpec(3600),
+			Template: buildPodTemplateSpec(3600, appLabel),
 		},
 	}
 }
@@ -179,9 +177,9 @@ func BuildDaemonSet(name types.NamespacedName, appLabel string) *appsv1.DaemonSe
 		Spec: appsv1.DaemonSetSpec{
 			UpdateStrategy: appsv1.DaemonSetUpdateStrategy{Type: "RollingUpdate"},
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"app": "busyboxon"},
+				MatchLabels: map[string]string{"app": appLabel},
 			},
-			Template: buildPodTemplateSpec(3600),
+			Template: buildPodTemplateSpec(3600, appLabel),
 		},
 	}
 }
@@ -195,7 +193,7 @@ func BuildJob(name types.NamespacedName, appLabel string) *batchv1.Job {
 			Labels:    map[string]string{"app": appLabel},
 		},
 		Spec: batchv1.JobSpec{
-			Template:    buildPodTemplateSpec(30),
+			Template:    buildPodTemplateSpec(30, appLabel),
 			Parallelism: ptr(int32(1)), // run the pod 20 times, 1 at a time
 			Completions: ptr(int32(20)),
 		},
@@ -220,7 +218,7 @@ func BuildCronJob(name types.NamespacedName, appLabel string) *batchv1.CronJob {
 			Schedule: "* * * * *",
 			JobTemplate: batchv1.JobTemplateSpec{
 				Spec: batchv1.JobSpec{
-					Template: buildPodTemplateSpec(60),
+					Template: buildPodTemplateSpec(60, appLabel),
 				},
 			},
 		},
@@ -350,6 +348,57 @@ func (cc *TestCaseClient) ExpectPodContainerCount(ctx context.Context, podSelect
 	return nil
 }
 
+// ExpectPodReady finds a deployment and keeps checking until the number of
+// containers on the deployment's PodSpec.Containers == count. Returns error after 30 seconds
+// if the containers do not match.
+func (cc *TestCaseClient) ExpectPodReady(ctx context.Context, podSelector *metav1.LabelSelector, allOrAny string) error {
+
+	var (
+		countBadPods int
+		countPods    int
+	)
+
+	err := RetryUntilSuccess(24, DefaultRetryInterval, func() error {
+		countBadPods = 0
+		pods, err := ListPods(ctx, cc.Client, cc.Namespace, podSelector)
+		if err != nil {
+			return err
+		}
+		countPods = len(pods.Items)
+		if len(pods.Items) == 0 {
+			return fmt.Errorf("got 0 pods, want at least 1 pod")
+		}
+		for _, pod := range pods.Items {
+			if !isPodReady(pod) {
+				countBadPods++
+			}
+		}
+		switch {
+		case allOrAny == "all" && countBadPods > 0:
+			return fmt.Errorf("got %d pods not ready of %d pods, want 0 pods not ready", countBadPods, len(pods.Items))
+		case allOrAny == "any" && countBadPods == countPods:
+			return fmt.Errorf("got  %d pods not ready of %d pods, want at least 1 pod ready ", countBadPods, len(pods.Items))
+		}
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func isPodReady(pod corev1.Pod) bool {
+	for _, condition := range pod.Status.Conditions {
+		if condition.Type == corev1.PodReady &&
+			condition.Status == corev1.ConditionTrue {
+			return true
+		}
+	}
+	return false
+}
+
 // ExpectContainerCount finds a deployment and keeps checking until the number of
 // containers on the deployment's PodSpec.Containers == count. Returns error after 30 seconds
 // if the containers do not match.
@@ -467,6 +516,8 @@ func BuildAuthProxyWorkload(key types.NamespacedName, connectionString string) *
 		Spec: v1alpha1.AuthProxyWorkloadSpec{
 			Instances: []v1alpha1.InstanceSpec{{
 				ConnectionString: connectionString,
+				HostEnvName:      "DB_HOST",
+				PortEnvName:      "DB_PORT",
 			}},
 		},
 	}

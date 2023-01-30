@@ -147,7 +147,7 @@ func TestProxyAppliedOnNewWorkload(t *testing.T) {
 				t.Fatal("unable to create ", kind, err)
 			}
 			selector := &metav1.LabelSelector{
-				MatchLabels: map[string]string{"app": "busyboxon"},
+				MatchLabels: map[string]string{"app": appLabel},
 			}
 			t.Log("Checking for container counts", kind)
 			err = tp.ExpectPodContainerCount(ctx, selector, 2, test.allOrAny)
@@ -234,7 +234,7 @@ func TestProxyAppliedOnExistingWorkload(t *testing.T) {
 				t.Fatal("unable to create ", kind, err)
 			}
 			selector := &metav1.LabelSelector{
-				MatchLabels: map[string]string{"app": "busyboxon"},
+				MatchLabels: map[string]string{"app": appLabel},
 			}
 
 			err = tp.ExpectPodContainerCount(ctx, selector, 1, test.allOrAny)
@@ -278,6 +278,7 @@ func TestProxyAppliedOnExistingWorkload(t *testing.T) {
 		})
 	}
 }
+
 func TestConnectionCheckDeployment(t *testing.T) {
 	// When running tests during development, set the SKIP_CLEANUP=true envvar so that
 	// the test namespace remains after the test ends. By default, the test
@@ -286,7 +287,7 @@ func TestConnectionCheckDeployment(t *testing.T) {
 
 	ctx := testContext()
 
-	tp := newTestCaseClient("connectionCheckDeployment")
+	tp := newTestCaseClient("connectioncheckdeployment")
 
 	err := tp.CreateOrPatchNamespace(ctx)
 	if err != nil {
@@ -305,13 +306,25 @@ func TestConnectionCheckDeployment(t *testing.T) {
 
 	const (
 		pwlName  = "newss"
-		appLabel = "busybox"
+		appLabel = "pgsql"
 		kind     = "Deployment"
 	)
 	key := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
-	wl := &workload.DeploymentWorkload{Deployment: testhelpers.BuildDeployment(types.NamespacedName{}, "pgsql")}
-	wl.Deployment.Spec.Template.Spec = testhelpers.Build
+	wl := &workload.DeploymentWorkload{Deployment: testhelpers.BuildDeployment(types.NamespacedName{}, appLabel)}
+	s := testhelpers.BuildSecret("db-secret",
+		"DB_USER", "postgres",
+		"DB_PASS", tp.DBRootPassword,
+		"DB_NAME", tp.DBName)
+	s.SetNamespace(tp.Namespace)
+
+	err = tp.Client.Create(ctx, &s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wl.Deployment.Spec.Template = testhelpers.BuildPgPodSpec(600,
+		appLabel, "db-secret", "DB_USER", "DB_PASS", "DB_NAME")
 	t.Log("Creating AuthProxyWorkload")
+
 	err = tp.CreateAuthProxyWorkload(ctx, key, appLabel, tp.ConnectionString, kind)
 	if err != nil {
 		t.Fatal(err)
@@ -331,12 +344,18 @@ func TestConnectionCheckDeployment(t *testing.T) {
 		t.Fatal("unable to create ", kind, err)
 	}
 	selector := &metav1.LabelSelector{
-		MatchLabels: map[string]string{"app": "busyboxon"},
+		MatchLabels: map[string]string{"app": appLabel},
 	}
 	t.Log("Checking for container counts", kind)
 	err = tp.ExpectPodContainerCount(ctx, selector, 2, "all")
 	if err != nil {
 		t.Error(err)
 	}
+	t.Log("Checking for ready", kind)
+	err = tp.ExpectPodReady(ctx, selector, "all")
+	if err != nil {
+		t.Error(err)
+	}
+
 	t.Log("Done, OK", kind)
 }

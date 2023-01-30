@@ -98,11 +98,6 @@ spec:
                 secretKeyRef:
                   name: gke-cloud-sql-operator-demo
                   key: DB_USER
-            - name: DB_USER
-              valueFrom:
-                secretKeyRef:
-                  name: gke-cloud-sql-operator-demo
-                  key: DB_USER
             - name: PGPASSWORD # The env name PGPASSWORD is specific to the psql command.
               valueFrom:
                 secretKeyRef:
