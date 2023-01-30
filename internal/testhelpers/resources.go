@@ -405,7 +405,7 @@ func (cc *TestCaseClient) ExpectPodReady(ctx context.Context, podSelector *metav
 func isPodReady(pod corev1.Pod) bool {
 	for _, condition := range pod.Status.Conditions {
 		if condition.Type == corev1.PodReady &&
-				condition.Status == corev1.ConditionTrue {
+			condition.Status == corev1.ConditionTrue {
 			return true
 		}
 	}
