@@ -279,7 +279,7 @@ func TestProxyAppliedOnExistingWorkload(t *testing.T) {
 	}
 }
 
-func TestConnectionCheckDeployment(t *testing.T) {
+func TestPostgresConnection(t *testing.T) {
 	// When running tests during development, set the SKIP_CLEANUP=true envvar so that
 	// the test namespace remains after the test ends. By default, the test
 	// namespace will be deleted when the test exits.
@@ -287,7 +287,7 @@ func TestConnectionCheckDeployment(t *testing.T) {
 
 	ctx := testContext()
 
-	tp := newTestCaseClient("connectioncheckdeployment")
+	tp := newTestCaseClient("pgconnection")
 
 	err := tp.CreateOrPatchNamespace(ctx)
 	if err != nil {
@@ -310,17 +310,18 @@ func TestConnectionCheckDeployment(t *testing.T) {
 		kind     = "Deployment"
 	)
 	key := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
-	wl := &workload.DeploymentWorkload{Deployment: testhelpers.BuildDeployment(types.NamespacedName{}, appLabel)}
+
 	s := testhelpers.BuildSecret("db-secret",
 		"DB_USER", "postgres",
 		"DB_PASS", tp.DBRootPassword,
 		"DB_NAME", tp.DBName)
 	s.SetNamespace(tp.Namespace)
-
 	err = tp.Client.Create(ctx, &s)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	wl := &workload.DeploymentWorkload{Deployment: testhelpers.BuildDeployment(types.NamespacedName{}, appLabel)}
 	wl.Deployment.Spec.Template = testhelpers.BuildPgPodSpec(600,
 		appLabel, "db-secret", "DB_USER", "DB_PASS", "DB_NAME")
 	t.Log("Creating AuthProxyWorkload")

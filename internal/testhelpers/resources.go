@@ -49,6 +49,8 @@ func buildPodTemplateSpec(mainPodSleep int, appLabel string) corev1.PodTemplateS
 	}
 }
 
+// BuildSecret creates a Secret object containing database information to be used
+// by the pod to connect to the database.
 func BuildSecret(secretName, userKey, user, passwordKey, password, dbNameKey, dbName string) corev1.Secret {
 	return corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
@@ -67,6 +69,9 @@ func BuildSecret(secretName, userKey, user, passwordKey, password, dbNameKey, db
 	}
 }
 
+// BuildPgPodSpec creates a podspec specific to Postgres databases that will connect
+// and run a trivial query. It also configures the pod's Liveness probe so that
+// the pod's `Ready` condition is `Ready` when the database can connect.
 func BuildPgPodSpec(mainPodSleep int, appLabel, secretName, userKey, passwordKey, dbNameKey string) corev1.PodTemplateSpec {
 	podCmd := fmt.Sprintf(`echo Container 1 is Running
 sleep 10 
@@ -126,6 +131,8 @@ sleep %d`, mainPodSleep)
 	}
 }
 
+// BuildDeployment creates a StatefulSet object with a default pod template
+// that will sleep for 1 hour.
 func BuildDeployment(name types.NamespacedName, appLabel string) *appsv1.Deployment {
 	var two int32 = 2
 	return &appsv1.Deployment{
@@ -146,6 +153,8 @@ func BuildDeployment(name types.NamespacedName, appLabel string) *appsv1.Deploym
 	}
 }
 
+// BuildStatefulSet creates a StatefulSet object with a default pod template
+// that will sleep for 1 hour.
 func BuildStatefulSet(name types.NamespacedName, appLabel string) *appsv1.StatefulSet {
 	var two int32 = 2
 	return &appsv1.StatefulSet{
@@ -166,6 +175,8 @@ func BuildStatefulSet(name types.NamespacedName, appLabel string) *appsv1.Statef
 	}
 }
 
+// BuildDaemonSet creates a DaemonSet object with a default pod template
+// that will sleep for 1 hour.
 func BuildDaemonSet(name types.NamespacedName, appLabel string) *appsv1.DaemonSet {
 	return &appsv1.DaemonSet{
 		TypeMeta: metav1.TypeMeta{Kind: "DaemonSet", APIVersion: "apps/v1"},
@@ -184,6 +195,8 @@ func BuildDaemonSet(name types.NamespacedName, appLabel string) *appsv1.DaemonSe
 	}
 }
 
+// BuildJob creates a Job object with a default pod template
+// that will sleep for 30 seconds.
 func BuildJob(name types.NamespacedName, appLabel string) *batchv1.Job {
 	job := &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{Kind: "Job", APIVersion: "batch/v1"},
@@ -206,6 +219,8 @@ func ptr[T any](i T) *T {
 	return &i
 }
 
+// BuildCronJob creates CronJob object with a default pod template
+// that will sleep for 60 seconds.
 func BuildCronJob(name types.NamespacedName, appLabel string) *batchv1.CronJob {
 	job := &batchv1.CronJob{
 		TypeMeta: metav1.TypeMeta{Kind: "CronJob", APIVersion: "batch/v1"},
@@ -228,6 +243,8 @@ func BuildCronJob(name types.NamespacedName, appLabel string) *batchv1.CronJob {
 
 }
 
+// CreateWorkload Creates the workload in Kubernetes, waiting to confirm that
+// the workload exists.
 func (cc *TestCaseClient) CreateWorkload(ctx context.Context, o client.Object) error {
 	err := cc.Client.Create(ctx, o)
 	if err != nil {
@@ -358,7 +375,7 @@ func (cc *TestCaseClient) ExpectPodReady(ctx context.Context, podSelector *metav
 		countPods    int
 	)
 
-	err := RetryUntilSuccess(24, DefaultRetryInterval, func() error {
+	return RetryUntilSuccess(24, DefaultRetryInterval, func() error {
 		countBadPods = 0
 		pods, err := ListPods(ctx, cc.Client, cc.Namespace, podSelector)
 		if err != nil {
@@ -378,21 +395,17 @@ func (cc *TestCaseClient) ExpectPodReady(ctx context.Context, podSelector *metav
 			return fmt.Errorf("got %d pods not ready of %d pods, want 0 pods not ready", countBadPods, len(pods.Items))
 		case allOrAny == "any" && countBadPods == countPods:
 			return fmt.Errorf("got  %d pods not ready of %d pods, want at least 1 pod ready ", countBadPods, len(pods.Items))
+		default:
+			return nil
 		}
-		return nil
 	})
 
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func isPodReady(pod corev1.Pod) bool {
 	for _, condition := range pod.Status.Conditions {
 		if condition.Type == corev1.PodReady &&
-			condition.Status == corev1.ConditionTrue {
+				condition.Status == corev1.ConditionTrue {
 			return true
 		}
 	}
@@ -503,6 +516,9 @@ func (cc *TestCaseClient) CreateDeploymentReplicaSetAndPods(ctx context.Context,
 	}
 	return rs, pods, nil
 }
+
+// BuildAuthProxyWorkload creates an AuthProxyWorkload object with a
+// single connection instance.
 func BuildAuthProxyWorkload(key types.NamespacedName, connectionString string) *v1alpha1.AuthProxyWorkload {
 	return &v1alpha1.AuthProxyWorkload{
 		TypeMeta: metav1.TypeMeta{
