@@ -31,6 +31,8 @@ type TestCaseClient struct {
 	Namespace        string
 	ConnectionString string
 	ProxyImageURL    string
+	DBRootPassword   string
+	DBName           string
 }
 
 func NewNamespaceName(prefix string) string {

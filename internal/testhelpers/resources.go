@@ -32,11 +32,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func buildPodTemplateSpec(mainPodSleep int) corev1.PodTemplateSpec {
+func buildPodTemplateSpec(mainPodSleep int, appLabel string) corev1.PodTemplateSpec {
 	podCmd := fmt.Sprintf("echo Container 1 is Running ; sleep %d", mainPodSleep)
 	return corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
-			Labels: map[string]string{"app": "busyboxon"},
+			Labels: map[string]string{"app": appLabel},
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{{
@@ -49,6 +49,90 @@ func buildPodTemplateSpec(mainPodSleep int) corev1.PodTemplateSpec {
 	}
 }
 
+// BuildSecret creates a Secret object containing database information to be used
+// by the pod to connect to the database.
+func BuildSecret(secretName, userKey, user, passwordKey, password, dbNameKey, dbName string) corev1.Secret {
+	return corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: secretName,
+		},
+		Type: "Opaque",
+		Data: map[string][]byte{
+			userKey:     []byte(user),
+			passwordKey: []byte(password),
+			dbNameKey:   []byte(dbName),
+		},
+	}
+}
+
+// BuildPgPodSpec creates a podspec specific to Postgres databases that will connect
+// and run a trivial query. It also configures the pod's Liveness probe so that
+// the pod's `Ready` condition is `Ready` when the database can connect.
+func BuildPgPodSpec(mainPodSleep int, appLabel, secretName, userKey, passwordKey, dbNameKey string) corev1.PodTemplateSpec {
+	podCmd := fmt.Sprintf(`echo Container 1 is Running
+sleep 10 
+psql --host=$DB_HOST --port=$DB_PORT --username=$DB_USER '--command=select 1' --echo-queries  --dbname=$DB_NAME  
+sleep %d`, mainPodSleep)
+
+	livenessCmd := "psql --host=$DB_HOST --port=$DB_PORT --username=$DB_USER '--command=select 1' --echo-queries --dbname=$DB_NAME"
+
+	return corev1.PodTemplateSpec{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{"app": appLabel},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Name:            "db-client-app",
+				Image:           "postgres",
+				ImagePullPolicy: "IfNotPresent",
+				Command:         []string{"/bin/sh", "-e", "-x", "-c", podCmd},
+				LivenessProbe: &corev1.Probe{InitialDelaySeconds: 60, PeriodSeconds: 30, FailureThreshold: 3,
+					ProbeHandler: corev1.ProbeHandler{
+						Exec: &corev1.ExecAction{
+							Command: []string{"/bin/sh", "-c", "-e", livenessCmd},
+						},
+					},
+				},
+				Env: []corev1.EnvVar{
+					{
+						Name: "DB_USER",
+						ValueFrom: &corev1.EnvVarSource{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
+								Key:                  userKey,
+							},
+						},
+					},
+					{
+						Name: "PGPASSWORD",
+						ValueFrom: &corev1.EnvVarSource{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
+								Key:                  passwordKey,
+							},
+						},
+					},
+					{
+						Name: "DB_NAME",
+						ValueFrom: &corev1.EnvVarSource{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
+								Key:                  dbNameKey,
+							},
+						},
+					},
+				},
+			}},
+		},
+	}
+}
+
+// BuildDeployment creates a StatefulSet object with a default pod template
+// that will sleep for 1 hour.
 func BuildDeployment(name types.NamespacedName, appLabel string) *appsv1.Deployment {
 	var two int32 = 2
 	return &appsv1.Deployment{
@@ -62,13 +146,15 @@ func BuildDeployment(name types.NamespacedName, appLabel string) *appsv1.Deploym
 			Replicas: &two,
 			Strategy: appsv1.DeploymentStrategy{Type: "RollingUpdate"},
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"app": "busyboxon"},
+				MatchLabels: map[string]string{"app": appLabel},
 			},
-			Template: buildPodTemplateSpec(3600),
+			Template: buildPodTemplateSpec(3600, appLabel),
 		},
 	}
 }
 
+// BuildStatefulSet creates a StatefulSet object with a default pod template
+// that will sleep for 1 hour.
 func BuildStatefulSet(name types.NamespacedName, appLabel string) *appsv1.StatefulSet {
 	var two int32 = 2
 	return &appsv1.StatefulSet{
@@ -82,13 +168,15 @@ func BuildStatefulSet(name types.NamespacedName, appLabel string) *appsv1.Statef
 			Replicas:       &two,
 			UpdateStrategy: appsv1.StatefulSetUpdateStrategy{Type: "RollingUpdate"},
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"app": "busyboxon"},
+				MatchLabels: map[string]string{"app": appLabel},
 			},
-			Template: buildPodTemplateSpec(3600),
+			Template: buildPodTemplateSpec(3600, appLabel),
 		},
 	}
 }
 
+// BuildDaemonSet creates a DaemonSet object with a default pod template
+// that will sleep for 1 hour.
 func BuildDaemonSet(name types.NamespacedName, appLabel string) *appsv1.DaemonSet {
 	return &appsv1.DaemonSet{
 		TypeMeta: metav1.TypeMeta{Kind: "DaemonSet", APIVersion: "apps/v1"},
@@ -100,13 +188,15 @@ func BuildDaemonSet(name types.NamespacedName, appLabel string) *appsv1.DaemonSe
 		Spec: appsv1.DaemonSetSpec{
 			UpdateStrategy: appsv1.DaemonSetUpdateStrategy{Type: "RollingUpdate"},
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"app": "busyboxon"},
+				MatchLabels: map[string]string{"app": appLabel},
 			},
-			Template: buildPodTemplateSpec(3600),
+			Template: buildPodTemplateSpec(3600, appLabel),
 		},
 	}
 }
 
+// BuildJob creates a Job object with a default pod template
+// that will sleep for 30 seconds.
 func BuildJob(name types.NamespacedName, appLabel string) *batchv1.Job {
 	job := &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{Kind: "Job", APIVersion: "batch/v1"},
@@ -116,7 +206,7 @@ func BuildJob(name types.NamespacedName, appLabel string) *batchv1.Job {
 			Labels:    map[string]string{"app": appLabel},
 		},
 		Spec: batchv1.JobSpec{
-			Template:    buildPodTemplateSpec(30),
+			Template:    buildPodTemplateSpec(30, appLabel),
 			Parallelism: ptr(int32(1)), // run the pod 20 times, 1 at a time
 			Completions: ptr(int32(20)),
 		},
@@ -129,6 +219,8 @@ func ptr[T any](i T) *T {
 	return &i
 }
 
+// BuildCronJob creates CronJob object with a default pod template
+// that will sleep for 60 seconds.
 func BuildCronJob(name types.NamespacedName, appLabel string) *batchv1.CronJob {
 	job := &batchv1.CronJob{
 		TypeMeta: metav1.TypeMeta{Kind: "CronJob", APIVersion: "batch/v1"},
@@ -141,7 +233,7 @@ func BuildCronJob(name types.NamespacedName, appLabel string) *batchv1.CronJob {
 			Schedule: "* * * * *",
 			JobTemplate: batchv1.JobTemplateSpec{
 				Spec: batchv1.JobSpec{
-					Template: buildPodTemplateSpec(60),
+					Template: buildPodTemplateSpec(60, appLabel),
 				},
 			},
 		},
@@ -151,6 +243,8 @@ func BuildCronJob(name types.NamespacedName, appLabel string) *batchv1.CronJob {
 
 }
 
+// CreateWorkload Creates the workload in Kubernetes, waiting to confirm that
+// the workload exists.
 func (cc *TestCaseClient) CreateWorkload(ctx context.Context, o client.Object) error {
 	err := cc.Client.Create(ctx, o)
 	if err != nil {
@@ -271,6 +365,53 @@ func (cc *TestCaseClient) ExpectPodContainerCount(ctx context.Context, podSelect
 	return nil
 }
 
+// ExpectPodReady finds a deployment and keeps checking until the number of
+// containers on the deployment's PodSpec.Containers == count. Returns error after 30 seconds
+// if the containers do not match.
+func (cc *TestCaseClient) ExpectPodReady(ctx context.Context, podSelector *metav1.LabelSelector, allOrAny string) error {
+
+	var (
+		countBadPods int
+		countPods    int
+	)
+
+	return RetryUntilSuccess(24, DefaultRetryInterval, func() error {
+		countBadPods = 0
+		pods, err := ListPods(ctx, cc.Client, cc.Namespace, podSelector)
+		if err != nil {
+			return err
+		}
+		countPods = len(pods.Items)
+		if len(pods.Items) == 0 {
+			return fmt.Errorf("got 0 pods, want at least 1 pod")
+		}
+		for _, pod := range pods.Items {
+			if !isPodReady(pod) {
+				countBadPods++
+			}
+		}
+		switch {
+		case allOrAny == "all" && countBadPods > 0:
+			return fmt.Errorf("got %d pods not ready of %d pods, want 0 pods not ready", countBadPods, len(pods.Items))
+		case allOrAny == "any" && countBadPods == countPods:
+			return fmt.Errorf("got  %d pods not ready of %d pods, want at least 1 pod ready ", countBadPods, len(pods.Items))
+		default:
+			return nil
+		}
+	})
+
+}
+
+func isPodReady(pod corev1.Pod) bool {
+	for _, condition := range pod.Status.Conditions {
+		if condition.Type == corev1.PodReady &&
+			condition.Status == corev1.ConditionTrue {
+			return true
+		}
+	}
+	return false
+}
+
 // ExpectContainerCount finds a deployment and keeps checking until the number of
 // containers on the deployment's PodSpec.Containers == count. Returns error after 30 seconds
 // if the containers do not match.
@@ -375,6 +516,9 @@ func (cc *TestCaseClient) CreateDeploymentReplicaSetAndPods(ctx context.Context,
 	}
 	return rs, pods, nil
 }
+
+// BuildAuthProxyWorkload creates an AuthProxyWorkload object with a
+// single connection instance.
 func BuildAuthProxyWorkload(key types.NamespacedName, connectionString string) *v1alpha1.AuthProxyWorkload {
 	return &v1alpha1.AuthProxyWorkload{
 		TypeMeta: metav1.TypeMeta{
@@ -388,6 +532,8 @@ func BuildAuthProxyWorkload(key types.NamespacedName, connectionString string) *
 		Spec: v1alpha1.AuthProxyWorkloadSpec{
 			Instances: []v1alpha1.InstanceSpec{{
 				ConnectionString: connectionString,
+				HostEnvName:      "DB_HOST",
+				PortEnvName:      "DB_PORT",
 			}},
 		},
 	}
