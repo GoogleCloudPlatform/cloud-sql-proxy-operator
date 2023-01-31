@@ -53,40 +53,24 @@ var (
 	operatorURL   string
 )
 
-func newTestCaseClient(ns string) *testhelpers.TestCaseClient {
-	return newPublicPostgresClient(ns)
-}
 func newPublicPostgresClient(ns string) *testhelpers.TestCaseClient {
-	return &testhelpers.TestCaseClient{
-		Client:           c,
-		Namespace:        testhelpers.NewNamespaceName(ns),
-		ConnectionString: infra.Public.Postgres.InstanceConnectionString,
-		DBRootUsername:   infra.Public.Postgres.RootUser,
-		DBRootPassword:   infra.Public.Postgres.RootPassword,
-		DBName:           infra.Public.Postgres.DBName,
-		ProxyImageURL:    proxyImageURL,
-	}
+	return newTestClient(ns, infra.Public.Postgres)
 }
-
 func newPublicMysqlClient(ns string) *testhelpers.TestCaseClient {
-	return &testhelpers.TestCaseClient{
-		Client:           c,
-		Namespace:        testhelpers.NewNamespaceName(ns),
-		ConnectionString: infra.Public.MySQL.InstanceConnectionString,
-		DBRootUsername:   infra.Public.MySQL.RootUser,
-		DBRootPassword:   infra.Public.MySQL.RootPassword,
-		DBName:           infra.Public.MySQL.DBName,
-		ProxyImageURL:    proxyImageURL,
-	}
+	return newTestClient(ns, infra.Public.MySQL)
 }
 func newPublicMssqlClient(ns string) *testhelpers.TestCaseClient {
+	return newTestClient(ns, infra.Public.MSSQL)
+}
+
+func newTestClient(ns string, db testDatabase) *testhelpers.TestCaseClient {
 	return &testhelpers.TestCaseClient{
 		Client:           c,
 		Namespace:        testhelpers.NewNamespaceName(ns),
-		ConnectionString: infra.Public.MSSQL.InstanceConnectionString,
-		DBRootUsername:   infra.Public.MSSQL.RootUser,
-		DBRootPassword:   infra.Public.MSSQL.RootPassword,
-		DBName:           infra.Public.MSSQL.DBName,
+		ConnectionString: db.InstanceConnectionString,
+		DBRootUsername:   db.RootUser,
+		DBRootPassword:   db.RootPassword,
+		DBName:           db.DBName,
 		ProxyImageURL:    proxyImageURL,
 	}
 }

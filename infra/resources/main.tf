@@ -45,23 +45,23 @@ locals {
     public = {
       postgres = {
         instance     = google_sql_database_instance.instance.connection_name
-        dbName           = google_sql_database.db.name
-        rootUser = "postgres"
+        dbName       = google_sql_database.db.name
+        rootUser     = "postgres"
         rootPassword = random_id.db_password.hex
       }
       mysql = {
         instance     = google_sql_database_instance.mysql.connection_name
-        dbName           = google_sql_database.db.name
-        rootUser = google_sql_user.mysql_user.name
+        dbName       = google_sql_database.db.name
+        rootUser     = google_sql_user.mysql_user.name
         rootPassword = google_sql_user.mysql_user.password
       }
       mssql = {
         instance     = google_sql_database_instance.mssql.connection_name
-        dbName           = google_sql_database.db.name
-        rootUser = google_sql_user.mssql_user.name
+        dbName       = google_sql_database.db.name
+        rootUser     = google_sql_user.mssql_user.name
         rootPassword = google_sql_user.mssql_user.password
       }
-      kubeconfig   = var.kubeconfig_path
+      kubeconfig = var.kubeconfig_path
     }
   }
 }

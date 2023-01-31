@@ -50,9 +50,15 @@ func buildPodTemplateSpec(mainPodSleep int, appLabel string) corev1.PodTemplateS
 	}
 }
 
+const (
+	userKey     = "DB_USER"
+	passwordKey = "DB_PASS"
+	dbNameKey   = "DB_NAME"
+)
+
 // BuildSecret creates a Secret object containing database information to be used
 // by the pod to connect to the database.
-func BuildSecret(secretName, userKey, user, passwordKey, password, dbNameKey, dbName string) corev1.Secret {
+func BuildSecret(secretName, user, password, dbName string) corev1.Secret {
 	return corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
@@ -73,157 +79,42 @@ func BuildSecret(secretName, userKey, user, passwordKey, password, dbNameKey, db
 // BuildPgPodSpec creates a podspec specific to Postgres databases that will connect
 // and run a trivial query. It also configures the pod's Liveness probe so that
 // the pod's `Ready` condition is `Ready` when the database can connect.
-func BuildPgPodSpec(mainPodSleep int, appLabel, secretName, userKey, passwordKey, dbNameKey string) corev1.PodTemplateSpec {
-	podCmd := fmt.Sprintf(`echo Container 1 is Running
-sleep 10 
-psql --host=$DB_HOST --port=$DB_PORT --username=$DB_USER '--command=select 1' --echo-queries  --dbname=$DB_NAME  
-sleep %d`, mainPodSleep)
+func BuildPgPodSpec(mainPodSleep int, appLabel, secretName string) corev1.PodTemplateSpec {
 
 	livenessCmd := "psql --host=$DB_HOST --port=$DB_PORT --username=$DB_USER '--command=select 1' --echo-queries --dbname=$DB_NAME"
+	imageName := "postgres"
+	passEnvVarName := "PGPASSWORD"
 
-	return corev1.PodTemplateSpec{
-		ObjectMeta: metav1.ObjectMeta{
-			Labels: map[string]string{"app": appLabel},
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{{
-				Name:            "db-client-app",
-				Image:           "postgres",
-				ImagePullPolicy: "IfNotPresent",
-				Command:         []string{"/bin/sh", "-e", "-x", "-c", podCmd},
-				LivenessProbe: &corev1.Probe{InitialDelaySeconds: 10, PeriodSeconds: 10, FailureThreshold: 3,
-					ProbeHandler: corev1.ProbeHandler{
-						Exec: &corev1.ExecAction{
-							Command: []string{"/bin/sh", "-c", "-e", livenessCmd},
-						},
-					},
-				},
-				ReadinessProbe: &corev1.Probe{InitialDelaySeconds: 10, PeriodSeconds: 10, FailureThreshold: 3,
-					ProbeHandler: corev1.ProbeHandler{
-						Exec: &corev1.ExecAction{
-							Command: []string{"/bin/sh", "-c", "-e", livenessCmd},
-						},
-					},
-				},
-				Env: []corev1.EnvVar{
-					{
-						Name: "DB_USER",
-						ValueFrom: &corev1.EnvVarSource{
-							SecretKeyRef: &corev1.SecretKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
-								Key:                  userKey,
-							},
-						},
-					},
-					{
-						Name: "PGPASSWORD",
-						ValueFrom: &corev1.EnvVarSource{
-							SecretKeyRef: &corev1.SecretKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
-								Key:                  passwordKey,
-							},
-						},
-					},
-					{
-						Name: "DB_NAME",
-						ValueFrom: &corev1.EnvVarSource{
-							SecretKeyRef: &corev1.SecretKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
-								Key:                  dbNameKey,
-							},
-						},
-					},
-				},
-			}},
-		},
-	}
+	return buildConnectPodSpec(mainPodSleep, appLabel, secretName, livenessCmd, passEnvVarName, imageName)
 }
 
 // BuildMysqlPodSpec creates a podspec specific to Mysql databases that will connect
 // and run a trivial query. It also configures the pod's Liveness probe so that
 // the pod's `Ready` condition is `Ready` when the database can connect.
-func BuildMysqlPodSpec(mainPodSleep int, appLabel, secretName, userKey, passwordKey, dbNameKey string) corev1.PodTemplateSpec {
+func BuildMysqlPodSpec(mainPodSleep int, appLabel, secretName string) corev1.PodTemplateSpec {
 	livenessCmd := "mysql --host=$DB_HOST --port=$DB_PORT --user=$DB_USER --password=$DB_PASS --database=$DB_NAME '--execute=select now()' "
+	imageName := "mysql"
+	passEnvVarName := "DB_PASS"
 
-	podCmd := fmt.Sprintf(`echo Container 1 is Running
-sleep 10 
-%s  
-sleep %d`, livenessCmd, mainPodSleep)
-
-	return corev1.PodTemplateSpec{
-		ObjectMeta: metav1.ObjectMeta{
-			Labels: map[string]string{"app": appLabel},
-		},
-
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{{
-				Name:            "db-client-app",
-				Image:           "mysql",
-				ImagePullPolicy: "IfNotPresent",
-				Command:         []string{"/bin/sh", "-e", "-x", "-c", podCmd},
-				Resources: corev1.ResourceRequirements{
-					Requests: map[corev1.ResourceName]resource.Quantity{
-						corev1.ResourceCPU: *resource.NewMilliQuantity(500, resource.DecimalExponent),
-					},
-				},
-				LivenessProbe: &corev1.Probe{InitialDelaySeconds: 10, PeriodSeconds: 30, FailureThreshold: 3,
-					ProbeHandler: corev1.ProbeHandler{
-						Exec: &corev1.ExecAction{
-							Command: []string{"/bin/sh", "-c", "-e", livenessCmd},
-						},
-					},
-				},
-				ReadinessProbe: &corev1.Probe{InitialDelaySeconds: 10, PeriodSeconds: 30, FailureThreshold: 3,
-					ProbeHandler: corev1.ProbeHandler{
-						Exec: &corev1.ExecAction{
-							Command: []string{"/bin/sh", "-c", "-e", livenessCmd},
-						},
-					},
-				},
-				Env: []corev1.EnvVar{
-					{
-						Name: "DB_USER",
-						ValueFrom: &corev1.EnvVarSource{
-							SecretKeyRef: &corev1.SecretKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
-								Key:                  userKey,
-							},
-						},
-					},
-					{
-						Name: "DB_PASS",
-						ValueFrom: &corev1.EnvVarSource{
-							SecretKeyRef: &corev1.SecretKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
-								Key:                  passwordKey,
-							},
-						},
-					},
-					{
-						Name: "DB_NAME",
-						ValueFrom: &corev1.EnvVarSource{
-							SecretKeyRef: &corev1.SecretKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
-								Key:                  dbNameKey,
-							},
-						},
-					},
-				},
-			}},
-		},
-	}
+	return buildConnectPodSpec(mainPodSleep, appLabel, secretName, livenessCmd, passEnvVarName, imageName)
 }
 
 // BuildMSSQLPodSpec creates a podspec specific to Mysql databases that will connect
 // and run a trivial query. It also configures the pod's Liveness probe so that
 // the pod's `Ready` condition is `Ready` when the database can connect.
-func BuildMSSQLPodSpec(mainPodSleep int, appLabel, secretName, userKey, passwordKey, dbNameKey string) corev1.PodTemplateSpec {
+func BuildMSSQLPodSpec(mainPodSleep int, appLabel, secretName string) corev1.PodTemplateSpec {
 	livenessCmd := "/opt/mssql-tools/bin/sqlcmd -S \"tcp:$DB_HOST,$DB_PORT\" -U $DB_USER -P $DB_PASS -Q \"use $DB_NAME ; select 1 ;\""
+	imageName := "mcr.microsoft.com/mssql-tools"
+	passEnvVarName := "DB_PASS"
 
+	return buildConnectPodSpec(mainPodSleep, appLabel, secretName, livenessCmd, passEnvVarName, imageName)
+}
+
+func buildConnectPodSpec(mainPodSleep int, appLabel, secretName, livenessCmd, passEnvVarName, imageName string) corev1.PodTemplateSpec {
 	podCmd := fmt.Sprintf(`echo Container 1 is Running
-sleep 30
-%s
-sleep %d`, livenessCmd, mainPodSleep)
+	sleep 30
+	%s
+	sleep %d`, livenessCmd, mainPodSleep)
 
 	return corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
@@ -233,7 +124,7 @@ sleep %d`, livenessCmd, mainPodSleep)
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{{
 				Name:            "db-client-app",
-				Image:           "mcr.microsoft.com/mssql-tools",
+				Image:           imageName,
 				ImagePullPolicy: "IfNotPresent",
 				Command:         []string{"/bin/sh", "-e", "-x", "-c", podCmd},
 				Resources: corev1.ResourceRequirements{
@@ -266,7 +157,7 @@ sleep %d`, livenessCmd, mainPodSleep)
 						},
 					},
 					{
-						Name: "DB_PASS",
+						Name: passEnvVarName,
 						ValueFrom: &corev1.EnvVarSource{
 							SecretKeyRef: &corev1.SecretKeySelector{
 								LocalObjectReference: corev1.LocalObjectReference{Name: secretName},

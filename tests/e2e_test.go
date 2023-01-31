@@ -45,7 +45,7 @@ func TestMain(m *testing.M) {
 
 func TestCreateAndDeleteResource(t *testing.T) {
 	ctx := testContext()
-	tcc := newTestCaseClient("create")
+	tcc := newPublicPostgresClient("create")
 	res, err := tcc.CreateResource(ctx)
 	if err != nil {
 		t.Error(err)
@@ -105,7 +105,7 @@ func TestProxyAppliedOnNewWorkload(t *testing.T) {
 			ctx := testContext()
 
 			kind := test.o.GetObjectKind().GroupVersionKind().Kind
-			tp := newTestCaseClient("new" + strings.ToLower(kind))
+			tp := newPublicPostgresClient("new" + strings.ToLower(kind))
 
 			err := tp.CreateOrPatchNamespace(ctx)
 			if err != nil {
@@ -204,7 +204,7 @@ func TestProxyAppliedOnExistingWorkload(t *testing.T) {
 			ctx := testContext()
 			kind := test.o.Object().GetObjectKind().GroupVersionKind().Kind
 
-			tp := newTestCaseClient("modify" + strings.ToLower(kind))
+			tp := newPublicPostgresClient("modify" + strings.ToLower(kind))
 
 			err := tp.CreateOrPatchNamespace(ctx)
 			if err != nil {
@@ -300,19 +300,19 @@ func TestPublicDbConnections(t *testing.T) {
 		{
 			name:        "postgres",
 			c:           newPublicPostgresClient("postgresconn"),
-			podTemplate: testhelpers.BuildPgPodSpec(600, appLabel, "db-secret", "DB_USER", "DB_PASS", "DB_NAME"),
+			podTemplate: testhelpers.BuildPgPodSpec(600, appLabel, "db-secret"),
 			allOrAny:    "all",
 		},
 		{
 			name:        "mysql",
 			c:           newPublicMysqlClient("mysqlconn"),
-			podTemplate: testhelpers.BuildMysqlPodSpec(600, appLabel, "db-secret", "DB_USER", "DB_PASS", "DB_NAME"),
+			podTemplate: testhelpers.BuildMysqlPodSpec(600, appLabel, "db-secret"),
 			allOrAny:    "all",
 		},
 		{
 			name:        "mssql",
 			c:           newPublicMssqlClient("mssqlconn"),
-			podTemplate: testhelpers.BuildMSSQLPodSpec(600, appLabel, "db-secret", "DB_USER", "DB_PASS", "DB_NAME"),
+			podTemplate: testhelpers.BuildMSSQLPodSpec(600, appLabel, "db-secret"),
 			allOrAny:    "all",
 		},
 	}
@@ -340,10 +340,7 @@ func TestPublicDbConnections(t *testing.T) {
 
 			key := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
 
-			s := testhelpers.BuildSecret("db-secret",
-				"DB_USER", tp.DBRootUsername,
-				"DB_PASS", tp.DBRootPassword,
-				"DB_NAME", tp.DBName)
+			s := testhelpers.BuildSecret("db-secret", tp.DBRootUsername, tp.DBRootPassword, tp.DBName)
 			s.SetNamespace(tp.Namespace)
 			err = tp.Client.Create(ctx, &s)
 			if err != nil {
