@@ -26,11 +26,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+type DbInstance struct {
+}
 type TestCaseClient struct {
 	Client           client.Client
 	Namespace        string
 	ConnectionString string
 	ProxyImageURL    string
+	DBRootUsername   string
 	DBRootPassword   string
 	DBName           string
 }

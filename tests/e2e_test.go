@@ -22,6 +22,7 @@ import (
 
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -279,84 +280,115 @@ func TestProxyAppliedOnExistingWorkload(t *testing.T) {
 	}
 }
 
-func TestPostgresConnection(t *testing.T) {
+func TestPublicDbConnections(t *testing.T) {
 	// When running tests during development, set the SKIP_CLEANUP=true envvar so that
 	// the test namespace remains after the test ends. By default, the test
 	// namespace will be deleted when the test exits.
 	skipCleanup := loadValue("SKIP_CLEANUP", "", "false") == "true"
-
-	ctx := testContext()
-
-	tp := newTestCaseClient("pgconnection")
-
-	err := tp.CreateOrPatchNamespace(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if skipCleanup {
-			return
-		}
-
-		err = tp.DeleteNamespace(ctx)
-		if err != nil {
-			t.Fatal(err)
-		}
-	})
-
 	const (
 		pwlName  = "newss"
-		appLabel = "pgsql"
+		appLabel = "client"
 		kind     = "Deployment"
 	)
-	key := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
 
-	s := testhelpers.BuildSecret("db-secret",
-		"DB_USER", "postgres",
-		"DB_PASS", tp.DBRootPassword,
-		"DB_NAME", tp.DBName)
-	s.SetNamespace(tp.Namespace)
-	err = tp.Client.Create(ctx, &s)
-	if err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		name        string
+		c           *testhelpers.TestCaseClient
+		podTemplate corev1.PodTemplateSpec
+		allOrAny    string
+	}{
+		{
+			name:        "postgres",
+			c:           newPublicPostgresClient("postgresconn"),
+			podTemplate: testhelpers.BuildPgPodSpec(600, appLabel, "db-secret", "DB_USER", "DB_PASS", "DB_NAME"),
+			allOrAny:    "all",
+		},
+		{
+			name:        "mysql",
+			c:           newPublicMysqlClient("mysqlconn"),
+			podTemplate: testhelpers.BuildMysqlPodSpec(600, appLabel, "db-secret", "DB_USER", "DB_PASS", "DB_NAME"),
+			allOrAny:    "all",
+		},
+		{
+			name:        "mssql",
+			c:           newPublicMssqlClient("mssqlconn"),
+			podTemplate: testhelpers.BuildMSSQLPodSpec(600, appLabel, "db-secret", "DB_USER", "DB_PASS", "DB_NAME"),
+			allOrAny:    "all",
+		},
+	}
+	for i := range tests {
+		test := tests[i]
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testContext()
+			tp := test.c
+
+			err := tp.CreateOrPatchNamespace(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() {
+				if skipCleanup {
+					return
+				}
+
+				err = tp.DeleteNamespace(ctx)
+				if err != nil {
+					t.Fatal(err)
+				}
+			})
+
+			key := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
+
+			s := testhelpers.BuildSecret("db-secret",
+				"DB_USER", tp.DBRootUsername,
+				"DB_PASS", tp.DBRootPassword,
+				"DB_NAME", tp.DBName)
+			s.SetNamespace(tp.Namespace)
+			err = tp.Client.Create(ctx, &s)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			wl := &workload.DeploymentWorkload{Deployment: testhelpers.BuildDeployment(types.NamespacedName{}, appLabel)}
+			wl.Deployment.Spec.Template = test.podTemplate
+			t.Log("Creating AuthProxyWorkload")
+
+			err = tp.CreateAuthProxyWorkload(ctx, key, appLabel, tp.ConnectionString, kind)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			t.Log("Waiting for AuthProxyWorkload operator to begin the reconcile loop")
+			_, err = tp.GetAuthProxyWorkloadAfterReconcile(ctx, key)
+			if err != nil {
+				t.Fatal("unable to create AuthProxyWorkload", err)
+			}
+
+			t.Log("Creating ", kind)
+			wl.Object().SetNamespace(tp.Namespace)
+			wl.Object().SetName(pwlName)
+			err = tp.CreateWorkload(ctx, wl.Object())
+			if err != nil {
+				t.Fatal("unable to create ", kind, err)
+			}
+			selector := &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": appLabel},
+			}
+			t.Log("Checking for container counts", kind)
+			err = tp.ExpectPodContainerCount(ctx, selector, 2, "all")
+			if err != nil {
+				t.Error(err)
+			}
+			t.Log("Checking for ready", kind)
+			err = tp.ExpectPodReady(ctx, selector, "all")
+			if err != nil {
+				t.Error(err)
+			}
+
+			t.Log("Done, OK", kind)
+
+		})
 	}
 
-	wl := &workload.DeploymentWorkload{Deployment: testhelpers.BuildDeployment(types.NamespacedName{}, appLabel)}
-	wl.Deployment.Spec.Template = testhelpers.BuildPgPodSpec(600,
-		appLabel, "db-secret", "DB_USER", "DB_PASS", "DB_NAME")
-	t.Log("Creating AuthProxyWorkload")
-
-	err = tp.CreateAuthProxyWorkload(ctx, key, appLabel, tp.ConnectionString, kind)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	t.Log("Waiting for AuthProxyWorkload operator to begin the reconcile loop")
-	_, err = tp.GetAuthProxyWorkloadAfterReconcile(ctx, key)
-	if err != nil {
-		t.Fatal("unable to create AuthProxyWorkload", err)
-	}
-
-	t.Log("Creating ", kind)
-	wl.Object().SetNamespace(tp.Namespace)
-	wl.Object().SetName(pwlName)
-	err = tp.CreateWorkload(ctx, wl.Object())
-	if err != nil {
-		t.Fatal("unable to create ", kind, err)
-	}
-	selector := &metav1.LabelSelector{
-		MatchLabels: map[string]string{"app": appLabel},
-	}
-	t.Log("Checking for container counts", kind)
-	err = tp.ExpectPodContainerCount(ctx, selector, 2, "all")
-	if err != nil {
-		t.Error(err)
-	}
-	t.Log("Checking for ready", kind)
-	err = tp.ExpectPodReady(ctx, selector, "all")
-	if err != nil {
-		t.Error(err)
-	}
-
-	t.Log("Done, OK", kind)
 }
