@@ -1,0 +1,110 @@
+# Copyright 2022 Google LLC.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+###
+# This example demonstrates how to use environment variables set by the
+# Cloud SQL Proxy Operator to connect to your database.
+
+##
+# Create an AuthProxyWorkload to hold the configuration for your
+# Cloud SQL Proxy containers.
+
+apiVersion: cloudsql.cloud.google.com/v1alpha1
+kind: AuthProxyWorkload
+metadata:
+  name: authproxyworkload-sample
+spec:
+  workloadSelector:
+    kind: "Deployment" # Applies to a "Deployment"
+    name: "gke-cloud-sql-app" # named 'gke-cloud-sql-app'
+  instances:
+    - connectionString: "my-project:us-central1:instance" # from your Cloud SQL Database instance
+      portEnvName: "DB_PORT" # Will set an env var named 'DB_PORT' to the database port
+      hostEnvName: "DB_HOST" # Will set an env var named 'DB_HOST' to the proxy's host, 127.0.0.1
+---
+##
+# Put the database name, username, and password into a kubernetes secret
+# Update the values below as needed for your environment
+#
+# WARNING: Do not store passwords in a source code file. It is a bad
+# way to keep your secrets safe.
+#
+# Instead, use kubectl to create the secret using an interactive command
+# so that your password is not stored in your source code.
+#
+#   kubectl create secret generic gke-cloud-sql-operator-demo \
+#      --from-literal=DB_NAME=your_db_name \
+#      --from-literal=DB_USER=your_db_user \
+#      --from-literal=DB_PASS=your_db_password
+#
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gke-cloud-sql-operator-demo
+type: Opaque
+data:
+  DB_PASS: cGFzc3dvcmQ= # "password"
+  DB_NAME: cG9zdGdyZXM= # "postgres"
+  DB_USER: dGVzdHVzZXI= # "testuser"
+---
+##
+# Create a deployment for your application that uses environment variables
+# set by the proxy to connect to the database.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gke-cloud-sql-app
+spec:
+  selector:
+    matchLabels:
+      app: gke-cloud-sql-app
+  template:
+    metadata:
+      labels:
+        app: gke-cloud-sql-app
+    spec:
+      containers:
+        - name: gke-cloud-sql-app
+          image: mcr.microsoft.com/mssql-tools
+          livenessProbe:
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            failureThreshold: 3
+            exec:
+              command: ["/bin/sh", "-x", "-c", "/opt/mssql-tools/bin/sqlcmd -S \"tcp:$DB_HOST,$DB_PORT\" -U $DB_USER -P $DB_PASS -Q \"use $DB_NAME ; select 1 ;\""]
+          command:
+            - "/bin/sh"
+            - "-e"
+            - "-c"
+            - "sleep 10 ; /opt/mssql-tools/bin/sqlcmd -S \"tcp:$DB_HOST,$DB_PORT\" -U $DB_USER -P $DB_PASS -Q \"use $DB_NAME ; select 1 ;\" ; sleep 3600"
+          env:
+            - name: DB_HOST
+              value: "set-by-operator"
+            - name: DB_PORT
+              value: "set-by-operator"
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: gke-cloud-sql-operator-demo
+                  key: DB_USER
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: gke-cloud-sql-operator-demo
+                  key: DB_PASS
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: gke-cloud-sql-operator-demo
+                  key: DB_NAME
