@@ -80,10 +80,11 @@ func BuildSecret(secretName, user, password, dbName string) corev1.Secret {
 // and run a trivial query. It also configures the pod's Liveness probe so that
 // the pod's `Ready` condition is `Ready` when the database can connect.
 func BuildPgPodSpec(mainPodSleep int, appLabel, secretName string) corev1.PodTemplateSpec {
-
-	livenessCmd := "psql --host=$DB_HOST --port=$DB_PORT --username=$DB_USER '--command=select 1' --echo-queries --dbname=$DB_NAME"
-	imageName := "postgres"
-	passEnvVarName := "PGPASSWORD"
+	const (
+		livenessCmd    = "psql --host=$DB_HOST --port=$DB_PORT --username=$DB_USER '--command=select 1' --echo-queries --dbname=$DB_NAME"
+		imageName      = "postgres"
+		passEnvVarName = "PGPASSWORD"
+	)
 
 	return buildConnectPodSpec(mainPodSleep, appLabel, secretName, livenessCmd, passEnvVarName, imageName)
 }
@@ -92,9 +93,11 @@ func BuildPgPodSpec(mainPodSleep int, appLabel, secretName string) corev1.PodTem
 // and run a trivial query. It also configures the pod's Liveness probe so that
 // the pod's `Ready` condition is `Ready` when the database can connect.
 func BuildMysqlPodSpec(mainPodSleep int, appLabel, secretName string) corev1.PodTemplateSpec {
-	livenessCmd := "mysql --host=$DB_HOST --port=$DB_PORT --user=$DB_USER --password=$DB_PASS --database=$DB_NAME '--execute=select now()' "
-	imageName := "mysql"
-	passEnvVarName := "DB_PASS"
+	const (
+		livenessCmd    = "mysql --host=$DB_HOST --port=$DB_PORT --user=$DB_USER --password=$DB_PASS --database=$DB_NAME '--execute=select now()' "
+		imageName      = "mysql"
+		passEnvVarName = "DB_PASS"
+	)
 
 	return buildConnectPodSpec(mainPodSleep, appLabel, secretName, livenessCmd, passEnvVarName, imageName)
 }
@@ -103,9 +106,11 @@ func BuildMysqlPodSpec(mainPodSleep int, appLabel, secretName string) corev1.Pod
 // and run a trivial query. It also configures the pod's Liveness probe so that
 // the pod's `Ready` condition is `Ready` when the database can connect.
 func BuildMSSQLPodSpec(mainPodSleep int, appLabel, secretName string) corev1.PodTemplateSpec {
-	livenessCmd := "/opt/mssql-tools/bin/sqlcmd -S \"tcp:$DB_HOST,$DB_PORT\" -U $DB_USER -P $DB_PASS -Q \"use $DB_NAME ; select 1 ;\""
-	imageName := "mcr.microsoft.com/mssql-tools"
-	passEnvVarName := "DB_PASS"
+	const (
+		livenessCmd    = "/opt/mssql-tools/bin/sqlcmd -S \"tcp:$DB_HOST,$DB_PORT\" -U $DB_USER -P $DB_PASS -Q \"use $DB_NAME ; select 1 ;\""
+		imageName      = "mcr.microsoft.com/mssql-tools"
+		passEnvVarName = "DB_PASS"
+	)
 
 	return buildConnectPodSpec(mainPodSleep, appLabel, secretName, livenessCmd, passEnvVarName, imageName)
 }
