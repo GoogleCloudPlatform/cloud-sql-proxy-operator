@@ -280,7 +280,7 @@ func TestProxyAppliedOnExistingWorkload(t *testing.T) {
 	}
 }
 
-func TestPublicDbConnections(t *testing.T) {
+func TestPublicDBConnections(t *testing.T) {
 	// When running tests during development, set the SKIP_CLEANUP=true envvar so that
 	// the test namespace remains after the test ends. By default, the test
 	// namespace will be deleted when the test exits.
@@ -305,13 +305,13 @@ func TestPublicDbConnections(t *testing.T) {
 		},
 		{
 			name:        "mysql",
-			c:           newPublicMysqlClient("mysqlconn"),
-			podTemplate: testhelpers.BuildMysqlPodSpec(600, appLabel, "db-secret"),
+			c:           newPublicMySQLClient("mysqlconn"),
+			podTemplate: testhelpers.BuildMySQLPodSpec(600, appLabel, "db-secret"),
 			allOrAny:    "all",
 		},
 		{
 			name:        "mssql",
-			c:           newPublicMssqlClient("mssqlconn"),
+			c:           newPublicMSSQLClient("mssqlconn"),
 			podTemplate: testhelpers.BuildMSSQLPodSpec(600, appLabel, "db-secret"),
 			allOrAny:    "all",
 		},

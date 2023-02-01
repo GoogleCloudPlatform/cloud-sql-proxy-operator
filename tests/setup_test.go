@@ -56,10 +56,10 @@ var (
 func newPublicPostgresClient(ns string) *testhelpers.TestCaseClient {
 	return newTestClient(ns, infra.Public.Postgres)
 }
-func newPublicMysqlClient(ns string) *testhelpers.TestCaseClient {
+func newPublicMySQLClient(ns string) *testhelpers.TestCaseClient {
 	return newTestClient(ns, infra.Public.MySQL)
 }
-func newPublicMssqlClient(ns string) *testhelpers.TestCaseClient {
+func newPublicMSSQLClient(ns string) *testhelpers.TestCaseClient {
 	return newTestClient(ns, infra.Public.MSSQL)
 }
 

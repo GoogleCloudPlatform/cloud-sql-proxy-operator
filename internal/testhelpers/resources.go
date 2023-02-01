@@ -89,10 +89,10 @@ func BuildPgPodSpec(mainPodSleep int, appLabel, secretName string) corev1.PodTem
 	return buildConnectPodSpec(mainPodSleep, appLabel, secretName, livenessCmd, passEnvVarName, imageName)
 }
 
-// BuildMysqlPodSpec creates a podspec specific to Mysql databases that will connect
+// BuildMySQLPodSpec creates a podspec specific to MySQL databases that will connect
 // and run a trivial query. It also configures the pod's Liveness probe so that
 // the pod's `Ready` condition is `Ready` when the database can connect.
-func BuildMysqlPodSpec(mainPodSleep int, appLabel, secretName string) corev1.PodTemplateSpec {
+func BuildMySQLPodSpec(mainPodSleep int, appLabel, secretName string) corev1.PodTemplateSpec {
 	const (
 		livenessCmd    = "mysql --host=$DB_HOST --port=$DB_PORT --user=$DB_USER --password=$DB_PASS --database=$DB_NAME '--execute=select now()' "
 		imageName      = "mysql"
@@ -102,12 +102,12 @@ func BuildMysqlPodSpec(mainPodSleep int, appLabel, secretName string) corev1.Pod
 	return buildConnectPodSpec(mainPodSleep, appLabel, secretName, livenessCmd, passEnvVarName, imageName)
 }
 
-// BuildMSSQLPodSpec creates a podspec specific to Mysql databases that will connect
+// BuildMSSQLPodSpec creates a podspec specific to MySQL databases that will connect
 // and run a trivial query. It also configures the pod's Liveness probe so that
 // the pod's `Ready` condition is `Ready` when the database can connect.
 func BuildMSSQLPodSpec(mainPodSleep int, appLabel, secretName string) corev1.PodTemplateSpec {
 	const (
-		livenessCmd    = "/opt/mssql-tools/bin/sqlcmd -S \"tcp:$DB_HOST,$DB_PORT\" -U $DB_USER -P $DB_PASS -Q \"use $DB_NAME ; select 1 ;\""
+		livenessCmd    = `/opt/mssql-tools/bin/sqlcmd -S "tcp:$DB_HOST,$DB_PORT" -U $DB_USER -P $DB_PASS -Q "use $DB_NAME ; select 1 ;"`
 		imageName      = "mcr.microsoft.com/mssql-tools"
 		passEnvVarName = "DB_PASS"
 	)
@@ -140,14 +140,14 @@ func buildConnectPodSpec(mainPodSleep int, appLabel, secretName, livenessCmd, pa
 				LivenessProbe: &corev1.Probe{InitialDelaySeconds: 10, PeriodSeconds: 30, FailureThreshold: 3,
 					ProbeHandler: corev1.ProbeHandler{
 						Exec: &corev1.ExecAction{
-							Command: []string{"/bin/sh", "-c", "-e", livenessCmd},
+							Command: []string{"/bin/sh", "-e", "-c", livenessCmd},
 						},
 					},
 				},
 				ReadinessProbe: &corev1.Probe{InitialDelaySeconds: 10, PeriodSeconds: 30, FailureThreshold: 3,
 					ProbeHandler: corev1.ProbeHandler{
 						Exec: &corev1.ExecAction{
-							Command: []string{"/bin/sh", "-c", "-e", livenessCmd},
+							Command: []string{"/bin/sh", "-e", "-c", livenessCmd},
 						},
 					},
 				},
