@@ -42,6 +42,63 @@ resource "google_sql_database" "db" {
   project  = var.project_id
 }
 
+# See versions at https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/sql_database_instance#database_version
+resource "google_sql_database_instance" "mysql" {
+  name             = "mysql${random_id.db_name.hex}"
+  project          = var.project_id
+  region           = var.gcloud_region
+  database_version = "MYSQL_8_0"
+  settings {
+    tier        = "db-f1-micro"
+    user_labels = local.standard_labels
+  }
+  deletion_protection = "true"
+  root_password       = random_id.db_password.hex
+}
+
+resource "google_sql_database" "db_mysql" {
+  name     = "db"
+  instance = google_sql_database_instance.mysql.name
+  project  = var.project_id
+}
+
+resource "google_sql_user" "mysql_user" {
+  name     = "dbuser"
+  instance = google_sql_database_instance.mysql.name
+  host     = "%"
+  password = random_id.db_password.hex
+  project  = var.project_id
+}
+
+# See versions at https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/sql_database_instance#database_version
+resource "google_sql_database_instance" "mssql" {
+  name             = "mssql${random_id.db_name.hex}"
+  project          = var.project_id
+  region           = var.gcloud_region
+  database_version = "SQLSERVER_2019_EXPRESS"
+  settings {
+    # SQL Server tier format: "db-custom-$CPU-$MEM" where $CPU is the number of
+    # cores and $MEM is memory in MiB
+    tier        = "db-custom-2-3840"
+    user_labels = local.standard_labels
+  }
+  deletion_protection = "true"
+  root_password       = random_id.db_password.hex
+}
+
+resource "google_sql_database" "db_mssql" {
+  name     = "db"
+  instance = google_sql_database_instance.mssql.name
+  project  = var.project_id
+}
+
+resource "google_sql_user" "mssql_user" {
+  name     = "dbuser"
+  instance = google_sql_database_instance.mssql.name
+  password = random_id.db_password.hex
+  project  = var.project_id
+}
+
 output "db_root_password" {
   value = random_id.db_password.hex
 }

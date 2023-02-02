@@ -31,6 +31,7 @@ type TestCaseClient struct {
 	Namespace        string
 	ConnectionString string
 	ProxyImageURL    string
+	DBRootUsername   string
 	DBRootPassword   string
 	DBName           string
 }

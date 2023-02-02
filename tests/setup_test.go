@@ -53,13 +53,24 @@ var (
 	operatorURL   string
 )
 
-func newTestCaseClient(ns string) *testhelpers.TestCaseClient {
+func newPublicPostgresClient(ns string) *testhelpers.TestCaseClient {
+	return newTestClient(ns, infra.Public.Postgres)
+}
+func newPublicMySQLClient(ns string) *testhelpers.TestCaseClient {
+	return newTestClient(ns, infra.Public.MySQL)
+}
+func newPublicMSSQLClient(ns string) *testhelpers.TestCaseClient {
+	return newTestClient(ns, infra.Public.MSSQL)
+}
+
+func newTestClient(ns string, db testDatabase) *testhelpers.TestCaseClient {
 	return &testhelpers.TestCaseClient{
 		Client:           c,
 		Namespace:        testhelpers.NewNamespaceName(ns),
-		ConnectionString: infra.InstanceConnectionString,
-		DBRootPassword:   infra.RootPassword,
-		DBName:           infra.DB,
+		ConnectionString: db.InstanceConnectionString,
+		DBRootUsername:   db.RootUser,
+		DBRootPassword:   db.RootPassword,
+		DBName:           db.DBName,
 		ProxyImageURL:    proxyImageURL,
 	}
 }
@@ -104,38 +115,34 @@ func setupTests() (func(), error) {
 	testInfraPath := loadValue("TEST_INFRA_JSON", "", "../bin/testinfra.json")
 	ti, err := loadTestInfra(testInfraPath)
 	if err != nil {
-		kubeconfig := "../../bin/e2e-kubeconfig.yaml"
-		if envKubeConfig, isset := os.LookupEnv("KUBECONFIG"); isset {
-			kubeconfig = envKubeConfig
-		}
-		ti.Kubeconfig = kubeconfig
-		ti.DB = "db"
-		ti.InstanceConnectionString = "proj:region:inst"
-		logger.Info("Test infrastructure not set. Using defaults",
-			"instance", ti.InstanceConnectionString,
-			"db", ti.DB,
-			"kubeconfig", ti.Kubeconfig)
+		return teardownFunc, err
 	}
 	infra = ti
 
+	setupKubernetesClient(ctx, infra.Public)
+
+	return cancelFunc, nil
+}
+
+func setupKubernetesClient(ctx context.Context, ti testEnvironment) error {
 	// Build the kubernetes client
 	config, err := clientcmd.BuildConfigFromFlags("", ti.Kubeconfig)
 	if err != nil {
-		return teardownFunc, fmt.Errorf("unable to build kubernetes client for config %s, %v", ti.Kubeconfig, err)
+		return fmt.Errorf("unable to build kubernetes client for config %s, %v", ti.Kubeconfig, err)
 	}
 	config.RateLimiter = nil
 	k8sClientSet, err = kubernetes.NewForConfig(config)
 	if err != nil {
-		return teardownFunc, fmt.Errorf("unable to setup e2e kubernetes client  %v", err)
+		return fmt.Errorf("unable to setup e2e kubernetes client  %v", err)
 	}
 	s := scheme.Scheme
 	controller.InitScheme(s)
 	c, err = client.New(config, client.Options{Scheme: s})
 	if err != nil {
-		return teardownFunc, fmt.Errorf("Unable to initialize kubernetes client %{v}", err)
+		return fmt.Errorf("Unable to initialize kubernetes client %{v}", err)
 	}
 	if c == nil {
-		return teardownFunc, fmt.Errorf("Kubernetes client was empty after initialization %v", err)
+		return fmt.Errorf("Kubernetes client was empty after initialization %v", err)
 	}
 
 	// Check that the e2e k8s cluster is the operator that was last built from
@@ -143,7 +150,7 @@ func setupTests() (func(), error) {
 	d, err := waitForCorrectOperatorPods(ctx, err)
 
 	if err != nil {
-		return teardownFunc, fmt.Errorf("unable to find manager deployment %v", err)
+		return fmt.Errorf("unable to find manager deployment %v", err)
 	}
 
 	// Start the goroutines to tail the logs from the operator deployment. This
@@ -151,13 +158,13 @@ func setupTests() (func(), error) {
 	// for the developer to follow.
 	podList, err := testhelpers.ListPods(ctx, c, d.GetNamespace(), d.Spec.Selector)
 	if err != nil {
-		return teardownFunc, fmt.Errorf("unable to find manager deployment %v", err)
+		return fmt.Errorf("unable to find manager deployment %v", err)
 	}
 	tailPods(ctx, podList)
 
 	logger.Info("Setup complete. K8s cluster is running.")
 
-	return teardownFunc, nil
+	return nil
 }
 
 func waitForCorrectOperatorPods(ctx context.Context, err error) (*appsv1.Deployment, error) {
@@ -258,11 +265,22 @@ func (l *testSetupLogger) Logf(format string, args ...interface{}) {
 }
 func (l *testSetupLogger) Helper() {}
 
-type testInfra struct {
+type testDatabase struct {
 	InstanceConnectionString string `json:"instance,omitempty"`
-	DB                       string `json:"db,omitempty"`
+	DBName                   string `json:"dbName,omitempty"`
+	RootUser                 string `json:"rootUser,omitempty"`
 	RootPassword             string `json:"rootPassword,omitempty"`
-	Kubeconfig               string `json:"kubeconfig,omitempty"`
+}
+
+type testInfra struct {
+	Public testEnvironment `json:"public"`
+}
+
+type testEnvironment struct {
+	Postgres   testDatabase `json:"postgres,omitempty"`
+	MySQL      testDatabase `json:"mysql,omitempty"`
+	MSSQL      testDatabase `json:"mssql,omitempty"`
+	Kubeconfig string       `json:"kubeconfig,omitempty"`
 }
 
 func loadTestInfra(testInfraJSON string) (testInfra, error) {

@@ -26,6 +26,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -49,9 +50,15 @@ func buildPodTemplateSpec(mainPodSleep int, appLabel string) corev1.PodTemplateS
 	}
 }
 
+const (
+	userKey     = "DB_USER"
+	passwordKey = "DB_PASS"
+	dbNameKey   = "DB_NAME"
+)
+
 // BuildSecret creates a Secret object containing database information to be used
 // by the pod to connect to the database.
-func BuildSecret(secretName, userKey, user, passwordKey, password, dbNameKey, dbName string) corev1.Secret {
+func BuildSecret(secretName, user, password, dbName string) corev1.Secret {
 	return corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
@@ -72,28 +79,75 @@ func BuildSecret(secretName, userKey, user, passwordKey, password, dbNameKey, db
 // BuildPgPodSpec creates a podspec specific to Postgres databases that will connect
 // and run a trivial query. It also configures the pod's Liveness probe so that
 // the pod's `Ready` condition is `Ready` when the database can connect.
-func BuildPgPodSpec(mainPodSleep int, appLabel, secretName, userKey, passwordKey, dbNameKey string) corev1.PodTemplateSpec {
-	podCmd := fmt.Sprintf(`echo Container 1 is Running
-sleep 10 
-psql --host=$DB_HOST --port=$DB_PORT --username=$DB_USER '--command=select 1' --echo-queries  --dbname=$DB_NAME  
-sleep %d`, mainPodSleep)
+func BuildPgPodSpec(mainPodSleep int, appLabel, secretName string) corev1.PodTemplateSpec {
+	const (
+		livenessCmd    = "psql --host=$DB_HOST --port=$DB_PORT --username=$DB_USER '--command=select 1' --echo-queries --dbname=$DB_NAME"
+		imageName      = "postgres"
+		passEnvVarName = "PGPASSWORD"
+	)
 
-	livenessCmd := "psql --host=$DB_HOST --port=$DB_PORT --username=$DB_USER '--command=select 1' --echo-queries --dbname=$DB_NAME"
+	return buildConnectPodSpec(mainPodSleep, appLabel, secretName, livenessCmd, passEnvVarName, imageName)
+}
+
+// BuildMySQLPodSpec creates a podspec specific to MySQL databases that will connect
+// and run a trivial query. It also configures the pod's Liveness probe so that
+// the pod's `Ready` condition is `Ready` when the database can connect.
+func BuildMySQLPodSpec(mainPodSleep int, appLabel, secretName string) corev1.PodTemplateSpec {
+	const (
+		livenessCmd    = "mysql --host=$DB_HOST --port=$DB_PORT --user=$DB_USER --password=$DB_PASS --database=$DB_NAME '--execute=select now()' "
+		imageName      = "mysql"
+		passEnvVarName = "DB_PASS"
+	)
+
+	return buildConnectPodSpec(mainPodSleep, appLabel, secretName, livenessCmd, passEnvVarName, imageName)
+}
+
+// BuildMSSQLPodSpec creates a podspec specific to MySQL databases that will connect
+// and run a trivial query. It also configures the pod's Liveness probe so that
+// the pod's `Ready` condition is `Ready` when the database can connect.
+func BuildMSSQLPodSpec(mainPodSleep int, appLabel, secretName string) corev1.PodTemplateSpec {
+	const (
+		livenessCmd    = `/opt/mssql-tools/bin/sqlcmd -S "tcp:$DB_HOST,$DB_PORT" -U $DB_USER -P $DB_PASS -Q "use $DB_NAME ; select 1 ;"`
+		imageName      = "mcr.microsoft.com/mssql-tools"
+		passEnvVarName = "DB_PASS"
+	)
+
+	return buildConnectPodSpec(mainPodSleep, appLabel, secretName, livenessCmd, passEnvVarName, imageName)
+}
+
+func buildConnectPodSpec(mainPodSleep int, appLabel, secretName, livenessCmd, passEnvVarName, imageName string) corev1.PodTemplateSpec {
+	podCmd := fmt.Sprintf(`echo Container 1 is Running
+	sleep 30
+	%s
+	sleep %d`, livenessCmd, mainPodSleep)
 
 	return corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{"app": appLabel},
 		},
+
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{{
 				Name:            "db-client-app",
-				Image:           "postgres",
+				Image:           imageName,
 				ImagePullPolicy: "IfNotPresent",
 				Command:         []string{"/bin/sh", "-e", "-x", "-c", podCmd},
-				LivenessProbe: &corev1.Probe{InitialDelaySeconds: 60, PeriodSeconds: 30, FailureThreshold: 3,
+				Resources: corev1.ResourceRequirements{
+					Requests: map[corev1.ResourceName]resource.Quantity{
+						corev1.ResourceCPU: *resource.NewMilliQuantity(500, resource.DecimalExponent),
+					},
+				},
+				LivenessProbe: &corev1.Probe{InitialDelaySeconds: 10, PeriodSeconds: 30, FailureThreshold: 3,
 					ProbeHandler: corev1.ProbeHandler{
 						Exec: &corev1.ExecAction{
-							Command: []string{"/bin/sh", "-c", "-e", livenessCmd},
+							Command: []string{"/bin/sh", "-e", "-c", livenessCmd},
+						},
+					},
+				},
+				ReadinessProbe: &corev1.Probe{InitialDelaySeconds: 10, PeriodSeconds: 30, FailureThreshold: 3,
+					ProbeHandler: corev1.ProbeHandler{
+						Exec: &corev1.ExecAction{
+							Command: []string{"/bin/sh", "-e", "-c", livenessCmd},
 						},
 					},
 				},
@@ -108,7 +162,7 @@ sleep %d`, mainPodSleep)
 						},
 					},
 					{
-						Name: "PGPASSWORD",
+						Name: passEnvVarName,
 						ValueFrom: &corev1.EnvVarSource{
 							SecretKeyRef: &corev1.SecretKeySelector{
 								LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
@@ -530,6 +584,7 @@ func BuildAuthProxyWorkload(key types.NamespacedName, connectionString string) *
 			Namespace: key.Namespace,
 		},
 		Spec: v1alpha1.AuthProxyWorkloadSpec{
+
 			Instances: []v1alpha1.InstanceSpec{{
 				ConnectionString: connectionString,
 				HostEnvName:      "DB_HOST",
@@ -548,7 +603,14 @@ func (cc *TestCaseClient) CreateAuthProxyWorkload(ctx context.Context, key types
 			MatchLabels: map[string]string{"app": appLabel},
 		},
 	}
-	proxy.Spec.AuthProxyContainer = &v1alpha1.AuthProxyContainerSpec{Image: cc.ProxyImageURL}
+	proxy.Spec.AuthProxyContainer = &v1alpha1.AuthProxyContainerSpec{
+		Image: cc.ProxyImageURL,
+		Resources: &corev1.ResourceRequirements{
+			Requests: map[corev1.ResourceName]resource.Quantity{
+				corev1.ResourceCPU: *resource.NewMilliQuantity(500, resource.DecimalExponent),
+			},
+		},
+	}
 	err := cc.Client.Create(ctx, proxy)
 	if err != nil {
 		return fmt.Errorf("Unable to create entity %v", err)
