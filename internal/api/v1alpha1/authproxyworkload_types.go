@@ -45,6 +45,12 @@ const (
 	// when the resource reconcile has finished running.
 	ReasonFinishedReconcile = "FinishedReconcile"
 
+	// ReasonWorkloadNeedsUpdate relates to condition UpToDate, this reason is set
+	// when the resource reconcile found existing workloads related to this
+	// AuthProxyWorkload resource that are not yet configured with an up-to-date
+	// proxy configuration.
+	ReasonWorkloadNeedsUpdate = "WorkloadNeedsUpdate"
+
 	// ReasonNoWorkloadsFound relates to condition UpToDate, this reason is set
 	// when there are no workloads related to this AuthProxyWorkload resource.
 	ReasonNoWorkloadsFound = "NoWorkloadsFound"

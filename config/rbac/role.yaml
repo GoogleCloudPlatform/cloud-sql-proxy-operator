@@ -46,6 +46,16 @@ rules:
       - list
       - watch
   - apiGroups:
+      - apps
+    resources:
+      - daemonsets
+      - deployments
+      - replicasets
+      - statefulsets
+    verbs:
+      - patch
+      - update
+  - apiGroups:
       - batch
     resources:
       - '*'
