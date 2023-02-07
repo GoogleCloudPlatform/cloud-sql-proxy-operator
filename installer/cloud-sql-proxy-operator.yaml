@@ -24,7 +24,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: cloud-sql-proxy-operator-system/cloud-sql-proxy-operator-serving-cert
-    controller-gen.kubebuilder.io/version: v0.11.2
+    controller-gen.kubebuilder.io/version: v0.11.3
   name: authproxyworkloads.cloudsql.cloud.google.com
 spec:
   conversion:
