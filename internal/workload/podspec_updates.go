@@ -17,7 +17,6 @@ package workload
 import (
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -53,7 +52,7 @@ var l = logf.Log.WithName("internal.workload")
 // on the pod.
 func PodAnnotation(r *cloudsqlapi.AuthProxyWorkload) (string, string) {
 	return fmt.Sprintf("%s/%s", cloudsqlapi.AnnotationPrefix, r.Name),
-		strconv.FormatInt(r.Generation, 10)
+		fmt.Sprintf("%d", r.Generation)
 }
 
 // Updater holds global state used while reconciling workloads.
