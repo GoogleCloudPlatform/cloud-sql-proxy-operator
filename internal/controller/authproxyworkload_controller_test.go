@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"go.uber.org/zap/zapcore"
@@ -228,6 +229,90 @@ func TestReconcileState33(t *testing.T) {
 	err := runReconcileTestcase(p, []client.Object{p, pod}, wantRequeue, wantStatus, wantReason)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+}
+
+func TestReconcileDeleteUpdatesWorkload(t *testing.T) {
+	resource := testhelpers.BuildAuthProxyWorkload(types.NamespacedName{
+		Namespace: "default",
+		Name:      "test",
+	}, "project:region:db")
+	resource.Generation = 1
+	resource.Finalizers = []string{finalizerName}
+	resource.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
+		Kind: "Deployment",
+		Selector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{"app": "things"},
+		},
+	}
+	resource.Status.Conditions = []*metav1.Condition{{
+		Type:   v1alpha1.ConditionUpToDate,
+		Reason: v1alpha1.ReasonStartedReconcile,
+		Status: metav1.ConditionFalse,
+	}}
+
+	k, v := workload.PodAnnotation(resource)
+
+	// mimic a deployment that was updated by the webhook
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "thing",
+			Namespace: "default",
+			Labels:    map[string]string{"app": "things"},
+		},
+		Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{k: v}},
+		}},
+	}
+
+	cb, err := clientBuilder()
+	if err != nil {
+		t.Error(err) // shouldn't ever happen
+	}
+	c := cb.WithObjects(resource, deployment).Build()
+	r, req, ctx := reconciler(resource, c)
+
+	if want, got := 1, len(deployment.Spec.Template.ObjectMeta.Annotations); got != want {
+		t.Fatalf("got %d, wants %d annotations", got, want)
+	}
+
+	c.Delete(ctx, resource)
+	if err != nil {
+		t.Error(err)
+	}
+
+	res, err := r.Reconcile(ctx, req)
+	if err != nil {
+		t.Error(err)
+	}
+	if res.Requeue {
+		t.Errorf("got %v, want %v for requeue", res.Requeue, false)
+	}
+
+	err = c.Get(ctx, types.NamespacedName{
+		Namespace: resource.GetNamespace(),
+		Name:      resource.GetName(),
+	}, resource)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			t.Errorf("wants not found error, got %v", err)
+		}
+	} else {
+		t.Error("wants not found error, got no error")
+	}
+
+	d := &appsv1.Deployment{}
+	err = c.Get(ctx, types.NamespacedName{
+		Namespace: deployment.GetNamespace(),
+		Name:      deployment.GetName(),
+	}, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got, want := d.Spec.Template.ObjectMeta.Annotations[k], "1-deleted-"; !strings.HasPrefix(got, "1-deleted-") {
+		t.Fatalf("got %v, wants annotation value to have prefix %v", got, want)
 	}
 
 }

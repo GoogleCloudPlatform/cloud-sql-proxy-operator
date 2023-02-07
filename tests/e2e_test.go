@@ -128,7 +128,7 @@ func TestProxyAppliedOnNewWorkload(t *testing.T) {
 			key := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
 
 			t.Log("Creating AuthProxyWorkload")
-			err = tp.CreateAuthProxyWorkload(ctx, key, appLabel, tp.ConnectionString, kind)
+			_, err = tp.CreateAuthProxyWorkload(ctx, key, appLabel, tp.ConnectionString, kind)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -243,7 +243,7 @@ func TestProxyAppliedOnExistingWorkload(t *testing.T) {
 			}
 
 			t.Log("Creating AuthProxyWorkload")
-			err = tp.CreateAuthProxyWorkload(ctx, key, appLabel, tp.ConnectionString, kind)
+			_, err = tp.CreateAuthProxyWorkload(ctx, key, appLabel, tp.ConnectionString, kind)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -335,7 +335,7 @@ func TestPublicDBConnections(t *testing.T) {
 			wl.Deployment.Spec.Template = test.podTemplate
 			t.Log("Creating AuthProxyWorkload")
 
-			err = tp.CreateAuthProxyWorkload(ctx, key, appLabel, tp.ConnectionString, kind)
+			_, err = tp.CreateAuthProxyWorkload(ctx, key, appLabel, tp.ConnectionString, kind)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -372,4 +372,78 @@ func TestPublicDBConnections(t *testing.T) {
 		})
 	}
 
+}
+
+func TestUpdateWorkloadOnDelete(t *testing.T) {
+	wl := &workload.DeploymentWorkload{Deployment: testhelpers.BuildDeployment(types.NamespacedName{}, "busybox")}
+	o := wl.Object()
+	name := "cronjob"
+	allOrAny := "all"
+	skipCleanup := loadValue("SKIP_CLEANUP", "", "false") == "true"
+
+	ctx := testContext()
+
+	kind := o.GetObjectKind().GroupVersionKind().Kind
+	tp := newPublicPostgresClient("new" + strings.ToLower(kind))
+
+	err := tp.CreateOrPatchNamespace(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() {
+		if skipCleanup {
+			return
+		}
+
+		err = tp.DeleteNamespace(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	const (
+		pwlName  = "newss"
+		appLabel = "busybox"
+	)
+	key := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
+
+	t.Log("Creating AuthProxyWorkload")
+	proxy, err := tp.CreateAuthProxyWorkload(ctx, key, appLabel, tp.ConnectionString, kind)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log("Waiting for AuthProxyWorkload operator to begin the reconcile loop")
+	_, err = tp.GetAuthProxyWorkloadAfterReconcile(ctx, key)
+	if err != nil {
+		t.Fatal("unable to create AuthProxyWorkload", err)
+	}
+
+	t.Log("Creating ", kind)
+	o.SetNamespace(tp.Namespace)
+	o.SetName(name)
+	err = tp.CreateWorkload(ctx, o)
+	if err != nil {
+		t.Fatal("unable to create ", kind, err)
+	}
+	selector := &metav1.LabelSelector{
+		MatchLabels: map[string]string{"app": appLabel},
+	}
+	t.Log("Checking for container counts", kind)
+	err = tp.ExpectPodContainerCount(ctx, selector, 2, allOrAny)
+	if err != nil {
+		t.Error(err)
+	}
+	t.Log("Workload Created. Removing AuthProxyWorkload", kind)
+	err = tp.Client.Delete(ctx, proxy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log("Checking for container counts after delete", kind)
+	err = tp.ExpectPodContainerCount(ctx, selector, 1, allOrAny)
+	if err != nil {
+		t.Error(err)
+	}
+	t.Log("Done: ", kind)
 }

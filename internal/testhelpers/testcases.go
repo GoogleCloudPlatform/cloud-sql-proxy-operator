@@ -53,7 +53,7 @@ func (cc *TestCaseClient) CreateResource(ctx context.Context) (*cloudsqlapi.Auth
 		return nil, fmt.Errorf("can't create namespace, %v", err)
 	}
 	key := types.NamespacedName{Name: name, Namespace: ns}
-	err = cc.CreateAuthProxyWorkload(ctx, key, "app", expectedConnStr, "Deployment")
+	_, err = cc.CreateAuthProxyWorkload(ctx, key, "app", expectedConnStr, "Deployment")
 	if err != nil {
 		return nil, fmt.Errorf("unable to create auth proxy workload %v", err)
 	}

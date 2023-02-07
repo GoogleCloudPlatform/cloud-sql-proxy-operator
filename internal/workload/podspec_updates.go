@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -51,8 +52,11 @@ var l = logf.Log.WithName("internal.workload")
 // to indicate the specific AuthProxyWorkload resource that was configured
 // on the pod.
 func PodAnnotation(r *cloudsqlapi.AuthProxyWorkload) (string, string) {
-	return fmt.Sprintf("%s/%s", cloudsqlapi.AnnotationPrefix, r.Name),
-		fmt.Sprintf("%d", r.Generation)
+	v := fmt.Sprintf("%d", r.Generation)
+	if r.GetDeletionTimestamp() != nil {
+		v = fmt.Sprintf("%d-deleted-%s", r.Generation, r.GetDeletionTimestamp().Format(time.RFC3339))
+	}
+	return fmt.Sprintf("%s/%s", cloudsqlapi.AnnotationPrefix, r.Name), v
 }
 
 // Updater holds global state used while reconciling workloads.

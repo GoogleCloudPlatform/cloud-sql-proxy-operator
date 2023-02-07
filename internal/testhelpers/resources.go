@@ -595,7 +595,7 @@ func BuildAuthProxyWorkload(key types.NamespacedName, connectionString string) *
 }
 
 // CreateAuthProxyWorkload creates an AuthProxyWorkload in the kubernetes cluster.
-func (cc *TestCaseClient) CreateAuthProxyWorkload(ctx context.Context, key types.NamespacedName, appLabel string, connectionString string, kind string) error {
+func (cc *TestCaseClient) CreateAuthProxyWorkload(ctx context.Context, key types.NamespacedName, appLabel string, connectionString string, kind string) (*v1alpha1.AuthProxyWorkload, error) {
 	proxy := BuildAuthProxyWorkload(key, connectionString)
 	proxy.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
 		Kind: kind,
@@ -613,9 +613,9 @@ func (cc *TestCaseClient) CreateAuthProxyWorkload(ctx context.Context, key types
 	}
 	err := cc.Client.Create(ctx, proxy)
 	if err != nil {
-		return fmt.Errorf("Unable to create entity %v", err)
+		return nil, fmt.Errorf("Unable to create entity %v", err)
 	}
-	return nil
+	return proxy, nil
 }
 
 // GetConditionStatus finds a condition where Condition.Type == condType and returns

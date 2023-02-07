@@ -172,9 +172,25 @@ func (r *AuthProxyWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Re
 func (r *AuthProxyWorkloadReconciler) doDelete(ctx context.Context, resource *cloudsqlapi.AuthProxyWorkload, l logr.Logger) (ctrl.Result, error) {
 
 	// Mark all related workloads as needing to be updated
-	_, err := r.updateWorkloadStatus(ctx, l, resource)
+	allWorkloads, err := r.updateWorkloadStatus(ctx, resource)
 	if err != nil {
 		return requeueNow, err
+	}
+
+	for _, wl := range allWorkloads {
+		// update the workload removing proxy config
+		if r.needsAnnotationUpdate(wl, resource) {
+			_, err = controllerutil.CreateOrPatch(ctx, r.Client, wl.Object(), func() error {
+				r.updateAnnotation(wl, resource)
+				return nil
+			})
+
+			// Failed to update one of the workloads PodTemplateSpec annotations, requeue.
+			if err != nil {
+				return requeueNow, fmt.Errorf("reconciled %d matching workloads. Error removing proxy from workload %v: %v", len(allWorkloads), wl.Object().GetName(), err)
+			}
+			l.Info(fmt.Sprintf("Removed annotation from %v %s", wl.Object().GetObjectKind(), wl.Object().GetName()))
+		}
 	}
 
 	// Remove the finalizer so that the object can be fully deleted
@@ -231,7 +247,7 @@ func (r *AuthProxyWorkloadReconciler) doCreateUpdate(ctx context.Context, l logr
 	}
 
 	// find all workloads that relate to this AuthProxyWorkload resource
-	allWorkloads, err := r.updateWorkloadStatus(ctx, l, resource)
+	allWorkloads, err := r.updateWorkloadStatus(ctx, resource)
 	if err != nil {
 		// State 1.2 - unable to read workloads, abort and try again after a delay.
 		return requeueWithDelay, err
@@ -282,14 +298,12 @@ func (r *AuthProxyWorkloadReconciler) doCreateUpdate(ctx context.Context, l logr
 // needsAnnotationUpdate returns true when the workload was annotated with
 // a different generation of the resource.
 func (r *AuthProxyWorkloadReconciler) needsAnnotationUpdate(wl workload.Workload, resource *cloudsqlapi.AuthProxyWorkload) bool {
-
 	// This workload is not mutable. Ignore it.
 	if _, ok := wl.(workload.WithMutablePodTemplate); !ok {
 		return false
 	}
 
 	k, v := workload.PodAnnotation(resource)
-
 	// Check if the correct annotation exists
 	an := wl.PodTemplateAnnotations()
 	if an != nil && an[k] == v {
@@ -388,16 +402,15 @@ func (r *AuthProxyWorkloadReconciler) patchAuthProxyWorkloadStatus(
 // updates the needs update annotations using internal.UpdateWorkloadAnnotation.
 // Once the workload is saved, the workload admission mutate webhook will
 // apply the correct containers to this instance.
-func (r *AuthProxyWorkloadReconciler) updateWorkloadStatus(ctx context.Context, _ logr.Logger, resource *cloudsqlapi.AuthProxyWorkload) (matching []workload.Workload, retErr error) {
+func (r *AuthProxyWorkloadReconciler) updateWorkloadStatus(ctx context.Context, resource *cloudsqlapi.AuthProxyWorkload) (matching []workload.Workload, retErr error) {
 
 	matching, err := r.listWorkloads(ctx, resource.Spec.Workload, resource.GetNamespace())
 	if err != nil {
 		return nil, err
 	}
 
-	// all matching workloads get a new annotation that will be removed
-	// when the reconcile loop for outOfDate is completed.
 	for _, wl := range matching {
+		// update the status condition for a workload
 		s := newStatus(wl)
 		s.Conditions = replaceCondition(s.Conditions, &metav1.Condition{
 			Type:               cloudsqlapi.ConditionWorkloadUpToDate,
