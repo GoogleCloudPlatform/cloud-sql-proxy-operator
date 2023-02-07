@@ -292,10 +292,8 @@ func (r *AuthProxyWorkloadReconciler) needsAnnotationUpdate(wl workload.Workload
 
 	// Check if the correct annotation exists
 	an := wl.PodTemplateAnnotations()
-	if an != nil {
-		if an[k] == v {
-			return false
-		}
+	if an != nil && an[k] == v {
+		return false
 	}
 
 	return true
@@ -326,14 +324,11 @@ func (r *AuthProxyWorkloadReconciler) updateAnnotation(wl workload.Workload, res
 // "UpToDate" true and do not requeue.
 func (r *AuthProxyWorkloadReconciler) reconcileResult(ctx context.Context, l logr.Logger, resource, orig *cloudsqlapi.AuthProxyWorkload, reason, message string, upToDate bool) (ctrl.Result, error) {
 
-	var status metav1.ConditionStatus
-	var result ctrl.Result
+	status := metav1.ConditionFalse
+	result := requeueNow
 	if upToDate {
 		status = metav1.ConditionTrue
 		result = ctrl.Result{}
-	} else {
-		status = metav1.ConditionFalse
-		result = requeueNow
 	}
 
 	// Workload updates are complete, update the status
@@ -358,7 +353,7 @@ func (r *AuthProxyWorkloadReconciler) reconcileResult(ctx context.Context, l log
 // this AuthProxyWorkload resource gets deleted. applyFinalizer is called only
 // once, when the resource first added.
 func (r *AuthProxyWorkloadReconciler) applyFinalizer(
-	ctx context.Context, l logr.Logger, resource *cloudsqlapi.AuthProxyWorkload) (ctrl.Result, error) {
+		ctx context.Context, l logr.Logger, resource *cloudsqlapi.AuthProxyWorkload) (ctrl.Result, error) {
 
 	// The AuthProxyWorkload resource needs a finalizer, so add
 	// the finalizer, exit the reconcile loop and requeue.
@@ -377,7 +372,7 @@ func (r *AuthProxyWorkloadReconciler) applyFinalizer(
 // patchAuthProxyWorkloadStatus uses the PATCH method to incrementally update
 // the AuthProxyWorkload.Status field.
 func (r *AuthProxyWorkloadReconciler) patchAuthProxyWorkloadStatus(
-	ctx context.Context, resource *cloudsqlapi.AuthProxyWorkload, orig *cloudsqlapi.AuthProxyWorkload) error {
+		ctx context.Context, resource *cloudsqlapi.AuthProxyWorkload, orig *cloudsqlapi.AuthProxyWorkload) error {
 	err := r.Client.Status().Patch(ctx, resource, client.MergeFrom(orig))
 	if err != nil {
 		return err
@@ -425,9 +420,9 @@ func replaceStatus(statuses []*cloudsqlapi.WorkloadStatus, updatedStatus *clouds
 	for i := range statuses {
 		s := statuses[i]
 		if s.Name == updatedStatus.Name &&
-			s.Namespace == updatedStatus.Namespace &&
-			s.Kind == updatedStatus.Kind &&
-			s.Version == updatedStatus.Version {
+				s.Namespace == updatedStatus.Namespace &&
+				s.Kind == updatedStatus.Kind &&
+				s.Version == updatedStatus.Version {
 			statuses[i] = updatedStatus
 			updated = true
 		}
