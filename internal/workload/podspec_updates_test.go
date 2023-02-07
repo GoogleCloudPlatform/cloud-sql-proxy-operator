@@ -775,3 +775,38 @@ func assertContainerArgsContains(t *testing.T, gotArgs, wantArgs []string) {
 		}
 	}
 }
+
+func TestPodTemplateAnnotations(t *testing.T) {
+	var (
+		wantAnnotations = map[string]string{
+			"cloudsql.cloud.google.com/instance1": "1",
+			"cloudsql.cloud.google.com/instance2": "2",
+		}
+
+		u = workload.NewUpdater("cloud-sql-proxy-operator/dev")
+	)
+
+	// Create a pod
+	wl := podWorkload()
+	wl.Pod.Spec.Containers[0].Ports =
+		[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
+
+	// Create a AuthProxyWorkload that matches the deployment
+	csqls := []*v1alpha1.AuthProxyWorkload{
+		simpleAuthProxy("instance1", "project:server:db"),
+		simpleAuthProxy("instance2", "project:server2:db2")}
+	csqls[0].ObjectMeta.Generation = 1
+	csqls[1].ObjectMeta.Generation = 2
+
+	// update the containers
+	err := configureProxies(u, wl, csqls)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// test that annotation was set properly
+	if !reflect.DeepEqual(wl.PodTemplateAnnotations(), wantAnnotations) {
+		t.Errorf("got %v, want %v for proxy container command", wl.PodTemplateAnnotations(), wantAnnotations)
+	}
+
+}

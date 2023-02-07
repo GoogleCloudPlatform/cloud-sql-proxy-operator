@@ -94,6 +94,7 @@ func (r *AuthProxyWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
+//+kubebuilder:rbac:groups=apps,resources=deployments;statefulsets;daemonsets;replicasets,verbs=update;patch
 //+kubebuilder:rbac:groups=apps,resources=*,verbs=get;list;watch
 //+kubebuilder:rbac:groups=batch,resources=*,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=*,verbs=get;list;watch
@@ -198,19 +199,24 @@ func (r *AuthProxyWorkloadReconciler) doDelete(ctx context.Context, resource *cl
 // - the condition `UpToDate` status and reason
 //
 // States:
-// |  state  | finalizer| fetch err | len(wl)      | Name                      |
-// |---------|----------|-----------|--------------|---------------------      |
-// | 0       | *        | *         | *            | start                     |
-// | 1.1     | absent   | *         | *            | needs finalizer           |
-// | 1.2     | present  | error     | *            | can't list workloads      |
-// | 2.1     | present  | nil       | == 0         | no workloads to reconcile |
-// | 3.1     | present  | nil       | > 0          | workloads reconciled      |
+// |  state  | finalizer| fetch err | len(wl) | outOfDateCount | Name                                  |
+// |---------|----------|-----------|---------|----------------|---------------------------------------|
+// | 0       | *        | *         | *       |                | start                                 |
+// | 1.1     | absent   | *         | *       |                | needs finalizer                       |
+// | 1.2     | present  | error     | *       |                | can't list workloads                  |
+// | 2.1     | present  | nil       | == 0    |                | no workloads to reconcile             |
+// | 3.1     | present  | nil       | > 0     | > 0 , err      | workload update needed, and failed    |
+// | 3.2     | present  | nil       | > 0     | > 0            | workload update needed, and succeeded |
+// | 3.3     | present  | nil       | > 0     | == 0           | workloads reconciled                  |
 //
-//	start ---x
-//	          \---> 1.1 --> (requeue, goto start)
-//	           \---> 1.2 --> (requeue, goto start)
-//	            \---> 2.1 --> (end)
-//	             \---> 3.1 --> (end)
+//		start ----x
+//		          |---> 1.1 --> (requeue, goto start)
+//		          |---> 1.2 --> (requeue, goto start)
+//		          |---> 2.1 --> (end)
+//		          |
+//	            |---> 3.1 ---> (requeue, goto start)
+//	            |---> 3.2 ---> (requeue, goto start)
+//	            |---> 3.3 ---> (end)
 func (r *AuthProxyWorkloadReconciler) doCreateUpdate(ctx context.Context, l logr.Logger, resource *cloudsqlapi.AuthProxyWorkload) (ctrl.Result, error) {
 	orig := resource.DeepCopy()
 	var err error
@@ -236,36 +242,111 @@ func (r *AuthProxyWorkloadReconciler) doCreateUpdate(ctx context.Context, l logr
 	// State 2.1: When there are no workloads, then mark this as "UpToDate" true,
 	// do not requeue.
 	if len(allWorkloads) == 0 {
-		return r.reconcileResult(ctx, l, resource, orig, cloudsqlapi.ReasonNoWorkloadsFound, "No workload updates needed")
+		return r.reconcileResult(ctx, l, resource, orig, cloudsqlapi.ReasonNoWorkloadsFound, "No workload updates needed", true)
 	}
 
-	// State 3.1: Workload updates are in progress. Check if the workload updates
-	// are complete.
-	//
-	message := fmt.Sprintf("Reconciled %d matching workloads complete", len(allWorkloads))
+	// State 3.*: Workloads already exist. Some may need to be updated to roll out
+	// changes.
+	var outOfDateCount int
+	for _, wl := range allWorkloads {
+		wlChanged := r.needsAnnotationUpdate(wl, resource)
+		if !wlChanged {
+			continue
+		}
 
-	return r.reconcileResult(ctx, l, resource, orig, cloudsqlapi.ReasonFinishedReconcile, message)
+		outOfDateCount++
+		_, err = controllerutil.CreateOrPatch(ctx, r.Client, wl.Object(), func() error {
+			r.updateAnnotation(wl, resource)
+			return nil
+		})
+
+		// State 3.1 Failed to update one of the workloads PodTemplateSpec annotations, requeue.
+		if err != nil {
+			message := fmt.Sprintf("Reconciled %d matching workloads. Error updating workload %v: %v", len(allWorkloads), wl.Object().GetName(), err)
+			return r.reconcileResult(ctx, l, resource, orig, cloudsqlapi.ReasonWorkloadNeedsUpdate, message, false)
+		}
+
+	}
+
+	// State 3.2 Successfully updated all workload PodTemplateSpec annotations, requeue
+	if outOfDateCount > 0 {
+		message := fmt.Sprintf("Reconciled %d matching workloads. %d workloads need updates", len(allWorkloads), outOfDateCount)
+		return r.reconcileResult(ctx, l, resource, orig, cloudsqlapi.ReasonWorkloadNeedsUpdate, message, false)
+	}
+
+	// State 3.3 Workload PodTemplateSpec annotations are all up to date
+	message := fmt.Sprintf("Reconciled %d matching workloads complete", len(allWorkloads))
+	return r.reconcileResult(ctx, l, resource, orig, cloudsqlapi.ReasonFinishedReconcile, message, true)
+}
+
+// needsAnnotationUpdate returns true when the workload was annotated with
+// a different generation of the resource.
+func (r *AuthProxyWorkloadReconciler) needsAnnotationUpdate(wl workload.Workload, resource *cloudsqlapi.AuthProxyWorkload) bool {
+
+	// This workload is not mutable. Ignore it.
+	if _, ok := wl.(workload.WithMutablePodTemplate); !ok {
+		return false
+	}
+
+	k, v := workload.PodAnnotation(resource)
+
+	// Check if the correct annotation exists
+	an := wl.PodTemplateAnnotations()
+	if an != nil && an[k] == v {
+		return false
+	}
+
+	return true
+}
+
+// updateAnnotation applies an annotation to the workload for the resource.
+func (r *AuthProxyWorkloadReconciler) updateAnnotation(wl workload.Workload, resource *cloudsqlapi.AuthProxyWorkload) {
+	mpt, ok := wl.(workload.WithMutablePodTemplate)
+
+	// This workload is not mutable. Ignore it.
+	if !ok {
+		return
+	}
+
+	k, v := workload.PodAnnotation(resource)
+
+	// add the annotation if needed...
+	an := wl.PodTemplateAnnotations()
+	if an == nil {
+		an = make(map[string]string)
+	}
+
+	an[k] = v
+	mpt.SetPodTemplateAnnotations(an)
 }
 
 // workloadsReconciled  State 3.1: If workloads are all up to date, mark the condition
 // "UpToDate" true and do not requeue.
-func (r *AuthProxyWorkloadReconciler) reconcileResult(ctx context.Context, l logr.Logger, resource *cloudsqlapi.AuthProxyWorkload, orig *cloudsqlapi.AuthProxyWorkload, reason, message string) (ctrl.Result, error) {
+func (r *AuthProxyWorkloadReconciler) reconcileResult(ctx context.Context, l logr.Logger, resource, orig *cloudsqlapi.AuthProxyWorkload, reason, message string, upToDate bool) (ctrl.Result, error) {
+
+	status := metav1.ConditionFalse
+	result := requeueNow
+	if upToDate {
+		status = metav1.ConditionTrue
+		result = ctrl.Result{}
+	}
 
 	// Workload updates are complete, update the status
 	resource.Status.Conditions = replaceCondition(resource.Status.Conditions, &metav1.Condition{
 		Type:               cloudsqlapi.ConditionUpToDate,
-		Status:             metav1.ConditionTrue,
+		Status:             status,
 		ObservedGeneration: resource.GetGeneration(),
 		Reason:             reason,
 		Message:            message,
 	})
+
 	err := r.patchAuthProxyWorkloadStatus(ctx, resource, orig)
 	if err != nil {
 		l.Error(err, "Unable to patch status before beginning workloads", "AuthProxyWorkload", resource.GetNamespace()+"/"+resource.GetName())
-		return ctrl.Result{}, err
+		return result, err
 	}
 
-	return ctrl.Result{}, nil
+	return result, nil
 }
 
 // applyFinalizer adds the finalizer so that the operator is notified when

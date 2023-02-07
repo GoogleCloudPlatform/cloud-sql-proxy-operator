@@ -26,7 +26,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 func TestMain(m *testing.M) {
@@ -253,21 +252,6 @@ func TestProxyAppliedOnExistingWorkload(t *testing.T) {
 			_, err = tp.GetAuthProxyWorkloadAfterReconcile(ctx, key)
 			if err != nil {
 				t.Fatal(err)
-			}
-
-			// if this is an apps/v1 resource with a mutable pod template,
-			// force a rolling update.
-			if wl, ok := test.o.(workload.WithMutablePodTemplate); ok {
-				// patch the workload, add an annotation to the podspec
-				t.Log("Customer updates the workload triggering a rollout")
-				controllerutil.CreateOrPatch(ctx, tp.Client, test.o.Object(), func() error {
-					wl.SetPodTemplateAnnotations(map[string]string{"customer": "updated"})
-					return nil
-				})
-
-				if err != nil {
-					t.Fatal(err)
-				}
 			}
 
 			t.Logf("Wait for %v pods to have 2 containers", test.allOrAny)

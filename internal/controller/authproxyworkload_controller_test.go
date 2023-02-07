@@ -146,8 +146,51 @@ func TestReconcileState21BySelector(t *testing.T) {
 
 }
 
-func TestReconcileState31(t *testing.T) {
-	var wantRequeue bool
+func TestReconcileState32(t *testing.T) {
+	wantRequeue := true
+	wantStatus := metav1.ConditionFalse
+	wantReason := v1alpha1.ReasonWorkloadNeedsUpdate
+
+	p := testhelpers.BuildAuthProxyWorkload(types.NamespacedName{
+		Namespace: "default",
+		Name:      "test",
+	}, "project:region:db")
+	p.Generation = 2
+	p.Finalizers = []string{finalizerName}
+	p.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
+		Kind: "Deployment",
+		Selector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{"app": "things"},
+		},
+	}
+	p.Status.Conditions = []*metav1.Condition{{
+		Type:   v1alpha1.ConditionUpToDate,
+		Reason: v1alpha1.ReasonStartedReconcile,
+		Status: metav1.ConditionFalse,
+	}}
+
+	// mimic a pod that was updated by the webhook
+	reqName := v1alpha1.AnnotationPrefix + "/" + p.Name
+	pod := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "thing",
+			Namespace: "default",
+			Labels:    map[string]string{"app": "things"},
+		},
+		Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{reqName: "1"}},
+		}},
+	}
+
+	err := runReconcileTestcase(p, []client.Object{p, pod}, wantRequeue, wantStatus, wantReason)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+}
+
+func TestReconcileState33(t *testing.T) {
+	wantRequeue := false
 	wantStatus := metav1.ConditionTrue
 	wantReason := v1alpha1.ReasonFinishedReconcile
 
@@ -170,8 +213,7 @@ func TestReconcileState31(t *testing.T) {
 	}}
 
 	// mimic a pod that was updated by the webhook
-	reqName := v1alpha1.AnnotationPrefix + "/" +
-		workload.SafePrefixedName("req-", p.Namespace+"-"+p.Name)
+	reqName := v1alpha1.AnnotationPrefix + "/" + p.Name
 	pod := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "thing",

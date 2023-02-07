@@ -47,6 +47,14 @@ const (
 
 var l = logf.Log.WithName("internal.workload")
 
+// PodAnnotation returns the key and value for an annotation on a pod
+// to indicate the specific AuthProxyWorkload resource that was configured
+// on the pod.
+func PodAnnotation(r *cloudsqlapi.AuthProxyWorkload) (string, string) {
+	return fmt.Sprintf("%s/%s", cloudsqlapi.AnnotationPrefix, r.Name),
+		fmt.Sprintf("%d", r.Generation)
+}
+
 // Updater holds global state used while reconciling workloads.
 type Updater struct {
 	// userAgent is the userAgent of the operator
@@ -388,6 +396,12 @@ func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWo
 		}
 	}
 
+	// Copy the existing pod annotation map
+	ann := map[string]string{}
+	for k, v := range wl.PodTemplateAnnotations() {
+		ann[k] = v
+	}
+
 	// add all new containers and update existing containers
 	for i := range matches {
 		inst := matches[i]
@@ -395,9 +409,17 @@ func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWo
 		newContainer := corev1.Container{}
 		s.updateContainer(inst, wl, &newContainer)
 		containers = append(containers, newContainer)
+
+		// Add pod annotation for each instance
+		k, v := PodAnnotation(inst)
+		ann[k] = v
 	}
 
 	podSpec.Containers = containers
+
+	if len(ann) != 0 {
+		wl.SetPodTemplateAnnotations(ann)
+	}
 
 	for i := range podSpec.Containers {
 		c := &podSpec.Containers[i]
