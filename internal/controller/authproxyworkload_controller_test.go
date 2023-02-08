@@ -70,11 +70,8 @@ func TestReconcileDeleted(t *testing.T) {
 		Namespace: "default",
 		Name:      "test",
 	}, "project:region:db")
-	p.Finalizers = []string{finalizerName}
-	p.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
-		Kind: "Pod",
-		Name: "thing",
-	}
+	addFinalizers(p)
+	addPodWorkload(p)
 
 	cb, err := clientBuilder()
 	if err != nil {
@@ -115,11 +112,8 @@ func TestReconcileState21ByName(t *testing.T) {
 		Namespace: "default",
 		Name:      "test",
 	}, "project:region:db")
-	p.Finalizers = []string{finalizerName}
-	p.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
-		Kind: "Pod",
-		Name: "testpod",
-	}
+	addFinalizers(p)
+	addPodWorkload(p)
 
 	err := runReconcileTestcase(p, []client.Object{p}, false, metav1.ConditionTrue, v1alpha1.ReasonNoWorkloadsFound)
 	if err != nil {
@@ -132,13 +126,8 @@ func TestReconcileState21BySelector(t *testing.T) {
 		Namespace: "default",
 		Name:      "test",
 	}, "project:region:db")
-	p.Finalizers = []string{finalizerName}
-	p.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
-		Kind: "Pod",
-		Selector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{"app": "things"},
-		},
-	}
+	addFinalizers(p)
+	addSelectorWorkload(p, "Pod", "app", "things")
 
 	err := runReconcileTestcase(p, []client.Object{p}, false, metav1.ConditionTrue, v1alpha1.ReasonNoWorkloadsFound)
 	if err != nil {
@@ -148,27 +137,20 @@ func TestReconcileState21BySelector(t *testing.T) {
 }
 
 func TestReconcileState32(t *testing.T) {
-	wantRequeue := true
-	wantStatus := metav1.ConditionFalse
-	wantReason := v1alpha1.ReasonWorkloadNeedsUpdate
-
+	const (
+		wantRequeue = true
+		wantStatus  = metav1.ConditionFalse
+		wantReason  = v1alpha1.ReasonWorkloadNeedsUpdate
+		labelK      = "app"
+		labelV      = "things"
+	)
 	p := testhelpers.BuildAuthProxyWorkload(types.NamespacedName{
 		Namespace: "default",
 		Name:      "test",
 	}, "project:region:db")
 	p.Generation = 2
-	p.Finalizers = []string{finalizerName}
-	p.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
-		Kind: "Deployment",
-		Selector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{"app": "things"},
-		},
-	}
-	p.Status.Conditions = []*metav1.Condition{{
-		Type:   v1alpha1.ConditionUpToDate,
-		Reason: v1alpha1.ReasonStartedReconcile,
-		Status: metav1.ConditionFalse,
-	}}
+	addFinalizers(p)
+	addSelectorWorkload(p, "Deployment", labelK, labelV)
 
 	// mimic a pod that was updated by the webhook
 	reqName := v1alpha1.AnnotationPrefix + "/" + p.Name
@@ -176,7 +158,7 @@ func TestReconcileState32(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "thing",
 			Namespace: "default",
-			Labels:    map[string]string{"app": "things"},
+			Labels:    map[string]string{labelK: labelV},
 		},
 		Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{reqName: "1"}},
@@ -191,27 +173,21 @@ func TestReconcileState32(t *testing.T) {
 }
 
 func TestReconcileState33(t *testing.T) {
-	wantRequeue := false
-	wantStatus := metav1.ConditionTrue
-	wantReason := v1alpha1.ReasonFinishedReconcile
+	const (
+		wantRequeue = false
+		wantStatus  = metav1.ConditionTrue
+		wantReason  = v1alpha1.ReasonFinishedReconcile
+		labelK      = "app"
+		labelV      = "things"
+	)
 
 	p := testhelpers.BuildAuthProxyWorkload(types.NamespacedName{
 		Namespace: "default",
 		Name:      "test",
 	}, "project:region:db")
 	p.Generation = 1
-	p.Finalizers = []string{finalizerName}
-	p.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
-		Kind: "Deployment",
-		Selector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{"app": "things"},
-		},
-	}
-	p.Status.Conditions = []*metav1.Condition{{
-		Type:   v1alpha1.ConditionUpToDate,
-		Reason: v1alpha1.ReasonStartedReconcile,
-		Status: metav1.ConditionFalse,
-	}}
+	addFinalizers(p)
+	addSelectorWorkload(p, "Deployment", labelK, labelV)
 
 	// mimic a pod that was updated by the webhook
 	reqName := v1alpha1.AnnotationPrefix + "/" + p.Name
@@ -219,7 +195,7 @@ func TestReconcileState33(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "thing",
 			Namespace: "default",
-			Labels:    map[string]string{"app": "things"},
+			Labels:    map[string]string{labelK: labelV},
 		},
 		Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{reqName: "1"}},
@@ -234,23 +210,17 @@ func TestReconcileState33(t *testing.T) {
 }
 
 func TestReconcileDeleteUpdatesWorkload(t *testing.T) {
+	const (
+		labelK = "app"
+		labelV = "things"
+	)
 	resource := testhelpers.BuildAuthProxyWorkload(types.NamespacedName{
 		Namespace: "default",
 		Name:      "test",
 	}, "project:region:db")
 	resource.Generation = 1
-	resource.Finalizers = []string{finalizerName}
-	resource.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
-		Kind: "Deployment",
-		Selector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{"app": "things"},
-		},
-	}
-	resource.Status.Conditions = []*metav1.Condition{{
-		Type:   v1alpha1.ConditionUpToDate,
-		Reason: v1alpha1.ReasonStartedReconcile,
-		Status: metav1.ConditionFalse,
-	}}
+	addFinalizers(resource)
+	addSelectorWorkload(resource, "Deployment", labelK, labelV)
 
 	k, v := workload.PodAnnotation(resource)
 
@@ -259,7 +229,7 @@ func TestReconcileDeleteUpdatesWorkload(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "thing",
 			Namespace: "default",
-			Labels:    map[string]string{"app": "things"},
+			Labels:    map[string]string{labelK: labelV},
 		},
 		Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{k: v}},
@@ -313,7 +283,7 @@ func TestReconcileDeleteUpdatesWorkload(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if got, want := d.Spec.Template.ObjectMeta.Annotations[k], "1-deleted-"; !strings.HasPrefix(got, "1-deleted-") {
+	if got, want := d.Spec.Template.ObjectMeta.Annotations[k], "1-deleted-"; !strings.HasPrefix(got, want) {
 		t.Fatalf("got %v, wants annotation value to have prefix %v", got, want)
 	}
 
@@ -390,4 +360,22 @@ func reconciler(p *v1alpha1.AuthProxyWorkload, cb client.Client) (*AuthProxyWork
 		},
 	}
 	return r, req, ctx
+}
+
+func addFinalizers(p *v1alpha1.AuthProxyWorkload) {
+	p.Finalizers = []string{finalizerName}
+}
+func addPodWorkload(p *v1alpha1.AuthProxyWorkload) {
+	p.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
+		Kind: "Pod",
+		Name: "testpod",
+	}
+}
+func addSelectorWorkload(p *v1alpha1.AuthProxyWorkload, kind, labelK, labelV string) {
+	p.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
+		Kind: kind,
+		Selector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{labelK: labelV},
+		},
+	}
 }

@@ -521,7 +521,6 @@ func (r *AuthProxyWorkloadReconciler) loadByLabelSelector(ctx context.Context, w
 func (r *AuthProxyWorkloadReconciler) updateWorkloadAnnotations(ctx context.Context, resource *cloudsqlapi.AuthProxyWorkload, workloads []workload.Workload) (int, error) {
 	var outOfDate int
 	for _, wl := range workloads {
-		// update the workload removing proxy config
 		if r.needsAnnotationUpdate(wl, resource) {
 			outOfDate++
 
@@ -530,7 +529,7 @@ func (r *AuthProxyWorkloadReconciler) updateWorkloadAnnotations(ctx context.Cont
 				return nil
 			})
 
-			// Failed to update one of the workloads PodTemplateSpec annotations, requeue.
+			// Failed to update one of the workloads PodTemplateSpec annotations.
 			if err != nil {
 				return 0, fmt.Errorf("reconciled %d matching workloads. Error removing proxy from workload %v: %v", len(workloads), wl.Object().GetName(), err)
 			}
