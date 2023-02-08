@@ -215,7 +215,9 @@ func TestReconcileState32RolloutStrategyNone(t *testing.T) {
 			Labels:    map[string]string{labelK: labelV},
 		},
 		Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{
-			ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}},
+			ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{
+				"annotation": "set",
+			}},
 		}},
 	}
 
@@ -235,7 +237,7 @@ func TestReconcileState32RolloutStrategyNone(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if got, want := len(d.Spec.Template.ObjectMeta.Annotations), 0; got != want {
+	if got, want := len(d.Spec.Template.ObjectMeta.Annotations), 1; got != want {
 		t.Fatalf("got %v annotations, wants %v annotations", got, want)
 	}
 
