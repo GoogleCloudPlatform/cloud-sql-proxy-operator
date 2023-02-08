@@ -276,9 +276,7 @@ func (r *AuthProxyWorkloadReconciler) needsAnnotationUpdate(wl workload.Workload
 		return false
 	}
 
-	// The user has set "None" as the rollout strategy. Ignore it.
-	if resource.Spec.AuthProxyContainer != nil &&
-		resource.Spec.AuthProxyContainer.RolloutStrategy == cloudsqlapi.NoneStrategy {
+	if isRolloutStrategyNone(resource) {
 		return false
 	}
 
@@ -302,8 +300,7 @@ func (r *AuthProxyWorkloadReconciler) updateAnnotation(wl workload.Workload, res
 	}
 
 	// The user has set "None" as the rollout strategy. Ignore it.
-	if resource.Spec.AuthProxyContainer != nil &&
-		resource.Spec.AuthProxyContainer.RolloutStrategy == cloudsqlapi.NoneStrategy {
+	if isRolloutStrategyNone(resource) {
 		return
 	}
 
@@ -317,6 +314,12 @@ func (r *AuthProxyWorkloadReconciler) updateAnnotation(wl workload.Workload, res
 
 	an[k] = v
 	mpt.SetPodTemplateAnnotations(an)
+}
+
+// isRolloutStrategyNone returns true when user has set "None" as the rollout strategy.
+func isRolloutStrategyNone(resource *cloudsqlapi.AuthProxyWorkload) bool {
+	return resource.Spec.AuthProxyContainer != nil &&
+		resource.Spec.AuthProxyContainer.RolloutStrategy == cloudsqlapi.NoneStrategy
 }
 
 // workloadsReconciled  State 3.1: If workloads are all up to date, mark the condition

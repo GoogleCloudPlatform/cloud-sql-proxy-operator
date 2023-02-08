@@ -40,7 +40,7 @@ var _ webhook.Defaulter = &AuthProxyWorkload{}
 func (r *AuthProxyWorkload) Default() {
 	authproxyworkloadlog.Info("default", "name", r.Name)
 	if r.Spec.AuthProxyContainer != nil &&
-			r.Spec.AuthProxyContainer.RolloutStrategy == "" {
+		r.Spec.AuthProxyContainer.RolloutStrategy == "" {
 		r.Spec.AuthProxyContainer.RolloutStrategy = WorkloadStrategy
 	}
 }
