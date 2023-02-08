@@ -39,10 +39,9 @@ var _ webhook.Defaulter = &AuthProxyWorkload{}
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *AuthProxyWorkload) Default() {
 	authproxyworkloadlog.Info("default", "name", r.Name)
-	if r.Spec.AuthProxyContainer != nil {
-		if r.Spec.AuthProxyContainer.RolloutStrategy == "" {
-			r.Spec.AuthProxyContainer.RolloutStrategy = WorkloadStrategy
-		}
+	if r.Spec.AuthProxyContainer != nil &&
+			r.Spec.AuthProxyContainer.RolloutStrategy == "" {
+		r.Spec.AuthProxyContainer.RolloutStrategy = WorkloadStrategy
 	}
 }
 

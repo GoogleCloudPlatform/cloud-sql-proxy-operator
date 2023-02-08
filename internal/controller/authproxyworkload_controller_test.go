@@ -188,9 +188,13 @@ func TestReconcileState32(t *testing.T) {
 }
 
 func TestReconcileState32RolloutStrategyNone(t *testing.T) {
-	wantRequeue := false
-	wantStatus := metav1.ConditionTrue
-	wantReason := v1alpha1.ReasonFinishedReconcile
+	const (
+		wantRequeue = false
+		wantStatus  = metav1.ConditionTrue
+		wantReason  = v1alpha1.ReasonFinishedReconcile
+		labelK      = "app"
+		labelV      = "things"
+	)
 
 	p := testhelpers.BuildAuthProxyWorkload(types.NamespacedName{
 		Namespace: "default",
@@ -200,25 +204,15 @@ func TestReconcileState32RolloutStrategyNone(t *testing.T) {
 		RolloutStrategy: v1alpha1.NoneStrategy,
 	}
 	p.Generation = 2
-	p.Finalizers = []string{finalizerName}
-	p.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
-		Kind: "Deployment",
-		Selector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{"app": "things"},
-		},
-	}
-	p.Status.Conditions = []*metav1.Condition{{
-		Type:   v1alpha1.ConditionUpToDate,
-		Reason: v1alpha1.ReasonStartedReconcile,
-		Status: metav1.ConditionFalse,
-	}}
+	addFinalizers(p)
+	addSelectorWorkload(p, "Deployment", labelK, labelV)
 
 	// mimic a deployment that was updated by the webhook
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "thing",
 			Namespace: "default",
-			Labels:    map[string]string{"app": "things"},
+			Labels:    map[string]string{labelK: labelV},
 		},
 		Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}},
