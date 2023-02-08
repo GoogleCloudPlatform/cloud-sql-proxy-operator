@@ -48,7 +48,7 @@ which helm
 
 # Install go
 echo "TIME: $(date) Install Go"
-curl -L -o bin/go.tar.gz https://go.dev/dl/go1.18.10.linux-amd64.tar.gz
+curl -L -o bin/go.tar.gz https://go.dev/dl/go1.20.linux-amd64.tar.gz
 rm -rf /usr/local/go && tar -C /usr/local -xzf bin/go.tar.gz
 export PATH=$PATH:/usr/local/go/bin
 go version
