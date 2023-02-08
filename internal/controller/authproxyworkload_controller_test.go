@@ -58,7 +58,7 @@ func TestReconcileState11(t *testing.T) {
 		Name:      "test",
 	}, "project:region:db")
 
-	err := runReconcileTestcase(p, []client.Object{p}, true, "", "")
+	_, _, err := runReconcileTestcase(p, []client.Object{p}, true, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func TestReconcileState21ByName(t *testing.T) {
 	addFinalizers(p)
 	addPodWorkload(p)
 
-	err := runReconcileTestcase(p, []client.Object{p}, false, metav1.ConditionTrue, v1alpha1.ReasonNoWorkloadsFound)
+	_, _, err := runReconcileTestcase(p, []client.Object{p}, false, metav1.ConditionTrue, v1alpha1.ReasonNoWorkloadsFound)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +129,7 @@ func TestReconcileState21BySelector(t *testing.T) {
 	addFinalizers(p)
 	addSelectorWorkload(p, "Pod", "app", "things")
 
-	err := runReconcileTestcase(p, []client.Object{p}, false, metav1.ConditionTrue, v1alpha1.ReasonNoWorkloadsFound)
+	_, _, err := runReconcileTestcase(p, []client.Object{p}, false, metav1.ConditionTrue, v1alpha1.ReasonNoWorkloadsFound)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,9 +165,84 @@ func TestReconcileState32(t *testing.T) {
 		}},
 	}
 
-	err := runReconcileTestcase(p, []client.Object{p, pod}, wantRequeue, wantStatus, wantReason)
+	c, ctx, err := runReconcileTestcase(p, []client.Object{p, pod}, wantRequeue, wantStatus, wantReason)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	// Fetch the deployment and make sure the annotations show the
+	// deleted resource.
+	d := &appsv1.Deployment{}
+	err = c.Get(ctx, types.NamespacedName{
+		Namespace: pod.GetNamespace(),
+		Name:      pod.GetName(),
+	}, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got, want := d.Spec.Template.ObjectMeta.Annotations[reqName], "2"; !strings.HasPrefix(got, "2") {
+		t.Fatalf("got %v, wants annotation value to have prefix %v", got, want)
+	}
+
+}
+
+func TestReconcileState32RolloutStrategyNone(t *testing.T) {
+	wantRequeue := false
+	wantStatus := metav1.ConditionTrue
+	wantReason := v1alpha1.ReasonFinishedReconcile
+
+	p := testhelpers.BuildAuthProxyWorkload(types.NamespacedName{
+		Namespace: "default",
+		Name:      "test",
+	}, "project:region:db")
+	p.Spec.AuthProxyContainer = &v1alpha1.AuthProxyContainerSpec{
+		RolloutStrategy: v1alpha1.NoneStrategy,
+	}
+	p.Generation = 2
+	p.Finalizers = []string{finalizerName}
+	p.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
+		Kind: "Deployment",
+		Selector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{"app": "things"},
+		},
+	}
+	p.Status.Conditions = []*metav1.Condition{{
+		Type:   v1alpha1.ConditionUpToDate,
+		Reason: v1alpha1.ReasonStartedReconcile,
+		Status: metav1.ConditionFalse,
+	}}
+
+	// mimic a deployment that was updated by the webhook
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "thing",
+			Namespace: "default",
+			Labels:    map[string]string{"app": "things"},
+		},
+		Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}},
+		}},
+	}
+
+	c, ctx, err := runReconcileTestcase(p, []client.Object{p, deployment}, wantRequeue, wantStatus, wantReason)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Fetch the deployment and make sure the annotations show the
+	// deleted resource.
+	d := &appsv1.Deployment{}
+	err = c.Get(ctx, types.NamespacedName{
+		Namespace: deployment.GetNamespace(),
+		Name:      deployment.GetName(),
+	}, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got, want := len(d.Spec.Template.ObjectMeta.Annotations), 0; got != want {
+		t.Fatalf("got %v annotations, wants %v annotations", got, want)
 	}
 
 }
@@ -202,7 +277,7 @@ func TestReconcileState33(t *testing.T) {
 		}},
 	}
 
-	err := runReconcileTestcase(p, []client.Object{p, pod}, wantRequeue, wantStatus, wantReason)
+	_, _, err := runReconcileTestcase(p, []client.Object{p, pod}, wantRequeue, wantStatus, wantReason)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -289,10 +364,10 @@ func TestReconcileDeleteUpdatesWorkload(t *testing.T) {
 
 }
 
-func runReconcileTestcase(p *v1alpha1.AuthProxyWorkload, clientObjects []client.Object, wantRequeue bool, wantStatus metav1.ConditionStatus, wantReason string) error {
+func runReconcileTestcase(p *v1alpha1.AuthProxyWorkload, clientObjects []client.Object, wantRequeue bool, wantStatus metav1.ConditionStatus, wantReason string) (client.WithWatch, context.Context, error) {
 	cb, err := clientBuilder()
 	if err != nil {
-		return err // shouldn't ever happen
+		return nil, nil, err // shouldn't ever happen
 	}
 
 	c := cb.WithObjects(clientObjects...).Build()
@@ -300,10 +375,10 @@ func runReconcileTestcase(p *v1alpha1.AuthProxyWorkload, clientObjects []client.
 	r, req, ctx := reconciler(p, c)
 	res, err := r.Reconcile(ctx, req)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	if res.Requeue != wantRequeue {
-		return fmt.Errorf("got %v, want %v for requeue", res.Requeue, wantRequeue)
+		return nil, nil, fmt.Errorf("got %v, want %v for requeue", res.Requeue, wantRequeue)
 	}
 
 	for _, o := range clientObjects {
@@ -316,17 +391,17 @@ func runReconcileTestcase(p *v1alpha1.AuthProxyWorkload, clientObjects []client.
 	if wantStatus != "" || wantReason != "" {
 		cond := findCondition(p.Status.Conditions, v1alpha1.ConditionUpToDate)
 		if cond == nil {
-			return fmt.Errorf("the UpToDate condition was nil, wants condition to exist")
+			return nil, nil, fmt.Errorf("the UpToDate condition was nil, wants condition to exist")
 		}
 		if wantStatus != "" && cond.Status != wantStatus {
-			return fmt.Errorf("got %v, want %v for UpToDate condition status", cond.Status, wantStatus)
+			return nil, nil, fmt.Errorf("got %v, want %v for UpToDate condition status", cond.Status, wantStatus)
 		}
 		if wantReason != "" && cond.Reason != wantReason {
-			return fmt.Errorf("got %v, want %v for UpToDate condition reason", cond.Reason, wantReason)
+			return nil, nil, fmt.Errorf("got %v, want %v for UpToDate condition reason", cond.Reason, wantReason)
 		}
 	}
 
-	return nil
+	return c, ctx, nil
 }
 
 func clientBuilder() (*fake.ClientBuilder, error) {

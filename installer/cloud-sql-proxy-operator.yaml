@@ -880,6 +880,13 @@ spec:
                           description: 'Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                           type: object
                       type: object
+                    rolloutStrategy:
+                      default: Workload
+                      description: 'RolloutStrategy indicates the strategy to use when rolling out changes to the workloads affected by the results. When this is set to `Workload`, changes to this resource will be automatically applied to a running Deployment, StatefulSet, DaemonSet, or ReplicaSet in accordance with the Strategy set on that workload. When this is set to `None`, the operator will take no action to roll out changes to affected workloads. `Workload` will be used by default if no value is set. See: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy'
+                      enum:
+                        - Workload
+                        - None
+                      type: string
                     sqlAdminAPIEndpoint:
                       description: SQLAdminAPIEndpoint is a debugging parameter that when specified will change the Google Cloud api endpoint used by the proxy.
                       type: string

@@ -276,6 +276,12 @@ func (r *AuthProxyWorkloadReconciler) needsAnnotationUpdate(wl workload.Workload
 		return false
 	}
 
+	// The user has set "None" as the rollout strategy. Ignore it.
+	if resource.Spec.AuthProxyContainer != nil &&
+		resource.Spec.AuthProxyContainer.RolloutStrategy == cloudsqlapi.NoneStrategy {
+		return false
+	}
+
 	k, v := workload.PodAnnotation(resource)
 	// Check if the correct annotation exists
 	an := wl.PodTemplateAnnotations()
@@ -292,6 +298,12 @@ func (r *AuthProxyWorkloadReconciler) updateAnnotation(wl workload.Workload, res
 
 	// This workload is not mutable. Ignore it.
 	if !ok {
+		return
+	}
+
+	// The user has set "None" as the rollout strategy. Ignore it.
+	if resource.Spec.AuthProxyContainer != nil &&
+		resource.Spec.AuthProxyContainer.RolloutStrategy == cloudsqlapi.NoneStrategy {
 		return
 	}
 

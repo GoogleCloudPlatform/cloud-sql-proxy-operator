@@ -62,6 +62,18 @@ const (
 	// ReasonUpToDate relates to condition WorkloadUpToDate, this reason is set
 	// when there are no workloads related to this AuthProxyWorkload resource.
 	ReasonUpToDate = "UpToDate"
+
+	// WorkloadStrategy is the RolloutStrategy value that indicates that
+	// when the AuthProxyWorkload is updated or deleted, the changes should be
+	// applied to affected workloads (Deployments, StatefulSets, etc.) following
+	// the Strategy defined by that workload.
+	// See: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
+	WorkloadStrategy = "Workload"
+
+	// NoneStrategy is the RolloutStrategy value that indicates that the.
+	// when the AuthProxyWorkload is updated or deleted, no action should be taken
+	// by the operator to update the affected workloads.
+	NoneStrategy = "None"
 )
 
 // AuthProxyWorkloadSpec defines the desired state of AuthProxyWorkload
@@ -144,6 +156,19 @@ type AuthProxyContainerSpec struct {
 	// will use the latest known compatible proxy image.
 	//+kubebuilder:validation:Optional
 	Image string `json:"image,omitempty"`
+
+	// RolloutStrategy indicates the strategy to use when rolling out changes to
+	// the workloads affected by the results. When this is set to
+	// `Workload`, changes to this resource will be automatically applied
+	// to a running Deployment, StatefulSet, DaemonSet, or ReplicaSet in
+	// accordance with the Strategy set on that workload. When this is set to
+	// `None`, the operator will take no action to roll out changes to affected
+	// workloads. `Workload` will be used by default if no value is set.
+	// See: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
+	//+kubebuilder:validation:Optional
+	//+kubebuilder:validation:Enum=Workload;None
+	//+kubebuilder:default=Workload
+	RolloutStrategy string `json:"rolloutStrategy,omitempty"`
 }
 
 // InstanceSpec describes the configuration for how the proxy should expose
