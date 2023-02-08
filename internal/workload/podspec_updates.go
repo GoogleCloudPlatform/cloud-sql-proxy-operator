@@ -55,7 +55,7 @@ func PodAnnotation(r *cloudsqlapi.AuthProxyWorkload) (string, string) {
 	k := fmt.Sprintf("%s/%s", cloudsqlapi.AnnotationPrefix, r.Name)
 	v := fmt.Sprintf("%d", r.Generation)
 	// if r was deleted, use a different value
-	if r.GetDeletionTimestamp() != nil {
+	if !r.GetDeletionTimestamp().IsZero() {
 		v = fmt.Sprintf("%d-deleted-%s", r.Generation, r.GetDeletionTimestamp().Format(time.RFC3339))
 	}
 

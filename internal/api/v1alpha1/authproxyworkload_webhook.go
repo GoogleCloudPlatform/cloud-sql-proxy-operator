@@ -39,7 +39,10 @@ var _ webhook.Defaulter = &AuthProxyWorkload{}
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *AuthProxyWorkload) Default() {
 	authproxyworkloadlog.Info("default", "name", r.Name)
-	// TODO(user): fill in your defaulting logic.
+	if r.Spec.AuthProxyContainer != nil &&
+		r.Spec.AuthProxyContainer.RolloutStrategy == "" {
+		r.Spec.AuthProxyContainer.RolloutStrategy = WorkloadStrategy
+	}
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
