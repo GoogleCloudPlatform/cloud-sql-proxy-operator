@@ -156,7 +156,7 @@ func (r *AuthProxyWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Re
 			"gen", resource.GetGeneration())
 		r.recentlyDeleted.set(req.NamespacedName, true)
 		// the object has been deleted
-		return r.doDelete(ctx, resource, l)
+		return r.doDelete(ctx, resource)
 	}
 
 	l.Info("Reconcile add/update for AuthProxyWorkload",
@@ -169,7 +169,7 @@ func (r *AuthProxyWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 // doDelete removes our finalizer and updates the related workloads
 // when the reconcile loop receives an AuthProxyWorkload that was deleted.
-func (r *AuthProxyWorkloadReconciler) doDelete(ctx context.Context, resource *cloudsqlapi.AuthProxyWorkload, l logr.Logger) (ctrl.Result, error) {
+func (r *AuthProxyWorkloadReconciler) doDelete(ctx context.Context, resource *cloudsqlapi.AuthProxyWorkload) (ctrl.Result, error) {
 
 	// Mark all related workloads as needing to be updated
 	allWorkloads, err := r.updateWorkloadStatus(ctx, resource)
@@ -177,20 +177,9 @@ func (r *AuthProxyWorkloadReconciler) doDelete(ctx context.Context, resource *cl
 		return requeueNow, err
 	}
 
-	for _, wl := range allWorkloads {
-		// update the workload removing proxy config
-		if r.needsAnnotationUpdate(wl, resource) {
-			_, err = controllerutil.CreateOrPatch(ctx, r.Client, wl.Object(), func() error {
-				r.updateAnnotation(wl, resource)
-				return nil
-			})
-
-			// Failed to update one of the workloads PodTemplateSpec annotations, requeue.
-			if err != nil {
-				return requeueNow, fmt.Errorf("reconciled %d matching workloads. Error removing proxy from workload %v: %v", len(allWorkloads), wl.Object().GetName(), err)
-			}
-			l.Info(fmt.Sprintf("Removed annotation from %v %s", wl.Object().GetObjectKind(), wl.Object().GetName()))
-		}
+	_, err = r.updateWorkloadAnnotations(ctx, resource, allWorkloads)
+	if err != nil {
+		return requeueNow, err
 	}
 
 	// Remove the finalizer so that the object can be fully deleted
@@ -263,25 +252,9 @@ func (r *AuthProxyWorkloadReconciler) doCreateUpdate(ctx context.Context, l logr
 
 	// State 3.*: Workloads already exist. Some may need to be updated to roll out
 	// changes.
-	var outOfDateCount int
-	for _, wl := range allWorkloads {
-		wlChanged := r.needsAnnotationUpdate(wl, resource)
-		if !wlChanged {
-			continue
-		}
-
-		outOfDateCount++
-		_, err = controllerutil.CreateOrPatch(ctx, r.Client, wl.Object(), func() error {
-			r.updateAnnotation(wl, resource)
-			return nil
-		})
-
-		// State 3.1 Failed to update one of the workloads PodTemplateSpec annotations, requeue.
-		if err != nil {
-			message := fmt.Sprintf("Reconciled %d matching workloads. Error updating workload %v: %v", len(allWorkloads), wl.Object().GetName(), err)
-			return r.reconcileResult(ctx, l, resource, orig, cloudsqlapi.ReasonWorkloadNeedsUpdate, message, false)
-		}
-
+	outOfDateCount, err := r.updateWorkloadAnnotations(ctx, resource, allWorkloads)
+	if err != nil {
+		return requeueNow, err
 	}
 
 	// State 3.2 Successfully updated all workload PodTemplateSpec annotations, requeue
@@ -542,5 +515,28 @@ func (r *AuthProxyWorkloadReconciler) loadByLabelSelector(ctx context.Context, w
 		return nil, err
 	}
 	return wl.Workloads(), nil
+
+}
+
+func (r *AuthProxyWorkloadReconciler) updateWorkloadAnnotations(ctx context.Context, resource *cloudsqlapi.AuthProxyWorkload, workloads []workload.Workload) (int, error) {
+	var outOfDate int
+	for _, wl := range workloads {
+		// update the workload removing proxy config
+		if r.needsAnnotationUpdate(wl, resource) {
+			outOfDate++
+
+			_, err := controllerutil.CreateOrPatch(ctx, r.Client, wl.Object(), func() error {
+				r.updateAnnotation(wl, resource)
+				return nil
+			})
+
+			// Failed to update one of the workloads PodTemplateSpec annotations, requeue.
+			if err != nil {
+				return 0, fmt.Errorf("reconciled %d matching workloads. Error removing proxy from workload %v: %v", len(workloads), wl.Object().GetName(), err)
+			}
+		}
+	}
+
+	return outOfDate, nil
 
 }

@@ -266,6 +266,7 @@ func TestReconcileDeleteUpdatesWorkload(t *testing.T) {
 		}},
 	}
 
+	// Build a client with the resource and deployment
 	cb, err := clientBuilder()
 	if err != nil {
 		t.Error(err) // shouldn't ever happen
@@ -273,15 +274,13 @@ func TestReconcileDeleteUpdatesWorkload(t *testing.T) {
 	c := cb.WithObjects(resource, deployment).Build()
 	r, req, ctx := reconciler(resource, c)
 
-	if want, got := 1, len(deployment.Spec.Template.ObjectMeta.Annotations); got != want {
-		t.Fatalf("got %d, wants %d annotations", got, want)
-	}
-
+	// Delete the resource
 	c.Delete(ctx, resource)
 	if err != nil {
 		t.Error(err)
 	}
 
+	// Run Reconcile on the deleted resource
 	res, err := r.Reconcile(ctx, req)
 	if err != nil {
 		t.Error(err)
@@ -290,6 +289,7 @@ func TestReconcileDeleteUpdatesWorkload(t *testing.T) {
 		t.Errorf("got %v, want %v for requeue", res.Requeue, false)
 	}
 
+	// Check that the resource doesn't exist anymore
 	err = c.Get(ctx, types.NamespacedName{
 		Namespace: resource.GetNamespace(),
 		Name:      resource.GetName(),
@@ -302,6 +302,8 @@ func TestReconcileDeleteUpdatesWorkload(t *testing.T) {
 		t.Error("wants not found error, got no error")
 	}
 
+	// Fetch the deployment and make sure the annotations show the
+	// deleted resource.
 	d := &appsv1.Deployment{}
 	err = c.Get(ctx, types.NamespacedName{
 		Namespace: deployment.GetNamespace(),

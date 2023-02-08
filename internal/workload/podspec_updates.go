@@ -48,15 +48,18 @@ const (
 
 var l = logf.Log.WithName("internal.workload")
 
-// PodAnnotation returns the key and value for an annotation on a pod
-// to indicate the specific AuthProxyWorkload resource that was configured
-// on the pod.
+// PodAnnotation returns the annotation (key, value) that should be added to
+// pods that are configured with this AuthProxyWorkload resource. This takes
+// into account whether the AuthProxyWorkload exists or was recently deleted.
 func PodAnnotation(r *cloudsqlapi.AuthProxyWorkload) (string, string) {
+	k := fmt.Sprintf("%s/%s", cloudsqlapi.AnnotationPrefix, r.Name)
 	v := fmt.Sprintf("%d", r.Generation)
+	// if r was deleted, use a different value
 	if r.GetDeletionTimestamp() != nil {
 		v = fmt.Sprintf("%d-deleted-%s", r.Generation, r.GetDeletionTimestamp().Format(time.RFC3339))
 	}
-	return fmt.Sprintf("%s/%s", cloudsqlapi.AnnotationPrefix, r.Name), v
+
+	return k, v
 }
 
 // Updater holds global state used while reconciling workloads.

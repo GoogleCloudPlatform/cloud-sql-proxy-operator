@@ -375,15 +375,21 @@ func TestPublicDBConnections(t *testing.T) {
 }
 
 func TestUpdateWorkloadOnDelete(t *testing.T) {
+
+	const (
+		pwlName  = "newss"
+		appLabel = "busybox"
+		name     = "app"
+		allOrAny = "all"
+	)
+	// Use a deployment workload
 	wl := &workload.DeploymentWorkload{Deployment: testhelpers.BuildDeployment(types.NamespacedName{}, "busybox")}
 	o := wl.Object()
-	name := "cronjob"
-	allOrAny := "all"
-	skipCleanup := loadValue("SKIP_CLEANUP", "", "false") == "true"
-
-	ctx := testContext()
-
 	kind := o.GetObjectKind().GroupVersionKind().Kind
+
+	// Set up the e2e test namespace
+	skipCleanup := loadValue("SKIP_CLEANUP", "", "false") == "true"
+	ctx := testContext()
 	tp := newPublicPostgresClient("new" + strings.ToLower(kind))
 
 	err := tp.CreateOrPatchNamespace(ctx)
@@ -402,10 +408,7 @@ func TestUpdateWorkloadOnDelete(t *testing.T) {
 		}
 	})
 
-	const (
-		pwlName  = "newss"
-		appLabel = "busybox"
-	)
+	// Create AuthProxyWorkload
 	key := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
 
 	t.Log("Creating AuthProxyWorkload")
@@ -420,6 +423,7 @@ func TestUpdateWorkloadOnDelete(t *testing.T) {
 		t.Fatal("unable to create AuthProxyWorkload", err)
 	}
 
+	// Create deployment
 	t.Log("Creating ", kind)
 	o.SetNamespace(tp.Namespace)
 	o.SetName(name)
@@ -430,20 +434,27 @@ func TestUpdateWorkloadOnDelete(t *testing.T) {
 	selector := &metav1.LabelSelector{
 		MatchLabels: map[string]string{"app": appLabel},
 	}
+
+	// Check that the deployment pods are configured with the proxy: pods
+	// have 2 containers.
 	t.Log("Checking for container counts", kind)
 	err = tp.ExpectPodContainerCount(ctx, selector, 2, allOrAny)
 	if err != nil {
 		t.Error(err)
 	}
 	t.Log("Workload Created. Removing AuthProxyWorkload", kind)
+
+	// Delete the AuthProxyWorkload
 	err = tp.Client.Delete(ctx, proxy)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	// Check that deployment pods are configured without the proxy: pods have
+	// 1 container.
 	t.Log("Checking for container counts after delete", kind)
 	err = tp.ExpectPodContainerCount(ctx, selector, 1, allOrAny)
 	if err != nil {
 		t.Error(err)
 	}
-	t.Log("Done: ", kind)
 }
