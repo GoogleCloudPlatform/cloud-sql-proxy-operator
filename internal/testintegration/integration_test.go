@@ -85,7 +85,7 @@ func TestModifiesNewDeployment(t *testing.T) {
 	key := types.NamespacedName{Name: pwlName, Namespace: tcc.Namespace}
 
 	t.Log("Creating AuthProxyWorkload")
-	err = tcc.CreateAuthProxyWorkload(ctx, key, deploymentAppLabel, tcc.ConnectionString, "Deployment")
+	_, err = tcc.CreateAuthProxyWorkload(ctx, key, deploymentAppLabel, tcc.ConnectionString, "Deployment")
 	if err != nil {
 		t.Error(err)
 		return
@@ -158,7 +158,7 @@ func TestModifiesExistingDeployment(t *testing.T) {
 	}
 
 	t.Log("Creating cloud sql instance")
-	err = tcc.CreateAuthProxyWorkload(ctx, pKey, deploymentAppLabel, tcc.ConnectionString, "Deployment")
+	_, err = tcc.CreateAuthProxyWorkload(ctx, pKey, deploymentAppLabel, tcc.ConnectionString, "Deployment")
 	if err != nil {
 		t.Fatal(err)
 	}

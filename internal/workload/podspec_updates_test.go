@@ -19,6 +19,7 @@ import (
 	"reflect"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
@@ -777,7 +778,10 @@ func assertContainerArgsContains(t *testing.T, gotArgs, wantArgs []string) {
 }
 
 func TestPodTemplateAnnotations(t *testing.T) {
+
 	var (
+		now = metav1.Now()
+
 		wantAnnotations = map[string]string{
 			"cloudsql.cloud.google.com/instance1": "1",
 			"cloudsql.cloud.google.com/instance2": "2",
@@ -794,9 +798,13 @@ func TestPodTemplateAnnotations(t *testing.T) {
 	// Create a AuthProxyWorkload that matches the deployment
 	csqls := []*v1alpha1.AuthProxyWorkload{
 		simpleAuthProxy("instance1", "project:server:db"),
-		simpleAuthProxy("instance2", "project:server2:db2")}
+		simpleAuthProxy("instance2", "project:server2:db2"),
+		simpleAuthProxy("instance3", "project:server3:db3")}
+
 	csqls[0].ObjectMeta.Generation = 1
 	csqls[1].ObjectMeta.Generation = 2
+	csqls[2].ObjectMeta.Generation = 3
+	csqls[2].ObjectMeta.DeletionTimestamp = &now
 
 	// update the containers
 	err := configureProxies(u, wl, csqls)
@@ -809,4 +817,39 @@ func TestPodTemplateAnnotations(t *testing.T) {
 		t.Errorf("got %v, want %v for proxy container command", wl.PodTemplateAnnotations(), wantAnnotations)
 	}
 
+}
+
+func TestPodAnnotation(t *testing.T) {
+	now := metav1.Now()
+	server := &v1alpha1.AuthProxyWorkload{ObjectMeta: metav1.ObjectMeta{Name: "instance1", Generation: 1}}
+	deletedServer := &v1alpha1.AuthProxyWorkload{ObjectMeta: metav1.ObjectMeta{Name: "instance2", Generation: 2, DeletionTimestamp: &now}}
+
+	var testcases = []struct {
+		name  string
+		r     *v1alpha1.AuthProxyWorkload
+		wantK string
+		wantV string
+	}{
+		{
+			name:  "instance1",
+			r:     server,
+			wantK: "cloudsql.cloud.google.com/instance1",
+			wantV: "1",
+		}, {
+			name:  "instance2",
+			r:     deletedServer,
+			wantK: "cloudsql.cloud.google.com/instance2",
+			wantV: fmt.Sprintf("2-deleted-%s", now.Format(time.RFC3339)),
+		},
+	}
+
+	for _, tc := range testcases {
+		gotK, gotV := workload.PodAnnotation(tc.r)
+		if tc.wantK != gotK {
+			t.Errorf("got %v, want %v for key", gotK, tc.wantK)
+		}
+		if tc.wantV != gotV {
+			t.Errorf("got %v, want %v for value", gotV, tc.wantV)
+		}
+	}
 }

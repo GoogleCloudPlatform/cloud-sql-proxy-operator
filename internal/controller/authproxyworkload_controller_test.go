@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"go.uber.org/zap/zapcore"
@@ -69,11 +70,8 @@ func TestReconcileDeleted(t *testing.T) {
 		Namespace: "default",
 		Name:      "test",
 	}, "project:region:db")
-	p.Finalizers = []string{finalizerName}
-	p.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
-		Kind: "Pod",
-		Name: "thing",
-	}
+	addFinalizers(p)
+	addPodWorkload(p)
 
 	cb, err := clientBuilder()
 	if err != nil {
@@ -114,11 +112,8 @@ func TestReconcileState21ByName(t *testing.T) {
 		Namespace: "default",
 		Name:      "test",
 	}, "project:region:db")
-	p.Finalizers = []string{finalizerName}
-	p.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
-		Kind: "Pod",
-		Name: "testpod",
-	}
+	addFinalizers(p)
+	addPodWorkload(p)
 
 	err := runReconcileTestcase(p, []client.Object{p}, false, metav1.ConditionTrue, v1alpha1.ReasonNoWorkloadsFound)
 	if err != nil {
@@ -131,13 +126,8 @@ func TestReconcileState21BySelector(t *testing.T) {
 		Namespace: "default",
 		Name:      "test",
 	}, "project:region:db")
-	p.Finalizers = []string{finalizerName}
-	p.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
-		Kind: "Pod",
-		Selector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{"app": "things"},
-		},
-	}
+	addFinalizers(p)
+	addSelectorWorkload(p, "Pod", "app", "things")
 
 	err := runReconcileTestcase(p, []client.Object{p}, false, metav1.ConditionTrue, v1alpha1.ReasonNoWorkloadsFound)
 	if err != nil {
@@ -147,27 +137,20 @@ func TestReconcileState21BySelector(t *testing.T) {
 }
 
 func TestReconcileState32(t *testing.T) {
-	wantRequeue := true
-	wantStatus := metav1.ConditionFalse
-	wantReason := v1alpha1.ReasonWorkloadNeedsUpdate
-
+	const (
+		wantRequeue = true
+		wantStatus  = metav1.ConditionFalse
+		wantReason  = v1alpha1.ReasonWorkloadNeedsUpdate
+		labelK      = "app"
+		labelV      = "things"
+	)
 	p := testhelpers.BuildAuthProxyWorkload(types.NamespacedName{
 		Namespace: "default",
 		Name:      "test",
 	}, "project:region:db")
 	p.Generation = 2
-	p.Finalizers = []string{finalizerName}
-	p.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
-		Kind: "Deployment",
-		Selector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{"app": "things"},
-		},
-	}
-	p.Status.Conditions = []*metav1.Condition{{
-		Type:   v1alpha1.ConditionUpToDate,
-		Reason: v1alpha1.ReasonStartedReconcile,
-		Status: metav1.ConditionFalse,
-	}}
+	addFinalizers(p)
+	addSelectorWorkload(p, "Deployment", labelK, labelV)
 
 	// mimic a pod that was updated by the webhook
 	reqName := v1alpha1.AnnotationPrefix + "/" + p.Name
@@ -175,7 +158,7 @@ func TestReconcileState32(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "thing",
 			Namespace: "default",
-			Labels:    map[string]string{"app": "things"},
+			Labels:    map[string]string{labelK: labelV},
 		},
 		Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{reqName: "1"}},
@@ -190,27 +173,21 @@ func TestReconcileState32(t *testing.T) {
 }
 
 func TestReconcileState33(t *testing.T) {
-	wantRequeue := false
-	wantStatus := metav1.ConditionTrue
-	wantReason := v1alpha1.ReasonFinishedReconcile
+	const (
+		wantRequeue = false
+		wantStatus  = metav1.ConditionTrue
+		wantReason  = v1alpha1.ReasonFinishedReconcile
+		labelK      = "app"
+		labelV      = "things"
+	)
 
 	p := testhelpers.BuildAuthProxyWorkload(types.NamespacedName{
 		Namespace: "default",
 		Name:      "test",
 	}, "project:region:db")
 	p.Generation = 1
-	p.Finalizers = []string{finalizerName}
-	p.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
-		Kind: "Deployment",
-		Selector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{"app": "things"},
-		},
-	}
-	p.Status.Conditions = []*metav1.Condition{{
-		Type:   v1alpha1.ConditionUpToDate,
-		Reason: v1alpha1.ReasonStartedReconcile,
-		Status: metav1.ConditionFalse,
-	}}
+	addFinalizers(p)
+	addSelectorWorkload(p, "Deployment", labelK, labelV)
 
 	// mimic a pod that was updated by the webhook
 	reqName := v1alpha1.AnnotationPrefix + "/" + p.Name
@@ -218,7 +195,7 @@ func TestReconcileState33(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "thing",
 			Namespace: "default",
-			Labels:    map[string]string{"app": "things"},
+			Labels:    map[string]string{labelK: labelV},
 		},
 		Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{reqName: "1"}},
@@ -228,6 +205,86 @@ func TestReconcileState33(t *testing.T) {
 	err := runReconcileTestcase(p, []client.Object{p, pod}, wantRequeue, wantStatus, wantReason)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+}
+
+func TestReconcileDeleteUpdatesWorkload(t *testing.T) {
+	const (
+		labelK = "app"
+		labelV = "things"
+	)
+	resource := testhelpers.BuildAuthProxyWorkload(types.NamespacedName{
+		Namespace: "default",
+		Name:      "test",
+	}, "project:region:db")
+	resource.Generation = 1
+	addFinalizers(resource)
+	addSelectorWorkload(resource, "Deployment", labelK, labelV)
+
+	k, v := workload.PodAnnotation(resource)
+
+	// mimic a deployment that was updated by the webhook
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "thing",
+			Namespace: "default",
+			Labels:    map[string]string{labelK: labelV},
+		},
+		Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{k: v}},
+		}},
+	}
+
+	// Build a client with the resource and deployment
+	cb, err := clientBuilder()
+	if err != nil {
+		t.Error(err) // shouldn't ever happen
+	}
+	c := cb.WithObjects(resource, deployment).Build()
+	r, req, ctx := reconciler(resource, c)
+
+	// Delete the resource
+	c.Delete(ctx, resource)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Run Reconcile on the deleted resource
+	res, err := r.Reconcile(ctx, req)
+	if err != nil {
+		t.Error(err)
+	}
+	if res.Requeue {
+		t.Errorf("got %v, want %v for requeue", res.Requeue, false)
+	}
+
+	// Check that the resource doesn't exist anymore
+	err = c.Get(ctx, types.NamespacedName{
+		Namespace: resource.GetNamespace(),
+		Name:      resource.GetName(),
+	}, resource)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			t.Errorf("wants not found error, got %v", err)
+		}
+	} else {
+		t.Error("wants not found error, got no error")
+	}
+
+	// Fetch the deployment and make sure the annotations show the
+	// deleted resource.
+	d := &appsv1.Deployment{}
+	err = c.Get(ctx, types.NamespacedName{
+		Namespace: deployment.GetNamespace(),
+		Name:      deployment.GetName(),
+	}, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got, want := d.Spec.Template.ObjectMeta.Annotations[k], "1-deleted-"; !strings.HasPrefix(got, want) {
+		t.Fatalf("got %v, wants annotation value to have prefix %v", got, want)
 	}
 
 }
@@ -303,4 +360,22 @@ func reconciler(p *v1alpha1.AuthProxyWorkload, cb client.Client) (*AuthProxyWork
 		},
 	}
 	return r, req, ctx
+}
+
+func addFinalizers(p *v1alpha1.AuthProxyWorkload) {
+	p.Finalizers = []string{finalizerName}
+}
+func addPodWorkload(p *v1alpha1.AuthProxyWorkload) {
+	p.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
+		Kind: "Pod",
+		Name: "testpod",
+	}
+}
+func addSelectorWorkload(p *v1alpha1.AuthProxyWorkload, kind, labelK, labelV string) {
+	p.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
+		Kind: kind,
+		Selector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{labelK: labelV},
+		},
+	}
 }
