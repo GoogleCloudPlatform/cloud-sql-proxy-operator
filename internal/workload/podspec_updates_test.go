@@ -877,11 +877,14 @@ func TestPodAnnotation(t *testing.T) {
 
 func TestWorkloadUnixVolume(t *testing.T) {
 	var (
-		wantsInstanceName   = "project:server:db"
-		wantsUnixSocketPath = "/mnt/db/server"
-		wantUnixMountDir    = "/mnt/db"
-		wantContainerArgs   = []string{
+		wantsInstanceName    = "project:server:db"
+		wantsInstanceName2   = "project:server:db2"
+		wantsUnixSocketPath  = "/mnt/db/server"
+		wantsUnixSocketPath2 = "/mnt/db/server2"
+		wantUnixMountDir     = "/mnt/db"
+		wantContainerArgs    = []string{
 			fmt.Sprintf("%s?unix-socket-path=%s", wantsInstanceName, wantsUnixSocketPath),
+			fmt.Sprintf("%s?unix-socket-path=%s", wantsInstanceName2, wantsUnixSocketPath2),
 		}
 		wantWorkloadEnv = map[string]string{
 			"DB_SOCKET_PATH": wantsUnixSocketPath,
@@ -900,6 +903,10 @@ func TestWorkloadUnixVolume(t *testing.T) {
 			ConnectionString:      wantsInstanceName,
 			UnixSocketPath:        wantsUnixSocketPath,
 			UnixSocketPathEnvName: "DB_SOCKET_PATH",
+		}, {
+			ConnectionString:      wantsInstanceName2,
+			UnixSocketPath:        wantsUnixSocketPath2,
+			UnixSocketPathEnvName: "DB_SOCKET_PATH2",
 		}}),
 	}
 
