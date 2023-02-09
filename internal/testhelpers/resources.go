@@ -116,6 +116,20 @@ func BuildMySQLPodSpec(mainPodSleep int, appLabel, secretName string) corev1.Pod
 	return buildConnectPodSpec(mainPodSleep, appLabel, secretName, livenessCmd, passEnvVarName, imageName)
 }
 
+// BuildMySQLUnixPodSpec creates a podspec specific to MySQL databases that will
+// connect via a unix socket and run a trivial query. It also configures the
+// pod's Liveness probe so that the pod's `Ready` condition is `Ready` when the
+// database can connect.
+func BuildMySQLUnixPodSpec(mainPodSleep int, appLabel, secretName string) corev1.PodTemplateSpec {
+	const (
+		livenessCmd    = "mysql -S $DB_PATH --user=$DB_USER --password=$DB_PASS --database=$DB_NAME '--execute=select now()' "
+		imageName      = "mysql"
+		passEnvVarName = "DB_PASS"
+	)
+
+	return buildConnectPodSpec(mainPodSleep, appLabel, secretName, livenessCmd, passEnvVarName, imageName)
+}
+
 // BuildMSSQLPodSpec creates a podspec specific to MySQL databases that will connect
 // and run a trivial query. It also configures the pod's Liveness probe so that
 // the pod's `Ready` condition is `Ready` when the database can connect.

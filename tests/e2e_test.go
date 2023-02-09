@@ -302,6 +302,13 @@ func TestPublicDBConnections(t *testing.T) {
 			allOrAny:    "all",
 		},
 		{
+			name:         "mysql-unix",
+			c:            newPublicMySQLClient("mysqlconnunix"),
+			podTemplate:  testhelpers.BuildMySQLUnixPodSpec(600, appLabel, "db-secret"),
+			allOrAny:     "all",
+			isUnixSocket: true,
+		},
+		{
 			name:        "mssql",
 			c:           newPublicMSSQLClient("mssqlconn"),
 			podTemplate: testhelpers.BuildMSSQLPodSpec(600, appLabel, "db-secret"),

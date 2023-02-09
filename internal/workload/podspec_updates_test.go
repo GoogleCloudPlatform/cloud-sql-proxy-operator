@@ -878,10 +878,10 @@ func TestPodAnnotation(t *testing.T) {
 func TestWorkloadUnixVolume(t *testing.T) {
 	var (
 		wantsInstanceName   = "project:server:db"
-		wantsUnixDir        = "/mnt/db"
-		wantsUnixSocketPath = wantsUnixDir
+		wantsUnixSocketPath = "/mnt/db/server"
+		wantUnixMountDir    = "/mnt/db"
 		wantContainerArgs   = []string{
-			fmt.Sprintf("%s?unix-socket-path=%s", wantsInstanceName, wantsUnixDir),
+			fmt.Sprintf("%s?unix-socket-path=%s", wantsInstanceName, wantsUnixSocketPath),
 		}
 		wantWorkloadEnv = map[string]string{
 			"DB_SOCKET_PATH": wantsUnixSocketPath,
@@ -898,7 +898,7 @@ func TestWorkloadUnixVolume(t *testing.T) {
 	csqls := []*v1alpha1.AuthProxyWorkload{
 		authProxyWorkload("instance1", []v1alpha1.InstanceSpec{{
 			ConnectionString:      wantsInstanceName,
-			UnixSocketPath:        wantsUnixDir,
+			UnixSocketPath:        wantsUnixSocketPath,
 			UnixSocketPathEnvName: "DB_SOCKET_PATH",
 		}}),
 	}
@@ -948,7 +948,7 @@ func TestWorkloadUnixVolume(t *testing.T) {
 	if want, got := 1, len(busyboxContainer.VolumeMounts); want != got {
 		t.Fatalf("got %v, wants %v. Busybox Container.VolumeMounts", got, want)
 	}
-	if want, got := wantsUnixDir, busyboxContainer.VolumeMounts[0].MountPath; want != got {
+	if want, got := wantUnixMountDir, busyboxContainer.VolumeMounts[0].MountPath; want != got {
 		t.Fatalf("got %v, wants %v. Busybox Container.VolumeMounts.MountPath", got, want)
 	}
 	if want, got := wl.Pod.Spec.Volumes[0].Name, busyboxContainer.VolumeMounts[0].Name; want != got {

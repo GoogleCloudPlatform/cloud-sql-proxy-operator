@@ -16,6 +16,7 @@ package workload
 
 import (
 	"fmt"
+	"path"
 	"sort"
 	"strings"
 	"time"
@@ -547,7 +548,7 @@ func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, wl Workl
 				corev1.VolumeMount{
 					Name:      mountName,
 					ReadOnly:  false,
-					MountPath: inst.UnixSocketPath,
+					MountPath: path.Dir(inst.UnixSocketPath),
 				},
 				corev1.Volume{
 					Name:         mountName,
