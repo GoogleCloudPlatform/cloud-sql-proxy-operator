@@ -47,7 +47,7 @@ func ContainerName(r *cloudsqlapi.AuthProxyWorkload) string {
 // name and the Cloud SQL instance name.
 func VolumeName(r *cloudsqlapi.AuthProxyWorkload, inst *cloudsqlapi.InstanceSpec, mountType string) string {
 	connName := strings.ReplaceAll(strings.ToLower(inst.ConnectionString), ":", "-")
-	return SafePrefixedName(ContainerPrefix, r.GetNamespace()+"-"+r.GetName()+"-"+mountType+"-"+connName)
+	return SafePrefixedName(ContainerPrefix, r.GetName()+"-"+mountType+"-"+connName)
 }
 
 // SafePrefixedName adds a prefix to a name and shortens it while preserving its uniqueness

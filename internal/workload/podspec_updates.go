@@ -474,7 +474,9 @@ func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWo
 	for i := range podSpec.Containers {
 		c := &podSpec.Containers[i]
 		s.updateContainerEnv(c)
+		s.applyContainerVolumes(c)
 	}
+	s.applyVolumes(&podSpec)
 
 	// only return ConfigError if there were reported
 	// errors during processing.
@@ -521,20 +523,44 @@ func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, wl Workl
 		params := map[string]string{}
 
 		// if it is a TCP socket
+		if inst.UnixSocketPath == "" {
 
-		port := s.useInstancePort(p, inst)
-		params["port"] = fmt.Sprint(port)
-		if inst.HostEnvName != "" {
-			s.addWorkloadEnvVar(p, inst, corev1.EnvVar{
-				Name:  inst.HostEnvName,
-				Value: "127.0.0.1",
-			})
-		}
-		if inst.PortEnvName != "" {
-			s.addWorkloadEnvVar(p, inst, corev1.EnvVar{
-				Name:  inst.PortEnvName,
-				Value: fmt.Sprint(port),
-			})
+			port := s.useInstancePort(p, inst)
+			params["port"] = fmt.Sprint(port)
+			if inst.HostEnvName != "" {
+				s.addWorkloadEnvVar(p, inst, corev1.EnvVar{
+					Name:  inst.HostEnvName,
+					Value: "127.0.0.1",
+				})
+			}
+			if inst.PortEnvName != "" {
+				s.addWorkloadEnvVar(p, inst, corev1.EnvVar{
+					Name:  inst.PortEnvName,
+					Value: fmt.Sprint(port),
+				})
+			}
+		} else {
+			// else if it is a unix socket
+			params["unix-socket-path"] = inst.UnixSocketPath
+			mountName := VolumeName(p, inst, "unix")
+			s.addVolumeMount(p, inst,
+				corev1.VolumeMount{
+					Name:      mountName,
+					ReadOnly:  false,
+					MountPath: inst.UnixSocketPath,
+				},
+				corev1.Volume{
+					Name:         mountName,
+					VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+				})
+
+			if inst.UnixSocketPathEnvName != "" {
+				s.addWorkloadEnvVar(p, inst, corev1.EnvVar{
+					Name:  inst.UnixSocketPathEnvName,
+					Value: inst.UnixSocketPath,
+				})
+			}
+
 		}
 
 		if inst.AutoIAMAuthN != nil {
@@ -672,6 +698,70 @@ func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HTTP_ADDRESS", "0.0.0.0")
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HEALTH_CHECK", "true")
 	return
+}
+
+func (s *updateState) addVolumeMount(p *cloudsqlapi.AuthProxyWorkload, is *cloudsqlapi.InstanceSpec, m corev1.VolumeMount, v corev1.Volume) {
+	key := dbInst(p.Namespace, p.Name, is.ConnectionString)
+	vol := &managedVolume{
+		Instance:    key,
+		Volume:      v,
+		VolumeMount: m,
+	}
+
+	for i, mount := range s.mods.VolumeMounts {
+		if mount.Instance == key {
+			s.mods.VolumeMounts[i] = vol
+			return
+		}
+	}
+	s.mods.VolumeMounts = append(s.mods.VolumeMounts, vol)
+}
+
+// applyContainerVolumes applies all the VolumeMounts to this container.
+func (s *updateState) applyContainerVolumes(c *corev1.Container) {
+	nameAccessor := func(v corev1.VolumeMount) string {
+		return v.Name
+	}
+	thingAccessor := func(v *managedVolume) corev1.VolumeMount {
+		return v.VolumeMount
+	}
+	c.VolumeMounts = applyVolumeThings[corev1.VolumeMount](s, c.VolumeMounts, nameAccessor, thingAccessor)
+}
+
+// applyVolumes applies all volumes to this PodSpec.
+func (s *updateState) applyVolumes(ps *corev1.PodSpec) {
+	nameAccessor := func(v corev1.Volume) string {
+		return v.Name
+	}
+	thingAccessor := func(v *managedVolume) corev1.Volume {
+		return v.Volume
+	}
+	ps.Volumes = applyVolumeThings[corev1.Volume](s, ps.Volumes, nameAccessor, thingAccessor)
+}
+
+// applyVolumeThings implements complex reconcile logic that is duplicated for both
+// VolumeMount and Volume on containers.
+func applyVolumeThings[T corev1.VolumeMount | corev1.Volume](
+	s *updateState,
+	newVols []T,
+	nameAccessor func(T) string,
+	thingAccessor func(*managedVolume) T) []T {
+
+	// add or replace items for all new volume mounts
+	for i := 0; i < len(s.mods.VolumeMounts); i++ {
+		var found bool
+		newVol := thingAccessor(s.mods.VolumeMounts[i])
+		for j := 0; j < len(newVols); j++ {
+			if nameAccessor(newVol) == nameAccessor(newVols[j]) {
+				found = true
+				newVols[j] = newVol
+			}
+		}
+		if !found {
+			newVols = append(newVols, newVol)
+		}
+	}
+	return newVols
 }
 
 func (s *updateState) addError(errorCode, description string, p *cloudsqlapi.AuthProxyWorkload) {

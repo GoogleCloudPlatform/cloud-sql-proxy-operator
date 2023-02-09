@@ -89,6 +89,20 @@ func BuildPgPodSpec(mainPodSleep int, appLabel, secretName string) corev1.PodTem
 	return buildConnectPodSpec(mainPodSleep, appLabel, secretName, livenessCmd, passEnvVarName, imageName)
 }
 
+// BuildPgUnixPodSpec creates a podspec specific to Postgres databases that will
+// connect via a unix socket and run a trivial. It also configures the pod's
+// Liveness probe so that the pod's `Ready` condition is `Ready` when the
+// database can connect.
+func BuildPgUnixPodSpec(mainPodSleep int, appLabel, secretName string) corev1.PodTemplateSpec {
+	const (
+		livenessCmd    = "psql --host=$DB_PATH --username=$DB_USER '--command=select 1' --echo-queries --dbname=$DB_NAME"
+		imageName      = "postgres"
+		passEnvVarName = "PGPASSWORD"
+	)
+
+	return buildConnectPodSpec(mainPodSleep, appLabel, secretName, livenessCmd, passEnvVarName, imageName)
+}
+
 // BuildMySQLPodSpec creates a podspec specific to MySQL databases that will connect
 // and run a trivial query. It also configures the pod's Liveness probe so that
 // the pod's `Ready` condition is `Ready` when the database can connect.
@@ -572,8 +586,38 @@ func (cc *TestCaseClient) CreateDeploymentReplicaSetAndPods(ctx context.Context,
 }
 
 // BuildAuthProxyWorkload creates an AuthProxyWorkload object with a
-// single connection instance.
+// single instance with a tcp connection.
 func BuildAuthProxyWorkload(key types.NamespacedName, connectionString string) *v1alpha1.AuthProxyWorkload {
+	p := NewAuthProxyWorkload(key)
+	AddTCPInstance(p, connectionString)
+	return p
+}
+
+// AddTCPInstance adds a database instance with a tcp connection, setting
+// HostEnvName to "DB_HOST" and PortEnvName to "DB_PORT".
+func AddTCPInstance(p *v1alpha1.AuthProxyWorkload, connectionString string) *v1alpha1.InstanceSpec {
+	p.Spec.Instances = append(p.Spec.Instances, v1alpha1.InstanceSpec{
+		ConnectionString: connectionString,
+		HostEnvName:      "DB_HOST",
+		PortEnvName:      "DB_PORT",
+	})
+	return &p.Spec.Instances[len(p.Spec.Instances)-1]
+}
+
+// AddUnixInstance adds a database instance with a unix socket connection,
+// setting UnixSocketPathEnvName to "DB_PATH".
+func AddUnixInstance(p *v1alpha1.AuthProxyWorkload, connectionString string, path string) *v1alpha1.InstanceSpec {
+	p.Spec.Instances = append(p.Spec.Instances, v1alpha1.InstanceSpec{
+		ConnectionString:      connectionString,
+		UnixSocketPath:        path,
+		UnixSocketPathEnvName: "DB_PATH",
+	})
+	return &p.Spec.Instances[len(p.Spec.Instances)-1]
+}
+
+// NewAuthProxyWorkload creates a new AuthProxyWorkload with the
+// TypeMeta, name and namespace set.
+func NewAuthProxyWorkload(key types.NamespacedName) *v1alpha1.AuthProxyWorkload {
 	return &v1alpha1.AuthProxyWorkload{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: v1alpha1.GroupVersion.String(),
@@ -583,26 +627,31 @@ func BuildAuthProxyWorkload(key types.NamespacedName, connectionString string) *
 			Name:      key.Name,
 			Namespace: key.Namespace,
 		},
-		Spec: v1alpha1.AuthProxyWorkloadSpec{
-
-			Instances: []v1alpha1.InstanceSpec{{
-				ConnectionString: connectionString,
-				HostEnvName:      "DB_HOST",
-				PortEnvName:      "DB_PORT",
-			}},
-		},
 	}
 }
 
 // CreateAuthProxyWorkload creates an AuthProxyWorkload in the kubernetes cluster.
 func (cc *TestCaseClient) CreateAuthProxyWorkload(ctx context.Context, key types.NamespacedName, appLabel string, connectionString string, kind string) (*v1alpha1.AuthProxyWorkload, error) {
-	proxy := BuildAuthProxyWorkload(key, connectionString)
+	p := NewAuthProxyWorkload(key)
+	AddTCPInstance(p, connectionString)
+	cc.ConfigureSelector(p, appLabel, kind)
+	cc.ConfigureResources(p)
+	return p, cc.Create(ctx, p)
+}
+
+// ConfigureSelector Configures the workload selector on AuthProxyWorkload to use the label selector
+// "app=${appLabel}"
+func (cc *TestCaseClient) ConfigureSelector(proxy *v1alpha1.AuthProxyWorkload, appLabel string, kind string) {
 	proxy.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
 		Kind: kind,
 		Selector: &metav1.LabelSelector{
 			MatchLabels: map[string]string{"app": appLabel},
 		},
 	}
+}
+
+// ConfigureResources Configures resource requests
+func (cc *TestCaseClient) ConfigureResources(proxy *v1alpha1.AuthProxyWorkload) {
 	proxy.Spec.AuthProxyContainer = &v1alpha1.AuthProxyContainerSpec{
 		Image: cc.ProxyImageURL,
 		Resources: &corev1.ResourceRequirements{
@@ -611,11 +660,14 @@ func (cc *TestCaseClient) CreateAuthProxyWorkload(ctx context.Context, key types
 			},
 		},
 	}
+}
+
+func (cc *TestCaseClient) Create(ctx context.Context, proxy *v1alpha1.AuthProxyWorkload) error {
 	err := cc.Client.Create(ctx, proxy)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to create entity %v", err)
+		return fmt.Errorf("Unable to create entity %v", err)
 	}
-	return proxy, nil
+	return nil
 }
 
 // GetConditionStatus finds a condition where Condition.Type == condType and returns
