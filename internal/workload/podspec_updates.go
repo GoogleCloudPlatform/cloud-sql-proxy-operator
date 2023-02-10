@@ -204,15 +204,14 @@ func (u *Updater) ConfigureWorkload(wl *PodWorkload, matches []*cloudsqlapi.Auth
 }
 
 type managedEnvVar struct {
-	Instance             dbInstance        `json:"dbInstance"`
-	OperatorManagedValue corev1.EnvVar     `json:"operatorManagedValue"`
-	OriginalValues       map[string]string `json:"originalValues,omitempty"`
+	Instance             dbInstance    `json:"dbInstance"`
+	ContainerName        string        `json:"containerName"`
+	OperatorManagedValue corev1.EnvVar `json:"operatorManagedValue"`
 }
 
 type managedPort struct {
-	Instance       dbInstance       `json:"dbInstance"`
-	OriginalValues map[string]int32 `json:"originalValues,omitempty"`
-	Port           int32            `json:"port,omitempty"`
+	Instance dbInstance `json:"dbInstance"`
+	Port     int32      `json:"port,omitempty"`
 }
 
 type managedVolume struct {
@@ -254,8 +253,13 @@ type workloadMods struct {
 	Ports        []*managedPort   `json:"ports"`
 }
 
-func (s *updateState) addInUsePort(p int32, containerName string) {
-	s.addPort(p, containerName, types.NamespacedName{}, "")
+func (s *updateState) addInUsePort(p int32, proxy *cloudsqlapi.AuthProxyWorkload) {
+	name := types.NamespacedName{}
+	if proxy != nil {
+		name.Namespace = proxy.Namespace
+		name.Name = proxy.Name
+	}
+	s.addPort(p, name, "")
 }
 
 // isPortInUse checks if the port is in use.
@@ -314,12 +318,12 @@ func (s *updateState) useInstancePort(p *cloudsqlapi.AuthProxyWorkload, is *clou
 				port, is.ConnectionString), p)
 	}
 
-	s.addPort(port, "", n, is.ConnectionString)
+	s.addPort(port, n, is.ConnectionString)
 
 	return port
 }
 
-func (s *updateState) addPort(p int32, containerName string, n types.NamespacedName, connectionString string) {
+func (s *updateState) addPort(p int32, n types.NamespacedName, connectionString string) {
 	var mp *managedPort
 
 	for i := 0; i < len(s.mods.Ports); i++ {
@@ -330,36 +334,44 @@ func (s *updateState) addPort(p int32, containerName string, n types.NamespacedN
 
 	if mp == nil {
 		mp = &managedPort{
-			Instance:       dbInst(n.Namespace, n.Name, connectionString),
-			Port:           p,
-			OriginalValues: map[string]int32{},
+			Instance: dbInst(n.Namespace, n.Name, connectionString),
+			Port:     p,
 		}
 		s.mods.Ports = append(s.mods.Ports, mp)
 	}
-	if containerName != "" && !strings.HasPrefix(containerName, ContainerPrefix) {
-		mp.OriginalValues[containerName] = p
-	}
+}
 
+func (s *updateState) addProxyContainerEnvVar(p *cloudsqlapi.AuthProxyWorkload, k, v string) {
+	s.addEnvVar(p, managedEnvVar{
+		Instance:             dbInst(p.Namespace, p.Name, ""),
+		ContainerName:        ContainerName(p),
+		OperatorManagedValue: corev1.EnvVar{Name: k, Value: v},
+	})
 }
 
 // addWorkloadEnvVar adds or replaces the envVar based on its Name, returning the old and new values
 func (s *updateState) addWorkloadEnvVar(p *cloudsqlapi.AuthProxyWorkload, is *cloudsqlapi.InstanceSpec, ev corev1.EnvVar) {
+	s.addEnvVar(p, managedEnvVar{
+		Instance:             dbInst(p.Namespace, p.Name, is.ConnectionString),
+		OperatorManagedValue: ev,
+	})
+}
+func (s *updateState) addEnvVar(p *cloudsqlapi.AuthProxyWorkload, v managedEnvVar) {
 	for i := 0; i < len(s.mods.EnvVars); i++ {
-		if s.mods.EnvVars[i].OperatorManagedValue.Name == ev.Name {
-			old := s.mods.EnvVars[i].OperatorManagedValue
-			s.mods.EnvVars[i].OperatorManagedValue = ev
-			if old.Value != ev.Value {
-				s.addError(cloudsqlapi.ErrorCodeEnvConflict,
-					fmt.Sprintf("environment variable named %s already exists", ev.Name), p)
-			}
+		oldEnv := s.mods.EnvVars[i]
+		// if the values don't match and either one is global, or its set twice
+		if oldEnv.OperatorManagedValue.Name == v.OperatorManagedValue.Name &&
+			oldEnv.OperatorManagedValue.Value != v.OperatorManagedValue.Value &&
+			(oldEnv.ContainerName == "" || v.ContainerName == "" || oldEnv.ContainerName == v.ContainerName) {
+			s.addError(cloudsqlapi.ErrorCodeEnvConflict,
+				fmt.Sprintf("environment variable named %s already exists, old: %v new: %v, old value: %v new value: %v",
+					oldEnv.OperatorManagedValue.Name, oldEnv.Instance, v.Instance, oldEnv.OperatorManagedValue, v.OperatorManagedValue),
+				p)
 			return
 		}
 	}
-	s.mods.EnvVars = append(s.mods.EnvVars, &managedEnvVar{
-		Instance:             dbInst(p.Namespace, p.Name, is.ConnectionString),
-		OriginalValues:       map[string]string{},
-		OperatorManagedValue: ev,
-	})
+
+	s.mods.EnvVars = append(s.mods.EnvVars, &v)
 }
 
 func (s *updateState) initState(pl []*cloudsqlapi.AuthProxyWorkload) {
@@ -399,7 +411,7 @@ func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWo
 	for i := 0; i < len(nonAuthProxyContainers); i++ {
 		c := nonAuthProxyContainers[i]
 		for j := 0; j < len(c.Ports); j++ {
-			s.addInUsePort(c.Ports[j].ContainerPort, c.Name)
+			s.addInUsePort(c.Ports[j].ContainerPort, nil)
 		}
 	}
 
@@ -455,19 +467,19 @@ func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, wl Workl
 		return
 	}
 
-	// Build the c
-	var cliArgs []string
-
 	// always enable http port healthchecks on 0.0.0.0 and structured logs
-	cliArgs = s.addHealthCheck(p, c, cliArgs)
+	s.addHealthCheck(p, c)
 
 	// add the user agent
-	cliArgs = append(cliArgs, fmt.Sprintf("--user-agent=%v", s.updater.userAgent))
+	s.addProxyContainerEnvVar(p, "CSQL_PROXY_USER_AGENT", s.updater.userAgent)
 
 	c.Name = ContainerName(p)
 	c.ImagePullPolicy = "IfNotPresent"
 
-	cliArgs = s.applyContainerSpec(p, c, cliArgs)
+	s.applyContainerSpec(p, c)
+
+	// Build the c
+	var cliArgs []string
 
 	// Instances
 	for i := range p.Spec.Instances {
@@ -527,12 +539,12 @@ func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, wl Workl
 
 // applyContainerSpec applies settings from cloudsqlapi.AuthProxyContainerSpec
 // to the container
-func (s *updateState) applyContainerSpec(p *cloudsqlapi.AuthProxyWorkload, c *corev1.Container, cliArgs []string) []string {
+func (s *updateState) applyContainerSpec(p *cloudsqlapi.AuthProxyWorkload, c *corev1.Container) {
 	c.Image = s.defaultProxyImage()
 	c.Resources = defaultContainerResources
 
 	if p.Spec.AuthProxyContainer == nil {
-		return cliArgs
+		return
 	}
 
 	if p.Spec.AuthProxyContainer.Image != "" {
@@ -544,25 +556,31 @@ func (s *updateState) applyContainerSpec(p *cloudsqlapi.AuthProxyWorkload, c *co
 	}
 
 	if p.Spec.AuthProxyContainer.SQLAdminAPIEndpoint != "" {
-		cliArgs = append(cliArgs, "--sqladmin-api-endpoint="+p.Spec.AuthProxyContainer.SQLAdminAPIEndpoint)
+		s.addProxyContainerEnvVar(p, "CSQL_PROXY_SQLADMIN_API_ENDPOINT", p.Spec.AuthProxyContainer.SQLAdminAPIEndpoint)
 	}
 	if p.Spec.AuthProxyContainer.MaxConnections != nil &&
 		*p.Spec.AuthProxyContainer.MaxConnections != 0 {
-		cliArgs = append(cliArgs, fmt.Sprintf("--max-connections=%d", *p.Spec.AuthProxyContainer.MaxConnections))
+		s.addProxyContainerEnvVar(p, "CSQL_PROXY_MAX_CONNECTIONS", fmt.Sprintf("%d", *p.Spec.AuthProxyContainer.MaxConnections))
 	}
 	if p.Spec.AuthProxyContainer.MaxSigtermDelay != nil &&
 		*p.Spec.AuthProxyContainer.MaxSigtermDelay != 0 {
-		cliArgs = append(cliArgs, fmt.Sprintf("--max-sigterm-delay=%d", *p.Spec.AuthProxyContainer.MaxSigtermDelay))
+		s.addProxyContainerEnvVar(p, "CSQL_PROXY_MAX_SIGTERM_DELAY", fmt.Sprintf("%d", *p.Spec.AuthProxyContainer.MaxSigtermDelay))
 	}
 
-	return cliArgs
+	return
 }
 
 // updateContainerEnv applies global container state to all containers
 func (s *updateState) updateContainerEnv(c *corev1.Container) {
 	for i := 0; i < len(s.mods.EnvVars); i++ {
 		var found bool
-		operatorEnv := s.mods.EnvVars[i].OperatorManagedValue
+		v := s.mods.EnvVars[i]
+		operatorEnv := v.OperatorManagedValue
+
+		// This envvar is not global and doesn't apply to this container, skip it.
+		if v.ContainerName != "" && v.ContainerName != c.Name {
+			continue
+		}
 
 		for j := 0; j < len(c.Env); j++ {
 			if operatorEnv.Name == c.Env[j].Name {
@@ -578,11 +596,8 @@ func (s *updateState) updateContainerEnv(c *corev1.Container) {
 }
 
 // addHealthCheck adds the health check declaration to this workload.
-func (s *updateState) addHealthCheck(_ *cloudsqlapi.AuthProxyWorkload, c *corev1.Container, cliArgs []string) []string {
+func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1.Container) {
 	port := DefaultHealthCheckPort
-	for s.isPortInUse(port) {
-		port++
-	}
 
 	c.StartupProbe = &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{
@@ -605,12 +620,12 @@ func (s *updateState) addHealthCheck(_ *cloudsqlapi.AuthProxyWorkload, c *corev1
 		}},
 		PeriodSeconds: 30,
 	}
-	cliArgs = append(cliArgs,
-		fmt.Sprintf("--http-port=%d", port),
-		"--http-address=0.0.0.0",
-		"--health-check",
-		"--structured-logs")
-	return cliArgs
+	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HTTP_PORT", fmt.Sprintf("%d", port))
+	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HTTP_ADDRESS", "0.0.0.0")
+	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HEALTH_CHECK", "true")
+	s.addProxyContainerEnvVar(p, "CSQL_PROXY_STRUCTURED_LOGS", "true")
+
+	return
 }
 
 func (s *updateState) addError(errorCode, description string, p *cloudsqlapi.AuthProxyWorkload) {
