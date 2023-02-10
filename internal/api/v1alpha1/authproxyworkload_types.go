@@ -136,6 +136,11 @@ type AuthProxyContainerSpec struct {
 	//+kubebuilder:validation:Optional
 	Resources *v1.ResourceRequirements `json:"resources,omitempty"`
 
+	// Telemetry specifies how the proxy should expose telemetry.
+	// Optional, by default
+	//+kubebuilder:validation:Optional
+	Telemetry *TelemetrySpec `json:"telemetry,omitempty"`
+
 	// MaxConnections limits the number of connections. Default value is no limit.
 	// This sets the proxy container's CLI argument `--max-connections`
 	//+kubebuilder:validation:Optional
@@ -169,6 +174,19 @@ type AuthProxyContainerSpec struct {
 	//+kubebuilder:validation:Enum=Workload;None
 	//+kubebuilder:default=Workload
 	RolloutStrategy string `json:"rolloutStrategy,omitempty"`
+}
+
+// TelemetrySpec specifies how the proxy container will expose telemetry.
+type TelemetrySpec struct {
+	// HTTPPort the port for Prometheus and health check server.
+	// This sets the proxy container's CLI argument `--http-port`
+	//+kubebuilder:validation:Optional
+	HTTPPort *int32 `json:"httpPort,omitempty"`
+
+	// AdminPort the port for the /quitquitquit endpoint.
+	// This sets the proxy container's CLI argument `--admin-port`
+	//+kubebuilder:validation:Optional
+	AdminPort *int32 `json:"adminPort,omitempty"`
 }
 
 // InstanceSpec describes the configuration for how the proxy should expose
