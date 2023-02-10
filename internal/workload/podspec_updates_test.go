@@ -538,6 +538,7 @@ func TestProxyCLIArgs(t *testing.T) {
 				"CSQL_PROXY_STRUCTURED_LOGS": "true",
 				"CSQL_PROXY_HEALTH_CHECK":    "true",
 				"CSQL_PROXY_HTTP_PORT":       fmt.Sprintf("%d", workload.DefaultHealthCheckPort),
+				"CSQL_PROXY_ADMIN_PORT":      fmt.Sprintf("%d", workload.DefaultAdminPort),
 				"CSQL_PROXY_HTTP_ADDRESS":    "0.0.0.0",
 				"CSQL_PROXY_USER_AGENT":      "cloud-sql-proxy-operator/dev",
 			},

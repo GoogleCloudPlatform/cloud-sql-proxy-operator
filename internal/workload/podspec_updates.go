@@ -44,6 +44,10 @@ const (
 	// DefaultHealthCheckPort is the used by the proxy to expose prometheus
 	// and kubernetes health checks.
 	DefaultHealthCheckPort int32 = 9801
+
+	// DefaultAdminPort is the used by the proxy to expose prometheus
+	// and kubernetes health checks.
+	DefaultAdminPort int32 = 9802
 )
 
 var l = logf.Log.WithName("internal.workload")
@@ -628,6 +632,7 @@ func (s *updateState) updateContainerEnv(c *corev1.Container) {
 // addHealthCheck adds the health check declaration to this workload.
 func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1.Container) {
 	port := DefaultHealthCheckPort
+	adminPort := DefaultAdminPort
 
 	c.StartupProbe = &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{
@@ -653,6 +658,7 @@ func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1
 	// Add a port that is associated with the proxy, but not a specific db instance
 	s.addPort(port, proxyInstanceID{AuthProxyWorkload: types.NamespacedName{Namespace: p.Namespace, Name: p.Name}})
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HTTP_PORT", fmt.Sprintf("%d", port))
+	s.addProxyContainerEnvVar(p, "CSQL_PROXY_ADMIN_PORT", fmt.Sprintf("%d", adminPort))
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HTTP_ADDRESS", "0.0.0.0")
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HEALTH_CHECK", "true")
 	return
