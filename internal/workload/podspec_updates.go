@@ -748,10 +748,10 @@ func (s *updateState) applyVolumes(ps *corev1.PodSpec) {
 // applyVolumeThings implements complex reconcile logic that is duplicated for both
 // VolumeMount and Volume on containers.
 func applyVolumeThings[T corev1.VolumeMount | corev1.Volume](
-		s *updateState,
-		newVols []T,
-		nameAccessor func(T) string,
-		thingAccessor func(*managedVolume) T) []T {
+	s *updateState,
+	newVols []T,
+	nameAccessor func(T) string,
+	thingAccessor func(*managedVolume) T) []T {
 
 	// add or replace items for all new volume mounts
 	for i := 0; i < len(s.mods.VolumeMounts); i++ {
