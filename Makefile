@@ -86,7 +86,7 @@ install_tools: remove_tools all_tools ## Installs all development tools
 	@echo "TIME: $(shell date) end install tools"
 
 .PHONY: generate
-generate:  ctrl_generate ctrl_manifests generate_crd_docs go_lint tf_lint installer reset_image add_copyright_header go_fmt yaml_fmt ## Runs code generation, format, and validation tools
+generate:  ctrl_generate ctrl_manifests generate_crd_docs go_lint tf_lint installer reset_image add_copyright_header go_fmt yaml_fmt license_check license_save ## Runs code generation, format, and validation tools
 	@echo "TIME: $(shell date) end make generate"
 
 .PHONY: build
@@ -168,6 +168,19 @@ tf_lint: terraform # Run terraform fmt to ensure terraform code is consistent
 go_test: ctrl_manifests envtest # Run tests (but not internal/teste2e)
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" \
 		go test ./internal/.../. -coverprofile cover.out -race
+
+##
+# 3rd Party License Checks
+.PHONY: license_check
+license_check: go-licenses # checks that all deps use allowed licenses
+	$(GO_LICENSES) check .
+
+
+.PHONY: license_save
+license_save: go-licenses # Download all 3rd party license for to include in docker image
+	( test -d ThirdPartyLicenses && rm -rf ThirdPartyLicenses ) || true
+	$(GO_LICENSES) save --save_path ThirdPartyLicenses .
+
 
 ##
 # Kubernetes configuration targets
@@ -439,9 +452,15 @@ KUBECTL ?= $(LOCALBIN)/kubectl
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 TERRAFORM ?= $(LOCALBIN)/terraform
 GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
+GO_LICENSES ?= $(LOCALBIN)/go-licenses
 CRD_REF_DOCS ?= $(LOCALBIN)/crd-ref-docs
 
 ## Tool Versions
+CONTROLLER_TOOLS_VERSION ?= latest
+KUBECTL_VERSION ?= $(shell curl -L -s https://dl.k8s.io/release/stable.txt | tr -d '\n')
+TERRAFORM_VERSION ?= 1.2.7
+KUSTOMIZE_VERSION ?= v4.5.2
+ENVTEST_VERSION ?= latest
 # Important note: avoid adding spaces in the macro declarations as any
 # additional whitespace will break the renovate regex rules.
 
@@ -452,6 +471,7 @@ CONTROLLER_TOOLS_VERSION=v0.11.3# renovate datasource=go depName=sigs.k8s.io/con
 CRD_REF_DOCS_VERSION=v0.0.8# renovate datasource=go depName=github.com/elastic/crd-ref-docs
 ENVTEST_VERSION=v0.0.0-20230301194117-e2d8821b277f# renovate datasource=go depName=sigs.k8s.io/controller-runtime/tools/setup-envtest
 GOLANGCI_LINT_VERSION=v1.51.2# renovate datasource=go depName=github.com/golangci/golangci-lint/cmd/golangci-lint
+GO_LICENSES_VERSION=v1.6.0# renovate datasource=go depName=github.com/google/go-licenses
 
 KUSTOMIZE_VERSION=v4.5.2# don't manage with renovate, this repo has non-standard tags
 
@@ -506,6 +526,11 @@ $(TERRAFORM): $(LOCALBIN)
 golangci-lint: $(GOLANGCI_LINT) ## Download controller-gen locally if necessary.
 $(GOLANGCI_LINT): $(LOCALBIN)
 	test -s $@ || GOBIN=$(LOCALBIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+
+.PHONY: go-licenses
+go-licenses: $(GO_LICENSES) ## Download controller-gen locally if necessary.
+$(GO_LICENSES): $(LOCALBIN)
+	test -s $@ || GOBIN=$(LOCALBIN) go install github.com/google/go-licenses@$(GO_LICENSES_VERSION)
 
 ##
 # Tools that need to be installed on the development machine
