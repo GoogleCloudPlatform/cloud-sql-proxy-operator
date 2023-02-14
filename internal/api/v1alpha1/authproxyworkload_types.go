@@ -220,6 +220,16 @@ type AdminServerSpec struct {
 
 // TelemetrySpec specifies how the proxy container will expose telemetry.
 type TelemetrySpec struct {
+	// Prometheus Enables Prometheus HTTP endpoint /metrics on localhost
+	// This sets the proxy container's CLI argument `--prometheus`
+	//+kubebuilder:validation:Optional
+	Prometheus *bool `json:"prometheus,omitempty"`
+
+	// PrometheusNamespace is used the provided Prometheus namespace for metrics
+	// This sets the proxy container's CLI argument `--prometheus-namespace`
+	//+kubebuilder:validation:Optional
+	PrometheusNamespace *string `json:"prometheusNamespace,omitempty"`
+
 	// TelemetryProject enables Cloud Monitoring and Cloud Trace with the provided project ID.
 	// This sets the proxy container's CLI argument `--telemetry-project`
 	//+kubebuilder:validation:Optional
