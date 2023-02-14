@@ -941,6 +941,9 @@ spec:
                         prometheusNamespace:
                           description: PrometheusNamespace is used the provided Prometheus namespace for metrics This sets the proxy container's CLI argument `--prometheus-namespace`
                           type: string
+                        quotaProject:
+                          description: QuotaProject Specifies the project to use for Cloud SQL Admin API quota tracking. The IAM principal must have the "serviceusage.services.use" permission for the given project. See https://cloud.google.com/service-usage/docs/overview and https://cloud.google.com/storage/docs/requester-pays This sets the proxy container's CLI argument `--quota-project`
+                          type: string
                         telemetryPrefix:
                           description: TelemetryPrefix is the prefix for Cloud Monitoring metrics. This sets the proxy container's CLI argument `--telemetry-prefix`
                           type: string
