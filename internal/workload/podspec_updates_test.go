@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -699,15 +698,13 @@ func TestProxyCLIArgs(t *testing.T) {
 
 			// Test that workload has the right env vars
 			for wantKey, wantValue := range tc.wantWorkloadEnv {
-				containerName := "busybox"
-				if strings.HasPrefix(wantKey, "CSQL_PROXY_") {
-					containerName = csqlContainer.Name
-				}
-				gotEnvVar, err := findEnvVar(wl, containerName, wantKey)
+				gotEnvVar, err := findEnvVar(wl, csqlContainer.Name, wantKey)
 				if err != nil {
 					t.Error(err)
-					logPodSpec(t, wl)
-				} else if gotEnvVar.Value != wantValue {
+					continue
+				}
+
+				if gotEnvVar.Value != wantValue {
 					t.Errorf("got %v, wants %v workload env var %v", gotEnvVar, wantValue, wantKey)
 				}
 			}

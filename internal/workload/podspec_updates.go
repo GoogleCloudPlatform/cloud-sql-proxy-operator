@@ -254,7 +254,7 @@ type workloadMods struct {
 }
 
 func (s *updateState) addInUsePort(p int32, proxy *cloudsqlapi.AuthProxyWorkload) {
-	name := types.NamespacedName{}
+	var name types.NamespacedName
 	if proxy != nil {
 		name.Namespace = proxy.Namespace
 		name.Name = proxy.Name
@@ -360,18 +360,31 @@ func (s *updateState) addEnvVar(p *cloudsqlapi.AuthProxyWorkload, v managedEnvVa
 	for i := 0; i < len(s.mods.EnvVars); i++ {
 		oldEnv := s.mods.EnvVars[i]
 		// if the values don't match and either one is global, or its set twice
-		if oldEnv.OperatorManagedValue.Name == v.OperatorManagedValue.Name &&
-			oldEnv.OperatorManagedValue.Value != v.OperatorManagedValue.Value &&
-			(oldEnv.ContainerName == "" || v.ContainerName == "" || oldEnv.ContainerName == v.ContainerName) {
+		if isEnvVarConflict(oldEnv, v) {
 			s.addError(cloudsqlapi.ErrorCodeEnvConflict,
-				fmt.Sprintf("environment variable named %s already exists, old: %v new: %v, old value: %v new value: %v",
-					oldEnv.OperatorManagedValue.Name, oldEnv.Instance, v.Instance, oldEnv.OperatorManagedValue, v.OperatorManagedValue),
+				fmt.Sprintf("environment variable named %s is set more than once",
+					oldEnv.OperatorManagedValue.Name),
 				p)
 			return
 		}
 	}
 
 	s.mods.EnvVars = append(s.mods.EnvVars, &v)
+}
+
+func isEnvVarConflict(oldEnv *managedEnvVar, v managedEnvVar) bool {
+	// it's a different name, no conflict
+	if oldEnv.OperatorManagedValue.Name != v.OperatorManagedValue.Name {
+		return false
+	}
+
+	// if the envvar is intended for a different container
+	if oldEnv.ContainerName != v.ContainerName && oldEnv.ContainerName != "" && v.ContainerName != "" {
+		return false
+	}
+
+	// different value, therefore conflict
+	return oldEnv.OperatorManagedValue.Value != v.OperatorManagedValue.Value
 }
 
 func (s *updateState) initState(pl []*cloudsqlapi.AuthProxyWorkload) {
@@ -472,6 +485,9 @@ func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, wl Workl
 
 	// add the user agent
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_USER_AGENT", s.updater.userAgent)
+
+	// configure structured logs
+	s.addProxyContainerEnvVar(p, "CSQL_PROXY_STRUCTURED_LOGS", "true")
 
 	c.Name = ContainerName(p)
 	c.ImagePullPolicy = "IfNotPresent"
@@ -577,8 +593,9 @@ func (s *updateState) updateContainerEnv(c *corev1.Container) {
 		v := s.mods.EnvVars[i]
 		operatorEnv := v.OperatorManagedValue
 
-		// This envvar is not global and doesn't apply to this container, skip it.
-		if v.ContainerName != "" && v.ContainerName != c.Name {
+		// If this EnvVar is not for this container and not for all containers
+		// don't add it to this container.
+		if v.ContainerName != c.Name && v.ContainerName != "" {
 			continue
 		}
 
@@ -623,8 +640,6 @@ func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HTTP_PORT", fmt.Sprintf("%d", port))
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HTTP_ADDRESS", "0.0.0.0")
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HEALTH_CHECK", "true")
-	s.addProxyContainerEnvVar(p, "CSQL_PROXY_STRUCTURED_LOGS", "true")
-
 	return
 }
 
