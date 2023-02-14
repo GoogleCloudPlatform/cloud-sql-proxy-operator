@@ -36,41 +36,33 @@ func (r *AuthProxyWorkload) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-// TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-
-//+kubebuilder:webhook:path=/mutate-cloudsql-cloud-google-com-v1alpha1-authproxyworkload,mutating=true,failurePolicy=fail,sideEffects=None,groups=cloudsql.cloud.google.com,resources=authproxyworkloads,verbs=create;update,versions=v1alpha1,name=mauthproxyworkload.kb.io,admissionReviewVersions=v1
-
+// +kubebuilder:webhook:path=/mutate-cloudsql-cloud-google-com-v1alpha1-authproxyworkload,mutating=true,failurePolicy=fail,sideEffects=None,groups=cloudsql.cloud.google.com,resources=authproxyworkloads,verbs=create;update,versions=v1alpha1,name=mauthproxyworkload.kb.io,admissionReviewVersions=v1
 var _ webhook.Defaulter = &AuthProxyWorkload{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *AuthProxyWorkload) Default() {
 	authproxyworkloadlog.Info("default", "name", r.Name)
 	if r.Spec.AuthProxyContainer != nil &&
-		r.Spec.AuthProxyContainer.RolloutStrategy == "" {
+			r.Spec.AuthProxyContainer.RolloutStrategy == "" {
 		r.Spec.AuthProxyContainer.RolloutStrategy = WorkloadStrategy
 	}
 }
 
-// TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-//+kubebuilder:webhook:path=/validate-cloudsql-cloud-google-com-v1alpha1-authproxyworkload,mutating=false,failurePolicy=fail,sideEffects=None,groups=cloudsql.cloud.google.com,resources=authproxyworkloads,verbs=create;update,versions=v1alpha1,name=vauthproxyworkload.kb.io,admissionReviewVersions=v1
-
+// +kubebuilder:webhook:path=/validate-cloudsql-cloud-google-com-v1alpha1-authproxyworkload,mutating=false,failurePolicy=fail,sideEffects=None,groups=cloudsql.cloud.google.com,resources=authproxyworkloads,verbs=create;update,versions=v1alpha1,name=vauthproxyworkload.kb.io,admissionReviewVersions=v1
 var _ webhook.Validator = &AuthProxyWorkload{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *AuthProxyWorkload) ValidateCreate() error {
-	authproxyworkloadlog.Info("validate create", "name", r.Name)
 	return r.Validate()
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *AuthProxyWorkload) ValidateUpdate(_ runtime.Object) error {
-	authproxyworkloadlog.Info("validate update", "name", r.Name)
 	return r.Validate()
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (r *AuthProxyWorkload) ValidateDelete() error {
-	authproxyworkloadlog.Info("validate delete", "name", r.Name)
 	return nil
 }
 
@@ -95,11 +87,6 @@ func validateSpec(spec *AuthProxyWorkloadSpec, f *field.Path) field.ErrorList {
 	var allErrs field.ErrorList
 
 	allErrs = append(allErrs, validateWorkload(&spec.Workload, f.Child("workload"))...)
-
-	// TODO: Validate the other fields in spec
-	// allErrs = append(allErrs, validateAuthProxyContainer(spec.AuthProxyContainer, f.Child("authProxyContainer"))...)
-	// allErrs = append(allErrs, validateAuthentication(spec.Authentication, f.Child("authentication"))...)
-	// allErrs = append(allErrs, validateAuthentication(spec.Instances, f.Child("instances"))...)
 
 	return allErrs
 }
