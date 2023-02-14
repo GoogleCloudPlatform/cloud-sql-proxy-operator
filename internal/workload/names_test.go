@@ -84,7 +84,7 @@ func TestContainerName(t *testing.T) {
 func TestVolumeName(t *testing.T) {
 	csql := authProxyWorkload("hello-world", []v1alpha1.InstanceSpec{{ConnectionString: "proj:inst:db"}})
 	got := workload.VolumeName(csql, &csql.Spec.Instances[0], "temp")
-	want := "csql-default-hello-world-temp-proj-inst-db"
+	want := "csql-hello-world-temp-proj-inst-db"
 	if want != got {
 		t.Errorf("got %v, want %v", got, want)
 	}

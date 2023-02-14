@@ -90,8 +90,8 @@ func BuildPgPodSpec(mainPodSleep int, appLabel, secretName string) corev1.PodTem
 }
 
 // BuildPgUnixPodSpec creates a podspec specific to Postgres databases that will
-// connect via a unix socket and run a trivial. It also configures the pod's
-// Liveness probe so that the pod's `Ready` condition is `Ready` when the
+// connect via a unix socket and run a trivial. It also configures the
+// pod's Liveness probe so that the pod's `Ready` condition is `Ready` when the
 // database can connect.
 func BuildPgUnixPodSpec(mainPodSleep int, appLabel, secretName string) corev1.PodTemplateSpec {
 	const (
@@ -609,24 +609,22 @@ func BuildAuthProxyWorkload(key types.NamespacedName, connectionString string) *
 
 // AddTCPInstance adds a database instance with a tcp connection, setting
 // HostEnvName to "DB_HOST" and PortEnvName to "DB_PORT".
-func AddTCPInstance(p *v1alpha1.AuthProxyWorkload, connectionString string) *v1alpha1.InstanceSpec {
+func AddTCPInstance(p *v1alpha1.AuthProxyWorkload, connectionString string) {
 	p.Spec.Instances = append(p.Spec.Instances, v1alpha1.InstanceSpec{
 		ConnectionString: connectionString,
 		HostEnvName:      "DB_HOST",
 		PortEnvName:      "DB_PORT",
 	})
-	return &p.Spec.Instances[len(p.Spec.Instances)-1]
 }
 
 // AddUnixInstance adds a database instance with a unix socket connection,
 // setting UnixSocketPathEnvName to "DB_PATH".
-func AddUnixInstance(p *v1alpha1.AuthProxyWorkload, connectionString string, path string) *v1alpha1.InstanceSpec {
+func AddUnixInstance(p *v1alpha1.AuthProxyWorkload, connectionString string, path string) {
 	p.Spec.Instances = append(p.Spec.Instances, v1alpha1.InstanceSpec{
 		ConnectionString:      connectionString,
 		UnixSocketPath:        path,
 		UnixSocketPathEnvName: "DB_PATH",
 	})
-	return &p.Spec.Instances[len(p.Spec.Instances)-1]
 }
 
 // NewAuthProxyWorkload creates a new AuthProxyWorkload with the

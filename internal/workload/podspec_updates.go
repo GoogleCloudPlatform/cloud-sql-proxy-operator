@@ -745,8 +745,9 @@ func (s *updateState) applyVolumes(ps *corev1.PodSpec) {
 	ps.Volumes = applyVolumeThings[corev1.Volume](s, ps.Volumes, nameAccessor, thingAccessor)
 }
 
-// applyVolumeThings implements complex reconcile logic that is duplicated for both
-// VolumeMount and Volume on containers.
+// applyVolumeThings modifies a slice of Volume/VolumeMount, to include all the
+// shared volumes for the proxy container's unix sockets. This will replace
+// an existing volume with the same name, or append a new volume to the slice.
 func applyVolumeThings[T corev1.VolumeMount | corev1.Volume](
 	s *updateState,
 	newVols []T,
