@@ -507,6 +507,7 @@ func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, wl Workl
 
 	// always enable http port healthchecks on 0.0.0.0 and structured logs
 	s.addHealthCheck(p, c)
+	s.applyTelemetrySpec(p)
 
 	// enable the proxy's admin service
 	s.addAdminServer(p)
@@ -633,6 +634,24 @@ func (s *updateState) applyContainerSpec(p *cloudsqlapi.AuthProxyWorkload, c *co
 	if p.Spec.AuthProxyContainer.MaxSigtermDelay != nil &&
 		*p.Spec.AuthProxyContainer.MaxSigtermDelay != 0 {
 		s.addProxyContainerEnvVar(p, "CSQL_PROXY_MAX_SIGTERM_DELAY", fmt.Sprintf("%d", *p.Spec.AuthProxyContainer.MaxSigtermDelay))
+	}
+
+	return
+}
+
+// applyTelemetrySpec applies settings from cloudsqlapi.TelemetrySpec
+// to the container
+func (s *updateState) applyTelemetrySpec(p *cloudsqlapi.AuthProxyWorkload) {
+	if p.Spec.AuthProxyContainer == nil || p.Spec.AuthProxyContainer.Telemetry == nil {
+		return
+	}
+	tel := p.Spec.AuthProxyContainer.Telemetry
+
+	if tel.DisableTraces != nil && *tel.DisableTraces {
+		s.addProxyContainerEnvVar(p, "CSQL_PROXY_DISABLE_TRACES", "true")
+	}
+	if tel.DisableMetrics != nil && *tel.DisableMetrics {
+		s.addProxyContainerEnvVar(p, "CSQL_PROXY_DISABLE_METRICS", "true")
 	}
 
 	return
