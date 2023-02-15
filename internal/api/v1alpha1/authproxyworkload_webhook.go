@@ -16,8 +16,10 @@ package v1alpha1
 
 import (
 	"fmt"
+	"reflect"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/validation"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -53,12 +55,13 @@ var _ webhook.Validator = &AuthProxyWorkload{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *AuthProxyWorkload) ValidateCreate() error {
-	return r.validate()
+	return r.validate(nil)
+
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *AuthProxyWorkload) ValidateUpdate(_ runtime.Object) error {
-	return r.validate()
+func (r *AuthProxyWorkload) ValidateUpdate(old runtime.Object) error {
+	return r.validate(old)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
@@ -66,11 +69,15 @@ func (r *AuthProxyWorkload) ValidateDelete() error {
 	return nil
 }
 
-func (r *AuthProxyWorkload) validate() error {
+func (r *AuthProxyWorkload) validate(old runtime.Object) error {
 	var allErrs field.ErrorList
 
 	allErrs = append(allErrs, validation.ValidateLabelName(r.Name, field.NewPath("metadata", "name"))...)
 	allErrs = append(allErrs, validateWorkload(&r.Spec.Workload, field.NewPath("spec", "workload"))...)
+
+	if o, ok := old.(*AuthProxyWorkload); ok {
+		allErrs = append(allErrs, validateUpdate(r, o)...)
+	}
 
 	if len(allErrs) > 0 {
 		return apierrors.NewInvalid(
@@ -80,6 +87,41 @@ func (r *AuthProxyWorkload) validate() error {
 			r.Name, allErrs)
 	}
 	return nil
+
+}
+
+func validateUpdate(p *AuthProxyWorkload, op *AuthProxyWorkload) field.ErrorList {
+	var allErrs field.ErrorList
+
+	if p.Spec.Workload.Kind != op.Spec.Workload.Kind {
+		allErrs = append(allErrs, field.Invalid(
+			field.NewPath("spec", "workload", "kind"), p.Spec.Workload.Kind,
+			"kind cannot be changed on update"))
+	}
+	if p.Spec.Workload.Name != op.Spec.Workload.Name {
+		allErrs = append(allErrs, field.Invalid(
+			field.NewPath("spec", "workload", "name"), p.Spec.Workload.Name,
+			"kind cannot be changed on update"))
+	}
+	if selectorNotEqual(p.Spec.Workload.Selector, op.Spec.Workload.Selector) {
+		allErrs = append(allErrs, field.Invalid(
+			field.NewPath("spec", "workload", "selector"), p.Spec.Workload.Selector,
+			"selector cannot be changed on update"))
+	}
+
+	return allErrs
+}
+
+func selectorNotEqual(s *metav1.LabelSelector, os *metav1.LabelSelector) bool {
+	if s == nil && os == nil {
+		return false
+	}
+
+	if s != nil && os != nil {
+		return !reflect.DeepEqual(s, os)
+	}
+
+	return true
 }
 
 var supportedKinds = []string{"CronJob", "Job", "StatefulSet", "Deployment", "DaemonSet", "ReplicaSet", "Pod"}

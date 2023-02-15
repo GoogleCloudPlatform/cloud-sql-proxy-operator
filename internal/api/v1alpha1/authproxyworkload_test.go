@@ -84,6 +84,63 @@ func TestAuthProxyWorkload_ValidateCreate(t *testing.T) {
 			},
 			wantValid: true,
 		},
+		{
+			desc: "update fail, kind changed",
+			spec: cloudsqlapi.AuthProxyWorkloadSpec{
+				Workload: cloudsqlapi.WorkloadSelectorSpec{Kind: "Deployment", Name: "webapp"},
+				Instances: []cloudsqlapi.InstanceSpec{{
+					ConnectionString: "proj:region:db2",
+					PortEnvName:      "DB_PORT",
+				}},
+			},
+			oldSpec: &cloudsqlapi.AuthProxyWorkloadSpec{
+				Workload: cloudsqlapi.WorkloadSelectorSpec{Kind: "StatefulSet", Name: "webapp"},
+				Instances: []cloudsqlapi.InstanceSpec{{
+					ConnectionString: "proj:region:db1",
+					PortEnvName:      "DB_PORT",
+				}},
+			},
+			wantCreateValid: true,
+			wantUpdateValid: false,
+		},
+		{
+			desc: "update fail, name changed",
+			spec: cloudsqlapi.AuthProxyWorkloadSpec{
+				Workload: cloudsqlapi.WorkloadSelectorSpec{Kind: "Deployment", Name: "webapp"},
+				Instances: []cloudsqlapi.InstanceSpec{{
+					ConnectionString: "proj:region:db2",
+					PortEnvName:      "DB_PORT",
+				}},
+			},
+			oldSpec: &cloudsqlapi.AuthProxyWorkloadSpec{
+				Workload: cloudsqlapi.WorkloadSelectorSpec{Kind: "Deployment", Name: "other"},
+				Instances: []cloudsqlapi.InstanceSpec{{
+					ConnectionString: "proj:region:db1",
+					PortEnvName:      "DB_PORT",
+				}},
+			},
+			wantCreateValid: true,
+			wantUpdateValid: false,
+		},
+		{
+			desc: "update fail, selector changed",
+			spec: cloudsqlapi.AuthProxyWorkloadSpec{
+				Workload: cloudsqlapi.WorkloadSelectorSpec{Kind: "Deployment", Selector: &v1.LabelSelector{MatchLabels: map[string]string{"app": "sample"}}},
+				Instances: []cloudsqlapi.InstanceSpec{{
+					ConnectionString: "proj:region:db2",
+					PortEnvName:      "DB_PORT",
+				}},
+			},
+			oldSpec: &cloudsqlapi.AuthProxyWorkloadSpec{
+				Workload: cloudsqlapi.WorkloadSelectorSpec{Kind: "Deployment", Selector: &v1.LabelSelector{MatchLabels: map[string]string{"app": "other"}}},
+				Instances: []cloudsqlapi.InstanceSpec{{
+					ConnectionString: "proj:region:db1",
+					PortEnvName:      "DB_PORT",
+				}},
+			},
+			wantCreateValid: true,
+			wantUpdateValid: false,
+		},
 	}
 
 	for _, tc := range data {
