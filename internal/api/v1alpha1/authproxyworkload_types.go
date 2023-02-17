@@ -182,11 +182,6 @@ type TelemetrySpec struct {
 	// This sets the proxy container's CLI argument `--http-port`
 	//+kubebuilder:validation:Optional
 	HTTPPort *int32 `json:"httpPort,omitempty"`
-
-	// AdminPort the port for the /quitquitquit endpoint.
-	// This sets the proxy container's CLI argument `--admin-port`
-	//+kubebuilder:validation:Optional
-	AdminPort *int32 `json:"adminPort,omitempty"`
 }
 
 // InstanceSpec describes the configuration for how the proxy should expose
