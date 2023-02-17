@@ -702,6 +702,7 @@ func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1
 	s.addPort(port, proxyInstanceID{AuthProxyWorkload: types.NamespacedName{Namespace: p.Namespace, Name: p.Name}})
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HTTP_PORT", fmt.Sprintf("%d", port))
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_ADMIN_PORT", fmt.Sprintf("%d", adminPort))
+	s.addProxyContainerEnvVar(p, "CSQL_PROXY_QUITQUITQUIT", "true")
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HTTP_ADDRESS", "0.0.0.0")
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HEALTH_CHECK", "true")
 	return
