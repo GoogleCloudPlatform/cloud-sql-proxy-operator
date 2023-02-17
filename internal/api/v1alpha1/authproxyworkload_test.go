@@ -22,16 +22,13 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestAuthProxyWorkload_ValidateCreateUpdate(t *testing.T) {
-	type testcase struct {
+func TestAuthProxyWorkload_ValidateCreate(t *testing.T) {
+	data := []struct {
 		desc            string
 		spec            cloudsqlapi.AuthProxyWorkloadSpec
-		oldSpec         *cloudsqlapi.AuthProxyWorkloadSpec
 		wantCreateValid bool
 		wantUpdateValid bool
-	}
-
-	data := []*testcase{
+	}{
 		{
 			desc: "happy path",
 			spec: cloudsqlapi.AuthProxyWorkloadSpec{
@@ -73,13 +70,6 @@ func TestAuthProxyWorkload_ValidateCreateUpdate(t *testing.T) {
 					PortEnvName:      "DB_PORT",
 				}},
 			},
-			oldSpec: &cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{Kind: "Deployment", Name: "webapp"},
-				Instances: []cloudsqlapi.InstanceSpec{{
-					ConnectionString: "proj:region:db1",
-					PortEnvName:      "DB_PORT",
-				}},
-			},
 			wantCreateValid: true,
 			wantUpdateValid: true,
 		},
@@ -102,14 +92,56 @@ func TestAuthProxyWorkload_ValidateCreateUpdate(t *testing.T) {
 				t.Logf("create passed %s", tc.desc)
 				// test passes, do nothing.
 			}
+		})
+	}
+}
 
-			if tc.oldSpec == nil {
-				return
+func TestAuthProxyWorkload_ValidateUpdate(t *testing.T) {
+	data := []struct {
+		desc            string
+		spec            cloudsqlapi.AuthProxyWorkloadSpec
+		oldSpec         cloudsqlapi.AuthProxyWorkloadSpec
+		wantCreateValid bool
+		wantUpdateValid bool
+	}{
+		{
+			desc: "happy path",
+			spec: cloudsqlapi.AuthProxyWorkloadSpec{
+				Workload: cloudsqlapi.WorkloadSelectorSpec{Kind: "Deployment", Name: "webapp"},
+				Instances: []cloudsqlapi.InstanceSpec{{
+					ConnectionString: "proj:region:db1",
+					PortEnvName:      "DB_PORT",
+				}},
+			},
+			oldSpec: cloudsqlapi.AuthProxyWorkloadSpec{
+				Workload: cloudsqlapi.WorkloadSelectorSpec{Kind: "Deployment", Name: "webapp"},
+				Instances: []cloudsqlapi.InstanceSpec{
+					{
+						ConnectionString: "proj:region:db1",
+						PortEnvName:      "DB_PORT",
+					},
+					{
+						ConnectionString: "proj:region:db2",
+						PortEnvName:      "DB_PORT2",
+					},
+				},
+			},
+			wantCreateValid: true,
+			wantUpdateValid: true,
+		},
+	}
+
+	for _, tc := range data {
+		t.Run(tc.desc, func(t *testing.T) {
+			p := cloudsqlapi.AuthProxyWorkload{
+				ObjectMeta: v1.ObjectMeta{Name: "sample"},
+				Spec:       tc.spec,
 			}
+			oldP := cloudsqlapi.AuthProxyWorkload{
+				ObjectMeta: v1.ObjectMeta{Name: "sample"},
+				Spec:       tc.oldSpec}
 
-			oldP := cloudsqlapi.AuthProxyWorkload{Spec: *tc.oldSpec}
-
-			err = p.ValidateUpdate(&oldP)
+			err := p.ValidateUpdate(&oldP)
 			switch {
 			case tc.wantUpdateValid && err != nil:
 				t.Errorf("wants create valid, got error %v", err)

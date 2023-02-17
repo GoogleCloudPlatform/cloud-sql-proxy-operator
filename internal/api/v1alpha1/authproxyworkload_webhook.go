@@ -53,12 +53,12 @@ var _ webhook.Validator = &AuthProxyWorkload{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *AuthProxyWorkload) ValidateCreate() error {
-	return r.Validate()
+	return r.validate()
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *AuthProxyWorkload) ValidateUpdate(_ runtime.Object) error {
-	return r.Validate()
+	return r.validate()
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
@@ -66,29 +66,20 @@ func (r *AuthProxyWorkload) ValidateDelete() error {
 	return nil
 }
 
-func (r *AuthProxyWorkload) Validate() error {
+func (r *AuthProxyWorkload) validate() error {
 	var allErrs field.ErrorList
 
 	allErrs = append(allErrs, validation.ValidateLabelName(r.Name, field.NewPath("metadata", "name"))...)
-	allErrs = append(allErrs, validateSpec(&r.Spec, field.NewPath("spec"))...)
+	allErrs = append(allErrs, validateWorkload(&r.Spec.Workload, field.NewPath("spec", "workload"))...)
 
-	if len(allErrs) == 0 {
-		return nil
+	if len(allErrs) > 0 {
+		return apierrors.NewInvalid(
+			schema.GroupKind{
+				Group: GroupVersion.Group,
+				Kind:  "AuthProxyWorkload"},
+			r.Name, allErrs)
 	}
-
-	return apierrors.NewInvalid(
-		schema.GroupKind{
-			Group: GroupVersion.Group,
-			Kind:  "AuthProxyWorkload"},
-		r.Name, allErrs)
-}
-
-func validateSpec(spec *AuthProxyWorkloadSpec, f *field.Path) field.ErrorList {
-	var allErrs field.ErrorList
-
-	allErrs = append(allErrs, validateWorkload(&spec.Workload, f.Child("workload"))...)
-
-	return allErrs
+	return nil
 }
 
 var supportedKinds = []string{"CronJob", "Job", "StatefulSet", "Deployment", "DaemonSet", "ReplicaSet", "Pod"}
