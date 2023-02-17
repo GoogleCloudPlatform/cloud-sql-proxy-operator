@@ -204,35 +204,28 @@ func (u *Updater) ConfigureWorkload(wl *PodWorkload, matches []*cloudsqlapi.Auth
 }
 
 type managedEnvVar struct {
-	Instance             dbInstance    `json:"dbInstance"`
-	ContainerName        string        `json:"containerName"`
-	OperatorManagedValue corev1.EnvVar `json:"operatorManagedValue"`
+	Instance             proxyInstanceID `json:"proxyInstanceID"`
+	ContainerName        string          `json:"containerName"`
+	OperatorManagedValue corev1.EnvVar   `json:"operatorManagedValue"`
 }
 
 type managedPort struct {
-	Instance dbInstance `json:"dbInstance"`
-	Port     int32      `json:"port,omitempty"`
+	Instance proxyInstanceID `json:"proxyInstanceID"`
+	Port     int32           `json:"port,omitempty"`
 }
 
 type managedVolume struct {
 	Volume      corev1.Volume      `json:"volume"`
 	VolumeMount corev1.VolumeMount `json:"volumeMount"`
-	Instance    dbInstance         `json:"dbInstance"`
+	Instance    proxyInstanceID    `json:"proxyInstanceID"`
 }
 
-type dbInstance struct {
+// proxyInstanceID is an identifier for a proxy and/or specific proxy database
+// instance that created the EnvVar or Port. When this is empty, means that the
+// EnvVar or Port was created by the user, and is not associated with a proxy
+type proxyInstanceID struct {
 	AuthProxyWorkload types.NamespacedName `json:"authProxyWorkload"`
 	ConnectionString  string               `json:"connectionString"`
-}
-
-func dbInst(namespace, name, connectionString string) dbInstance {
-	return dbInstance{
-		AuthProxyWorkload: types.NamespacedName{
-			Namespace: namespace,
-			Name:      name,
-		},
-		ConnectionString: connectionString,
-	}
 }
 
 // updateState holds internal state while a particular workload being configured
@@ -247,22 +240,22 @@ type updateState struct {
 // workloadMods holds all modifications to this workload done by the operator so
 // so that it can be undone later.
 type workloadMods struct {
-	DBInstances  []*dbInstance    `json:"dbInstances"`
-	EnvVars      []*managedEnvVar `json:"envVars"`
-	VolumeMounts []*managedVolume `json:"volumeMounts"`
-	Ports        []*managedPort   `json:"ports"`
+	DBInstances  []*proxyInstanceID `json:"dbInstances"`
+	EnvVars      []*managedEnvVar   `json:"envVars"`
+	VolumeMounts []*managedVolume   `json:"volumeMounts"`
+	Ports        []*managedPort     `json:"ports"`
 }
 
 func (s *updateState) addWorkloadPort(p int32) {
 	// This port is associated with the workload, not the proxy.
-	// so this uses an empty dbInstance{}
-	s.addPort(p, dbInstance{})
+	// so this uses an empty proxyInstanceID{}
+	s.addPort(p, proxyInstanceID{})
 }
 
 func (s *updateState) addProxyPort(p int32) {
 	// This port is associated with the workload, not the proxy.
-	// so this uses an empty dbInstance{}
-	s.addPort(p, dbInstance{})
+	// so this uses an empty proxyInstanceID{}
+	s.addPort(p, proxyInstanceID{})
 }
 
 // isPortInUse checks if the port is in use.
@@ -321,7 +314,7 @@ func (s *updateState) useInstancePort(p *cloudsqlapi.AuthProxyWorkload, is *clou
 				port, is.ConnectionString), p)
 	}
 
-	s.addPort(port, dbInstance{
+	s.addPort(port, proxyInstanceID{
 		AuthProxyWorkload: types.NamespacedName{
 			Name:      p.Name,
 			Namespace: p.Namespace,
@@ -332,7 +325,7 @@ func (s *updateState) useInstancePort(p *cloudsqlapi.AuthProxyWorkload, is *clou
 	return port
 }
 
-func (s *updateState) addPort(p int32, instance dbInstance) {
+func (s *updateState) addPort(p int32, instance proxyInstanceID) {
 	var mp *managedPort
 
 	for i := 0; i < len(s.mods.Ports); i++ {
@@ -352,7 +345,12 @@ func (s *updateState) addPort(p int32, instance dbInstance) {
 
 func (s *updateState) addProxyContainerEnvVar(p *cloudsqlapi.AuthProxyWorkload, k, v string) {
 	s.addEnvVar(p, managedEnvVar{
-		Instance:             dbInst(p.Namespace, p.Name, ""),
+		Instance: proxyInstanceID{
+			AuthProxyWorkload: types.NamespacedName{
+				Namespace: p.Namespace,
+				Name:      p.Name,
+			},
+		},
 		ContainerName:        ContainerName(p),
 		OperatorManagedValue: corev1.EnvVar{Name: k, Value: v},
 	})
@@ -361,7 +359,13 @@ func (s *updateState) addProxyContainerEnvVar(p *cloudsqlapi.AuthProxyWorkload, 
 // addWorkloadEnvVar adds or replaces the envVar based on its Name, returning the old and new values
 func (s *updateState) addWorkloadEnvVar(p *cloudsqlapi.AuthProxyWorkload, is *cloudsqlapi.InstanceSpec, ev corev1.EnvVar) {
 	s.addEnvVar(p, managedEnvVar{
-		Instance:             dbInst(p.Namespace, p.Name, is.ConnectionString),
+		Instance: proxyInstanceID{
+			AuthProxyWorkload: types.NamespacedName{
+				Namespace: p.Namespace,
+				Name:      p.Name,
+			},
+			ConnectionString: is.ConnectionString,
+		},
 		OperatorManagedValue: ev,
 	})
 }
@@ -399,11 +403,11 @@ func isEnvVarConflict(oldEnv *managedEnvVar, v managedEnvVar) bool {
 func (s *updateState) initState(pl []*cloudsqlapi.AuthProxyWorkload) {
 	// Reset the mods.DBInstances to the list of pl being
 	// applied right now.
-	s.mods.DBInstances = make([]*dbInstance, 0, len(pl))
+	s.mods.DBInstances = make([]*proxyInstanceID, 0, len(pl))
 	for _, wl := range pl {
 		for _, instance := range wl.Spec.Instances {
 			s.mods.DBInstances = append(s.mods.DBInstances,
-				&dbInstance{
+				&proxyInstanceID{
 					AuthProxyWorkload: types.NamespacedName{
 						Namespace: wl.Namespace,
 						Name:      wl.Name,
@@ -647,7 +651,7 @@ func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1
 		PeriodSeconds: 30,
 	}
 	// Add a port that is associated with the proxy, but not a specific db instance
-	s.addPort(port, dbInstance{AuthProxyWorkload: types.NamespacedName{Namespace: p.Namespace, Name: p.Name}})
+	s.addPort(port, proxyInstanceID{AuthProxyWorkload: types.NamespacedName{Namespace: p.Namespace, Name: p.Name}})
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HTTP_PORT", fmt.Sprintf("%d", port))
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HTTP_ADDRESS", "0.0.0.0")
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HEALTH_CHECK", "true")
