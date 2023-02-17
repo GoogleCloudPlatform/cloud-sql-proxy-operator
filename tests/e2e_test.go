@@ -387,6 +387,9 @@ func TestPublicDBConnections(t *testing.T) {
 			if err != nil {
 				t.Error(err)
 			}
+
+			// The pods are configured to only be ready when the real database client
+			// successfully executes a simple query on the database.
 			t.Log("Checking for ready", kind)
 			err = tp.ExpectPodReady(ctx, selector, "all")
 			if err != nil {
