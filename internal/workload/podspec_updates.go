@@ -256,10 +256,15 @@ func (s *updateState) addWorkloadPort(p int32) {
 	s.addPort(p, proxyInstanceID{})
 }
 
-func (s *updateState) addProxyPort(p int32) {
+func (s *updateState) addProxyPort(port int32, p *cloudsqlapi.AuthProxyWorkload) {
 	// This port is associated with the workload, not the proxy.
 	// so this uses an empty proxyInstanceID{}
-	s.addPort(p, proxyInstanceID{})
+	s.addPort(port, proxyInstanceID{
+		AuthProxyWorkload: types.NamespacedName{
+			Namespace: p.Namespace,
+			Name:      p.Name,
+		},
+	})
 }
 
 // isPortInUse checks if the port is in use.
@@ -689,7 +694,7 @@ func (s *updateState) defaultProxyImage() string {
 
 func (s *updateState) usePort(configValue *int32, defaultValue int32, p *cloudsqlapi.AuthProxyWorkload) int32 {
 	if configValue != nil {
-		s.addInUsePort(*configValue, p)
+		s.addProxyPort(*configValue, p)
 		return *configValue
 	}
 
@@ -699,6 +704,6 @@ func (s *updateState) usePort(configValue *int32, defaultValue int32, p *cloudsq
 			port++
 		}
 	}
-	s.addInUsePort(port, p)
+	s.addProxyPort(port, p)
 	return port
 }
