@@ -24,54 +24,65 @@ import (
 
 func TestAuthProxyWorkload_ValidateCreate(t *testing.T) {
 	data := []struct {
-		desc            string
-		spec            cloudsqlapi.AuthProxyWorkloadSpec
-		wantCreateValid bool
-		wantUpdateValid bool
+		desc      string
+		spec      cloudsqlapi.AuthProxyWorkloadSpec
+		wantValid bool
 	}{
 		{
-			desc: "happy path",
+			desc: "Valid WorkloadSelectorSpec with Name",
 			spec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{Kind: "Deployment", Name: "webapp"},
+				Workload: cloudsqlapi.WorkloadSelectorSpec{
+					Kind: "Deployment",
+					Name: "webapp",
+				},
 			},
-			wantCreateValid: true,
-			wantUpdateValid: true,
+			wantValid: true,
 		},
 		{
-			desc: "happy path labels",
+			desc: "Valid WorkloadSelectorSpec with Selector",
 			spec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{Kind: "Deployment", Selector: &v1.LabelSelector{MatchLabels: map[string]string{"app": "sample"}}},
+				Workload: cloudsqlapi.WorkloadSelectorSpec{
+					Kind: "Deployment",
+					Selector: &v1.LabelSelector{
+						MatchLabels: map[string]string{"app": "sample"},
+					},
+				},
 			},
-			wantCreateValid: true,
-			wantUpdateValid: true,
+			wantValid: true,
 		},
 		{
-			desc: "invalid labels and name both set",
+			desc: "Invalid, both workload selector and name both set",
 			spec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{Kind: "Deployment", Name: "webapp", Selector: &v1.LabelSelector{MatchLabels: map[string]string{"app": "sample"}}},
+				Workload: cloudsqlapi.WorkloadSelectorSpec{
+					Kind: "Deployment",
+					Name: "webapp",
+					Selector: &v1.LabelSelector{
+						MatchLabels: map[string]string{"app": "sample"},
+					},
+				},
 			},
-			wantCreateValid: false,
-			wantUpdateValid: true,
+			wantValid: false,
 		},
 		{
-			desc: "invalid labels and name not set",
+			desc: "Invalid, WorkloadSelector missing name and selector",
 			spec: cloudsqlapi.AuthProxyWorkloadSpec{
 				Workload: cloudsqlapi.WorkloadSelectorSpec{Kind: "Deployment"},
 			},
-			wantCreateValid: false,
-			wantUpdateValid: true,
+			wantValid: false,
 		},
 		{
-			desc: "happy path update",
+			desc: "Valid, Instance configured with PortEnvName",
 			spec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{Kind: "Deployment", Name: "webapp"},
+				Workload: cloudsqlapi.WorkloadSelectorSpec{
+					Kind: "Deployment",
+					Name: "webapp",
+				},
 				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "proj:region:db2",
 					PortEnvName:      "DB_PORT",
 				}},
 			},
-			wantCreateValid: true,
-			wantUpdateValid: true,
+			wantValid: true,
 		},
 	}
 
@@ -82,11 +93,12 @@ func TestAuthProxyWorkload_ValidateCreate(t *testing.T) {
 				Spec:       tc.spec,
 			}
 			err := p.ValidateCreate()
+			gotValid := err == nil
 			switch {
-			case tc.wantCreateValid && err != nil:
+			case tc.wantValid && !gotValid:
 				t.Errorf("wants create valid, got error %v", err)
 				printFieldErrors(t, err)
-			case !tc.wantCreateValid && err == nil:
+			case !tc.wantValid && gotValid:
 				t.Errorf("wants an error on create, got no error")
 			default:
 				t.Logf("create passed %s", tc.desc)
@@ -98,23 +110,28 @@ func TestAuthProxyWorkload_ValidateCreate(t *testing.T) {
 
 func TestAuthProxyWorkload_ValidateUpdate(t *testing.T) {
 	data := []struct {
-		desc            string
-		spec            cloudsqlapi.AuthProxyWorkloadSpec
-		oldSpec         cloudsqlapi.AuthProxyWorkloadSpec
-		wantCreateValid bool
-		wantUpdateValid bool
+		desc      string
+		spec      cloudsqlapi.AuthProxyWorkloadSpec
+		oldSpec   cloudsqlapi.AuthProxyWorkloadSpec
+		wantValid bool
 	}{
 		{
-			desc: "happy path",
+			desc: "Valid, update adds another instance",
 			spec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{Kind: "Deployment", Name: "webapp"},
+				Workload: cloudsqlapi.WorkloadSelectorSpec{
+					Kind: "Deployment",
+					Name: "webapp",
+				},
 				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "proj:region:db1",
 					PortEnvName:      "DB_PORT",
 				}},
 			},
 			oldSpec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{Kind: "Deployment", Name: "webapp"},
+				Workload: cloudsqlapi.WorkloadSelectorSpec{
+					Kind: "Deployment",
+					Name: "webapp",
+				},
 				Instances: []cloudsqlapi.InstanceSpec{
 					{
 						ConnectionString: "proj:region:db1",
@@ -126,8 +143,7 @@ func TestAuthProxyWorkload_ValidateUpdate(t *testing.T) {
 					},
 				},
 			},
-			wantCreateValid: true,
-			wantUpdateValid: true,
+			wantValid: true,
 		},
 	}
 
@@ -142,10 +158,12 @@ func TestAuthProxyWorkload_ValidateUpdate(t *testing.T) {
 				Spec:       tc.oldSpec}
 
 			err := p.ValidateUpdate(&oldP)
+			gotValid := err == nil
+
 			switch {
-			case tc.wantUpdateValid && err != nil:
+			case tc.wantValid && !gotValid:
 				t.Errorf("wants create valid, got error %v", err)
-			case !tc.wantUpdateValid && err == nil:
+			case !tc.wantValid && gotValid:
 				t.Errorf("wants an error on create, got no error")
 			default:
 				t.Logf("update passed %s", tc.desc)
