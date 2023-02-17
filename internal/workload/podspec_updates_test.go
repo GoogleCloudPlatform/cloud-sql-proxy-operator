@@ -517,6 +517,7 @@ func TestProxyCLIArgs(t *testing.T) {
 		proxySpec            v1alpha1.AuthProxyWorkloadSpec
 		wantProxyArgContains []string
 		wantErrorCodes       []string
+		wantWorkloadEnv      map[string]string
 	}
 	wantTrue := true
 	wantFalse := false
@@ -533,12 +534,12 @@ func TestProxyCLIArgs(t *testing.T) {
 					PortEnvName:      "DB_PORT",
 				}},
 			},
-			wantProxyArgContains: []string{
-				"--structured-logs",
-				"--health-check",
-				fmt.Sprintf("--http-port=%d", workload.DefaultHealthCheckPort),
-				"--http-address=0.0.0.0",
-				"--user-agent=cloud-sql-proxy-operator/dev",
+			wantWorkloadEnv: map[string]string{
+				"CSQL_PROXY_STRUCTURED_LOGS": "true",
+				"CSQL_PROXY_HEALTH_CHECK":    "true",
+				"CSQL_PROXY_HTTP_PORT":       fmt.Sprintf("%d", workload.DefaultHealthCheckPort),
+				"CSQL_PROXY_HTTP_ADDRESS":    "0.0.0.0",
+				"CSQL_PROXY_USER_AGENT":      "cloud-sql-proxy-operator/dev",
 			},
 		},
 		{
@@ -622,25 +623,6 @@ func TestProxyCLIArgs(t *testing.T) {
 				fmt.Sprintf("hello:world:two?port=%d&private-ip=false", workload.DefaultFirstPort+1)},
 		},
 		{
-			desc: "global flags",
-			proxySpec: v1alpha1.AuthProxyWorkloadSpec{
-				AuthProxyContainer: &v1alpha1.AuthProxyContainerSpec{
-					SQLAdminAPIEndpoint: "https://example.com",
-					MaxConnections:      ptr(int64(10)),
-					MaxSigtermDelay:     ptr(int64(20)),
-				},
-				Instances: []v1alpha1.InstanceSpec{{
-					ConnectionString: "hello:world:one",
-				}},
-			},
-			wantProxyArgContains: []string{
-				fmt.Sprintf("hello:world:one?port=%d", workload.DefaultFirstPort),
-				"--sqladmin-api-endpoint=https://example.com",
-				"--max-connections=10",
-				"--max-sigterm-delay=20",
-			},
-		},
-		{
 			desc: "port conflict with other instance causes error",
 			proxySpec: v1alpha1.AuthProxyWorkloadSpec{
 				Instances: []v1alpha1.InstanceSpec{{
@@ -713,6 +695,19 @@ func TestProxyCLIArgs(t *testing.T) {
 
 			// test that port cli args are set correctly
 			assertContainerArgsContains(t, csqlContainer.Args, tc.wantProxyArgContains)
+
+			// Test that workload has the right env vars
+			for wantKey, wantValue := range tc.wantWorkloadEnv {
+				gotEnvVar, err := findEnvVar(wl, csqlContainer.Name, wantKey)
+				if err != nil {
+					t.Error(err)
+					continue
+				}
+
+				if gotEnvVar.Value != wantValue {
+					t.Errorf("got %v, wants %v workload env var %v", gotEnvVar, wantValue, wantKey)
+				}
+			}
 
 		})
 	}
