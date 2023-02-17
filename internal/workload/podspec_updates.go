@@ -44,10 +44,6 @@ const (
 	// DefaultHealthCheckPort is the used by the proxy to expose prometheus
 	// and kubernetes health checks.
 	DefaultHealthCheckPort int32 = 9801
-
-	// DefaultAdminPort is the used by the proxy to expose prometheus
-	// and kubernetes health checks.
-	DefaultAdminPort int32 = 9802
 )
 
 var l = logf.Log.WithName("internal.workload")
