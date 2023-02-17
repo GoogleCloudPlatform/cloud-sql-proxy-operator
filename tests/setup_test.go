@@ -110,7 +110,7 @@ func setupTests() (func(), error) {
 	}
 
 	// Read e2e test configuration
-	proxyImageURL = loadValue("PROXY_IMAGE_URL", "../bin/last-proxy-image-url.txt", workload.DefaultProxyImage)
+	proxyImageURL = loadValue("PROXY_IMAGE_URL", "../bin/last-local-proxy-url.txt", workload.DefaultProxyImage)
 	operatorURL = loadValue("OPERATOR_IMAGE_URL", "../bin/last-gcloud-operator-url.txt", "operator:latest")
 	testInfraPath := loadValue("TEST_INFRA_JSON", "", "../bin/testinfra.json")
 	ti, err := loadTestInfra(testInfraPath)

@@ -375,6 +375,23 @@ e2e_image_push: generate # Build and push a operator image to the e2e artifact r
 	DOCKER_FILE_NAME=Dockerfile-operator \
 	$(PWD)/tools/docker-build.sh
 
+###
+# Build a version of the cloud-sql-proxy from local sources
+E2E_LOCAL_PROXY_PROJECT_DIR?=/not-set
+E2E_LOCAL_PROXY_BUILD_URL_FILE=$(PWD)/bin/last-local-proxy-url.txt
+E2E_LOCAL_PROXY_BUILD_URL=$(shell cat $(E2E_LOCAL_PROXY_BUILD_URL_FILE) | tr -d "\n")
+
+.PHONY: e2e_image_push
+e2e_local_proxy_image_push: # Build and push the proxy image from a local working directory to the e2e artifact repo
+	test -d $(E2E_LOCAL_PROXY_PROJECT_DIR) && \
+	PROJECT_DIR=$(E2E_LOCAL_PROXY_PROJECT_DIR) \
+	IMAGE_NAME=cloud-sql-proxy-dev \
+	REPO_URL=$(E2E_DOCKER_URL) \
+	IMAGE_URL_OUT=$(E2E_LOCAL_PROXY_BUILD_URL_FILE) \
+	PLATFORMS=linux/amd64 \
+	DOCKER_FILE_NAME=Dockerfile \
+	$(PWD)/tools/docker-build.sh
+
 
 ##
 # Build tool dependencies
