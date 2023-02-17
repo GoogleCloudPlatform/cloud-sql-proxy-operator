@@ -31,3 +31,23 @@ Then, to create the CRD for Workload
 ```
 
 
+## Running E2E tests with a custom proxy image
+
+You may want to write e2e tests for a proxy feature that has
+not been released yet. 
+
+Step 1: Check out the cloud-sql-proxy repo.
+
+Step 2: Add `E2E_LOCAL_PROXY_PROJECT_DIR = /home/me/projects/cloud-sql-proxy`
+to your `build.env`. This tells your Makefile where your proxy
+directory is. Set it to the path of your cloud-sql-proxy working directory.
+
+Step 3: Build a custom image and push it to the e2e environment
+repo. Run `make e2e_local_proxy_image_push` This will build and push
+a docker image from the proxy repo, and write the file `bin/last-local-proxy-url.txt`
+
+Step 4: Run your e2e tests. The tests will read the contents of
+the file `bin/last-local-proxy-url.txt`.
+
+Delete the file `bin/last-local-proxy-url.txt` to go back to using
+the public proxy iamge again
