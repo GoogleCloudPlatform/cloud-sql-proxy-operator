@@ -253,13 +253,16 @@ type workloadMods struct {
 	Ports        []*managedPort   `json:"ports"`
 }
 
-func (s *updateState) addInUsePort(p int32, proxy *cloudsqlapi.AuthProxyWorkload) {
-	var name types.NamespacedName
-	if proxy != nil {
-		name.Namespace = proxy.Namespace
-		name.Name = proxy.Name
-	}
-	s.addPort(p, name, "")
+func (s *updateState) addWorkloadPort(p int32) {
+	// This port is associated with the workload, not the proxy.
+	// so this uses an empty dbInstance{}
+	s.addPort(p, dbInstance{})
+}
+
+func (s *updateState) addProxyPort(p int32) {
+	// This port is associated with the workload, not the proxy.
+	// so this uses an empty dbInstance{}
+	s.addPort(p, dbInstance{})
 }
 
 // isPortInUse checks if the port is in use.
@@ -318,12 +321,18 @@ func (s *updateState) useInstancePort(p *cloudsqlapi.AuthProxyWorkload, is *clou
 				port, is.ConnectionString), p)
 	}
 
-	s.addPort(port, n, is.ConnectionString)
+	s.addPort(port, dbInstance{
+		AuthProxyWorkload: types.NamespacedName{
+			Name:      p.Name,
+			Namespace: p.Namespace,
+		},
+		ConnectionString: is.ConnectionString,
+	})
 
 	return port
 }
 
-func (s *updateState) addPort(p int32, n types.NamespacedName, connectionString string) {
+func (s *updateState) addPort(p int32, instance dbInstance) {
 	var mp *managedPort
 
 	for i := 0; i < len(s.mods.Ports); i++ {
@@ -334,7 +343,7 @@ func (s *updateState) addPort(p int32, n types.NamespacedName, connectionString 
 
 	if mp == nil {
 		mp = &managedPort{
-			Instance: dbInst(n.Namespace, n.Name, connectionString),
+			Instance: instance,
 			Port:     p,
 		}
 		s.mods.Ports = append(s.mods.Ports, mp)
@@ -424,7 +433,7 @@ func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWo
 	for i := 0; i < len(nonAuthProxyContainers); i++ {
 		c := nonAuthProxyContainers[i]
 		for j := 0; j < len(c.Ports); j++ {
-			s.addInUsePort(c.Ports[j].ContainerPort, nil)
+			s.addWorkloadPort(c.Ports[j].ContainerPort)
 		}
 	}
 
@@ -637,6 +646,8 @@ func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1
 		}},
 		PeriodSeconds: 30,
 	}
+	// Add a port that is associated with the proxy, but not a specific db instance
+	s.addPort(port, dbInstance{AuthProxyWorkload: types.NamespacedName{Namespace: p.Namespace, Name: p.Name}})
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HTTP_PORT", fmt.Sprintf("%d", port))
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HTTP_ADDRESS", "0.0.0.0")
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HEALTH_CHECK", "true")
