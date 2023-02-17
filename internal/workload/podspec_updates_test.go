@@ -538,6 +538,7 @@ func TestProxyCLIArgs(t *testing.T) {
 				"CSQL_PROXY_STRUCTURED_LOGS": "true",
 				"CSQL_PROXY_HEALTH_CHECK":    "true",
 				"CSQL_PROXY_HTTP_PORT":       fmt.Sprintf("%d", workload.DefaultHealthCheckPort),
+				"CSQL_PROXY_ADMIN_PORT":      fmt.Sprintf("%d", workload.DefaultAdminPort),
 				"CSQL_PROXY_HTTP_ADDRESS":    "0.0.0.0",
 				"CSQL_PROXY_USER_AGENT":      "cloud-sql-proxy-operator/dev",
 			},
@@ -628,7 +629,8 @@ func TestProxyCLIArgs(t *testing.T) {
 				AuthProxyContainer: &v1alpha1.AuthProxyContainerSpec{
 					SQLAdminAPIEndpoint: "https://example.com",
 					Telemetry: &v1alpha1.TelemetrySpec{
-						HTTPPort: ptr(int32(9092)),
+						HTTPPort:  ptr(int32(9092)),
+						AdminPort: ptr(int32(9091)),
 					},
 					MaxConnections:  ptr(int64(10)),
 					MaxSigtermDelay: ptr(int64(20)),
@@ -643,6 +645,7 @@ func TestProxyCLIArgs(t *testing.T) {
 			wantWorkloadEnv: map[string]string{
 				"CSQL_PROXY_SQLADMIN_API_ENDPOINT": "https://example.com",
 				"CSQL_PROXY_HTTP_PORT":             "9092",
+				"CSQL_PROXY_ADMIN_PORT":            "9091",
 				"CSQL_PROXY_HEALTH_CHECK":          "true",
 				"CSQL_PROXY_MAX_CONNECTIONS":       "10",
 				"CSQL_PROXY_MAX_SIGTERM_DELAY":     "20",

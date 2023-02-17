@@ -925,6 +925,10 @@ spec:
                     telemetry:
                       description: Telemetry specifies how the proxy should expose telemetry. Optional, by default
                       properties:
+                        adminPort:
+                          description: AdminPort the port for the /quitquitquit endpoint. This sets the proxy container's CLI argument `--admin-port`
+                          format: int32
+                          type: integer
                         httpPort:
                           description: HTTPPort the port for Prometheus and health check server. This sets the proxy container's CLI argument `--http-port`
                           format: int32
