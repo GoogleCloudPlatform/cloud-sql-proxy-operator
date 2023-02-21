@@ -55,30 +55,7 @@ var _ webhook.Validator = &AuthProxyWorkload{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *AuthProxyWorkload) ValidateCreate() error {
-	return r.validate(nil)
-
-}
-
-// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *AuthProxyWorkload) ValidateUpdate(old runtime.Object) error {
-	return r.validate(old)
-}
-
-// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *AuthProxyWorkload) ValidateDelete() error {
-	return nil
-}
-
-func (r *AuthProxyWorkload) validate(old runtime.Object) error {
-	var allErrs field.ErrorList
-
-	allErrs = append(allErrs, validation.ValidateLabelName(r.Name, field.NewPath("metadata", "name"))...)
-	allErrs = append(allErrs, validateWorkload(&r.Spec.Workload, field.NewPath("spec", "workload"))...)
-
-	if o, ok := old.(*AuthProxyWorkload); ok {
-		allErrs = append(allErrs, validateUpdate(r, o)...)
-	}
-
+	allErrs := r.validate()
 	if len(allErrs) > 0 {
 		return apierrors.NewInvalid(
 			schema.GroupKind{
@@ -90,22 +67,57 @@ func (r *AuthProxyWorkload) validate(old runtime.Object) error {
 
 }
 
-func validateUpdate(p *AuthProxyWorkload, op *AuthProxyWorkload) field.ErrorList {
+// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
+func (r *AuthProxyWorkload) ValidateUpdate(old runtime.Object) error {
+	o, ok := old.(*AuthProxyWorkload)
+	if !ok {
+		return fmt.Errorf("bad request, expected old to be an AuthProxyWorkload")
+	}
+
+	allErrs := r.validate()
+	allErrs = append(allErrs, r.validateUpdateFrom(o)...)
+	if len(allErrs) > 0 {
+		return apierrors.NewInvalid(
+			schema.GroupKind{
+				Group: GroupVersion.Group,
+				Kind:  "AuthProxyWorkload"},
+			r.Name, allErrs)
+	}
+	return nil
+
+}
+
+// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
+func (r *AuthProxyWorkload) ValidateDelete() error {
+	return nil
+}
+
+func (r *AuthProxyWorkload) validate() field.ErrorList {
 	var allErrs field.ErrorList
 
-	if p.Spec.Workload.Kind != op.Spec.Workload.Kind {
+	allErrs = append(allErrs, validation.ValidateLabelName(r.Name, field.NewPath("metadata", "name"))...)
+	allErrs = append(allErrs, validateWorkload(&r.Spec.Workload, field.NewPath("spec", "workload"))...)
+
+	return allErrs
+
+}
+
+func (r *AuthProxyWorkload) validateUpdateFrom(op *AuthProxyWorkload) field.ErrorList {
+	var allErrs field.ErrorList
+
+	if r.Spec.Workload.Kind != op.Spec.Workload.Kind {
 		allErrs = append(allErrs, field.Invalid(
-			field.NewPath("spec", "workload", "kind"), p.Spec.Workload.Kind,
+			field.NewPath("spec", "workload", "kind"), r.Spec.Workload.Kind,
 			"kind cannot be changed on update"))
 	}
-	if p.Spec.Workload.Name != op.Spec.Workload.Name {
+	if r.Spec.Workload.Name != op.Spec.Workload.Name {
 		allErrs = append(allErrs, field.Invalid(
-			field.NewPath("spec", "workload", "name"), p.Spec.Workload.Name,
+			field.NewPath("spec", "workload", "name"), r.Spec.Workload.Name,
 			"kind cannot be changed on update"))
 	}
-	if selectorNotEqual(p.Spec.Workload.Selector, op.Spec.Workload.Selector) {
+	if selectorNotEqual(r.Spec.Workload.Selector, op.Spec.Workload.Selector) {
 		allErrs = append(allErrs, field.Invalid(
-			field.NewPath("spec", "workload", "selector"), p.Spec.Workload.Selector,
+			field.NewPath("spec", "workload", "selector"), r.Spec.Workload.Selector,
 			"selector cannot be changed on update"))
 	}
 
