@@ -252,10 +252,15 @@ func (s *updateState) addWorkloadPort(p int32) {
 	s.addPort(p, proxyInstanceID{})
 }
 
-func (s *updateState) addProxyPort(p int32) {
+func (s *updateState) addProxyPort(port int32, p *cloudsqlapi.AuthProxyWorkload) {
 	// This port is associated with the workload, not the proxy.
 	// so this uses an empty proxyInstanceID{}
-	s.addPort(p, proxyInstanceID{})
+	s.addPort(port, proxyInstanceID{
+		AuthProxyWorkload: types.NamespacedName{
+			Namespace: p.Namespace,
+			Name:      p.Name,
+		},
+	})
 }
 
 // isPortInUse checks if the port is in use.
@@ -627,7 +632,18 @@ func (s *updateState) updateContainerEnv(c *corev1.Container) {
 
 // addHealthCheck adds the health check declaration to this workload.
 func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1.Container) {
-	port := DefaultHealthCheckPort
+	var portPtr *int32
+
+	cs := p.Spec.AuthProxyContainer
+
+	// if the TelemetrySpec.exists, get Port values
+	if cs != nil && cs.Telemetry != nil {
+		if cs.Telemetry.HTTPPort != nil {
+			portPtr = cs.Telemetry.HTTPPort
+		}
+	}
+
+	port := s.usePort(portPtr, DefaultHealthCheckPort, p)
 
 	c.StartupProbe = &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{
@@ -664,4 +680,20 @@ func (s *updateState) addError(errorCode, description string, p *cloudsqlapi.Aut
 
 func (s *updateState) defaultProxyImage() string {
 	return DefaultProxyImage
+}
+
+func (s *updateState) usePort(configValue *int32, defaultValue int32, p *cloudsqlapi.AuthProxyWorkload) int32 {
+	if configValue != nil {
+		s.addProxyPort(*configValue, p)
+		return *configValue
+	}
+
+	port := defaultValue
+	if configValue == nil {
+		for s.isPortInUse(port) {
+			port++
+		}
+	}
+	s.addProxyPort(port, p)
+	return port
 }

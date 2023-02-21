@@ -623,6 +623,32 @@ func TestProxyCLIArgs(t *testing.T) {
 				fmt.Sprintf("hello:world:two?port=%d&private-ip=false", workload.DefaultFirstPort+1)},
 		},
 		{
+			desc: "global flags",
+			proxySpec: v1alpha1.AuthProxyWorkloadSpec{
+				AuthProxyContainer: &v1alpha1.AuthProxyContainerSpec{
+					SQLAdminAPIEndpoint: "https://example.com",
+					Telemetry: &v1alpha1.TelemetrySpec{
+						HTTPPort: ptr(int32(9092)),
+					},
+					MaxConnections:  ptr(int64(10)),
+					MaxSigtermDelay: ptr(int64(20)),
+				},
+				Instances: []v1alpha1.InstanceSpec{{
+					ConnectionString: "hello:world:one",
+				}},
+			},
+			wantProxyArgContains: []string{
+				fmt.Sprintf("hello:world:one?port=%d", workload.DefaultFirstPort),
+			},
+			wantWorkloadEnv: map[string]string{
+				"CSQL_PROXY_SQLADMIN_API_ENDPOINT": "https://example.com",
+				"CSQL_PROXY_HTTP_PORT":             "9092",
+				"CSQL_PROXY_HEALTH_CHECK":          "true",
+				"CSQL_PROXY_MAX_CONNECTIONS":       "10",
+				"CSQL_PROXY_MAX_SIGTERM_DELAY":     "20",
+			},
+		},
+		{
 			desc: "port conflict with other instance causes error",
 			proxySpec: v1alpha1.AuthProxyWorkloadSpec{
 				Instances: []v1alpha1.InstanceSpec{{
