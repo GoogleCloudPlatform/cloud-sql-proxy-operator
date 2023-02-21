@@ -16,8 +16,10 @@ package v1alpha1
 
 import (
 	"fmt"
+	"reflect"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/validation"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -53,25 +55,7 @@ var _ webhook.Validator = &AuthProxyWorkload{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *AuthProxyWorkload) ValidateCreate() error {
-	return r.validate()
-}
-
-// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *AuthProxyWorkload) ValidateUpdate(_ runtime.Object) error {
-	return r.validate()
-}
-
-// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *AuthProxyWorkload) ValidateDelete() error {
-	return nil
-}
-
-func (r *AuthProxyWorkload) validate() error {
-	var allErrs field.ErrorList
-
-	allErrs = append(allErrs, validation.ValidateLabelName(r.Name, field.NewPath("metadata", "name"))...)
-	allErrs = append(allErrs, validateWorkload(&r.Spec.Workload, field.NewPath("spec", "workload"))...)
-
+	allErrs := r.validate()
 	if len(allErrs) > 0 {
 		return apierrors.NewInvalid(
 			schema.GroupKind{
@@ -80,6 +64,76 @@ func (r *AuthProxyWorkload) validate() error {
 			r.Name, allErrs)
 	}
 	return nil
+
+}
+
+// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
+func (r *AuthProxyWorkload) ValidateUpdate(old runtime.Object) error {
+	o, ok := old.(*AuthProxyWorkload)
+	if !ok {
+		return fmt.Errorf("bad request, expected old to be an AuthProxyWorkload")
+	}
+
+	allErrs := r.validate()
+	allErrs = append(allErrs, r.validateUpdateFrom(o)...)
+	if len(allErrs) > 0 {
+		return apierrors.NewInvalid(
+			schema.GroupKind{
+				Group: GroupVersion.Group,
+				Kind:  "AuthProxyWorkload"},
+			r.Name, allErrs)
+	}
+	return nil
+
+}
+
+// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
+func (r *AuthProxyWorkload) ValidateDelete() error {
+	return nil
+}
+
+func (r *AuthProxyWorkload) validate() field.ErrorList {
+	var allErrs field.ErrorList
+
+	allErrs = append(allErrs, validation.ValidateLabelName(r.Name, field.NewPath("metadata", "name"))...)
+	allErrs = append(allErrs, validateWorkload(&r.Spec.Workload, field.NewPath("spec", "workload"))...)
+
+	return allErrs
+
+}
+
+func (r *AuthProxyWorkload) validateUpdateFrom(op *AuthProxyWorkload) field.ErrorList {
+	var allErrs field.ErrorList
+
+	if r.Spec.Workload.Kind != op.Spec.Workload.Kind {
+		allErrs = append(allErrs, field.Invalid(
+			field.NewPath("spec", "workload", "kind"), r.Spec.Workload.Kind,
+			"kind cannot be changed on update"))
+	}
+	if r.Spec.Workload.Name != op.Spec.Workload.Name {
+		allErrs = append(allErrs, field.Invalid(
+			field.NewPath("spec", "workload", "name"), r.Spec.Workload.Name,
+			"kind cannot be changed on update"))
+	}
+	if selectorNotEqual(r.Spec.Workload.Selector, op.Spec.Workload.Selector) {
+		allErrs = append(allErrs, field.Invalid(
+			field.NewPath("spec", "workload", "selector"), r.Spec.Workload.Selector,
+			"selector cannot be changed on update"))
+	}
+
+	return allErrs
+}
+
+func selectorNotEqual(s *metav1.LabelSelector, os *metav1.LabelSelector) bool {
+	if s == nil && os == nil {
+		return false
+	}
+
+	if s != nil && os != nil {
+		return !reflect.DeepEqual(s, os)
+	}
+
+	return true
 }
 
 var supportedKinds = []string{"CronJob", "Job", "StatefulSet", "Deployment", "DaemonSet", "ReplicaSet", "Pod"}
