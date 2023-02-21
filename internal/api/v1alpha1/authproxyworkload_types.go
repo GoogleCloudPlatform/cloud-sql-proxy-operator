@@ -252,6 +252,16 @@ type InstanceSpec struct {
 	// Optional, when set this environment variable will be added to all containers in the workload.
 	//+kubebuilder:validation:Optional
 	HostEnvName string `json:"hostEnvName,omitempty"`
+
+	// UnixSocketPath is the path to the unix socket where the proxy will listen
+	// for connnections. This will be mounted to all containers in the pod.
+	//+kubebuilder:validation:Optional
+	UnixSocketPath string `json:"unixSocketPath,omitempty"`
+
+	// UnixSocketPathEnvName is the environment variable containing the value of
+	// UnixSocketPath.
+	//+kubebuilder:validation:Optional
+	UnixSocketPathEnvName string `json:"unixSocketPathEnvName,omitempty"`
 }
 
 // AuthProxyWorkloadStatus presents the observed state of AuthProxyWorkload using

@@ -276,10 +276,11 @@ func TestPublicDBConnections(t *testing.T) {
 	)
 
 	tests := []struct {
-		name        string
-		c           *testhelpers.TestCaseClient
-		podTemplate corev1.PodTemplateSpec
-		allOrAny    string
+		name         string
+		c            *testhelpers.TestCaseClient
+		podTemplate  corev1.PodTemplateSpec
+		allOrAny     string
+		isUnixSocket bool
 	}{
 		{
 			name:        "postgres",
@@ -288,10 +289,24 @@ func TestPublicDBConnections(t *testing.T) {
 			allOrAny:    "all",
 		},
 		{
+			name:         "postgres-unix",
+			c:            newPublicPostgresClient("pgconnunix"),
+			podTemplate:  testhelpers.BuildPgUnixPodSpec(600, appLabel, "db-secret"),
+			allOrAny:     "all",
+			isUnixSocket: true,
+		},
+		{
 			name:        "mysql",
 			c:           newPublicMySQLClient("mysqlconn"),
 			podTemplate: testhelpers.BuildMySQLPodSpec(600, appLabel, "db-secret"),
 			allOrAny:    "all",
+		},
+		{
+			name:         "mysql-unix",
+			c:            newPublicMySQLClient("mysqlconnunix"),
+			podTemplate:  testhelpers.BuildMySQLUnixPodSpec(600, appLabel, "db-secret"),
+			allOrAny:     "all",
+			isUnixSocket: true,
 		},
 		{
 			name:        "mssql",
@@ -335,9 +350,20 @@ func TestPublicDBConnections(t *testing.T) {
 			wl.Deployment.Spec.Template = test.podTemplate
 			t.Log("Creating AuthProxyWorkload")
 
-			_, err = tp.CreateAuthProxyWorkload(ctx, key, appLabel, tp.ConnectionString, kind)
-			if err != nil {
-				t.Fatal(err)
+			if test.isUnixSocket {
+				p := testhelpers.NewAuthProxyWorkload(key)
+				testhelpers.AddUnixInstance(p, tp.ConnectionString, "/var/tests/dbsocket")
+				tp.ConfigureSelector(p, appLabel, kind)
+				tp.ConfigureResources(p)
+				err = tp.Create(ctx, p)
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				_, err = tp.CreateAuthProxyWorkload(ctx, key, appLabel, tp.ConnectionString, kind)
+				if err != nil {
+					t.Fatal(err)
+				}
 			}
 
 			t.Log("Waiting for AuthProxyWorkload operator to begin the reconcile loop")
@@ -361,6 +387,9 @@ func TestPublicDBConnections(t *testing.T) {
 			if err != nil {
 				t.Error(err)
 			}
+
+			// The pods are configured to only be ready when the real database client
+			// successfully executes a simple query on the database.
 			t.Log("Checking for ready", kind)
 			err = tp.ExpectPodReady(ctx, selector, "all")
 			if err != nil {

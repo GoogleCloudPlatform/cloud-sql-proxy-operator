@@ -874,3 +874,92 @@ func TestPodAnnotation(t *testing.T) {
 		}
 	}
 }
+
+func TestWorkloadUnixVolume(t *testing.T) {
+	var (
+		wantsInstanceName    = "project:server:db"
+		wantsInstanceName2   = "project:server:db2"
+		wantsUnixSocketPath  = "/mnt/db/server"
+		wantsUnixSocketPath2 = "/mnt/db/server2"
+		wantUnixMountDir     = "/mnt/db"
+		wantContainerArgs    = []string{
+			fmt.Sprintf("%s?unix-socket-path=%s", wantsInstanceName, wantsUnixSocketPath),
+			fmt.Sprintf("%s?unix-socket-path=%s", wantsInstanceName2, wantsUnixSocketPath2),
+		}
+		wantWorkloadEnv = map[string]string{
+			"DB_SOCKET_PATH": wantsUnixSocketPath,
+		}
+		u = workload.NewUpdater("authproxyworkload/dev")
+	)
+
+	// Create a pod
+	wl := podWorkload()
+	wl.Pod.Spec.Containers[0].Ports =
+		[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
+
+	// Create a AuthProxyWorkload that matches the deployment
+	csqls := []*v1alpha1.AuthProxyWorkload{
+		authProxyWorkload("instance1", []v1alpha1.InstanceSpec{{
+			ConnectionString:      wantsInstanceName,
+			UnixSocketPath:        wantsUnixSocketPath,
+			UnixSocketPathEnvName: "DB_SOCKET_PATH",
+		}, {
+			ConnectionString:      wantsInstanceName2,
+			UnixSocketPath:        wantsUnixSocketPath2,
+			UnixSocketPathEnvName: "DB_SOCKET_PATH2",
+		}}),
+	}
+
+	// update the containers
+	err := configureProxies(u, wl, csqls)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// ensure that the new container exists
+	if len(wl.Pod.Spec.Containers) != 2 {
+		t.Fatalf("got %v, wants 1. deployment containers length", len(wl.Pod.Spec.Containers))
+	}
+
+	// test that the instancename matches the new expected instance name.
+	csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-default-%s", csqls[0].GetName()))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// test that port cli args are set correctly
+	assertContainerArgsContains(t, csqlContainer.Args, wantContainerArgs)
+
+	// Test that workload has the right env vars
+	for wantKey, wantValue := range wantWorkloadEnv {
+		gotEnvVar, err := findEnvVar(wl, "busybox", wantKey)
+		if err != nil {
+			t.Error(err)
+			logPodSpec(t, wl)
+		} else if gotEnvVar.Value != wantValue {
+			t.Errorf("got %v, wants %v workload env var %v", gotEnvVar, wantValue, wantKey)
+
+		}
+	}
+
+	// test that Volume exists
+	if want, got := 1, len(wl.Pod.Spec.Volumes); want != got {
+		t.Fatalf("got %v, wants %v. PodSpec.Volumes", got, want)
+	}
+
+	// test that Volume mount exists on busybox
+	busyboxContainer, err := findContainer(wl, "busybox")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want, got := 1, len(busyboxContainer.VolumeMounts); want != got {
+		t.Fatalf("got %v, wants %v. Busybox Container.VolumeMounts", got, want)
+	}
+	if want, got := wantUnixMountDir, busyboxContainer.VolumeMounts[0].MountPath; want != got {
+		t.Fatalf("got %v, wants %v. Busybox Container.VolumeMounts.MountPath", got, want)
+	}
+	if want, got := wl.Pod.Spec.Volumes[0].Name, busyboxContainer.VolumeMounts[0].Name; want != got {
+		t.Fatalf("got %v, wants %v. Busybox Container.VolumeMounts.MountPath", got, want)
+	}
+
+}
