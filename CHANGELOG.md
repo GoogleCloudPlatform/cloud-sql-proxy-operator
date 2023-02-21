@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.3.0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v0.2.0...v0.3.0) (2023-02-21)
+
+
+### Features
+
+* add new field RolloutStrategy control automatic rollout ([#202](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/202)) ([090b88d](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/090b88da2f3cbc00ca98bee7cdfbb4e50a6c4cb9))
+* Add new terraform project for e2e test resources ([#181](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/181)) ([0140592](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/0140592b3a19087cc5ee769b542ae461f3a5d1b4))
+* add script to run terraform with input validation. ([#182](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/182)) ([857444a](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/857444ac09b8c1c5c9c3536ed1cab7367f778015))
+* Add support for Unix sockets. ([#205](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/205)) ([8177a35](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/8177a35be7988a01de682d806c05b9306537c3a1)), closes [#47](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/47)
+* Add telemetry settings to configure health check port ([#210](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/210)) ([3ede42d](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/3ede42da9f502090d80b95970296f138484ef522))
+* add the e2e test job for Cloud Build ([#184](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/184)) ([dc2990c](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/dc2990c4483d216a31a6cafbf45ebba6936b8c6a))
+* automatic  changes to workloads when an AuthProxyWorload is deleted ([#200](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/200)) ([e11caed](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/e11caed179f82ca3d24322d9f80a95174911bddd))
+* Automatically trigger pod rollout for appsv1 resources when AuthProxyWorkload changes. ([#197](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/197)) ([3b0359b](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/3b0359b68b8d5c0dcd3e306102945c6e608ff095))
+* separate terraform for project setup and permissions  ([#179](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/179)) ([8f43657](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/8f43657a6e039db0e3c8c57be56ec8d68ee503e9))
+* Validate AuthProxyWorkload spec.selector field ([#209](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/209)) ([98c460b](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/98c460bdd34dfa00815e664f60e38aa7327d92d4))
+* Validate AuthProxyWorkload updates to prevent changes to the workload selector. ([#211](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/211)) ([4304283](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/4304283c1e85b079aab5cbf6c4c2dafb73ed654a))
+
 ## [0.2.0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v0.1.0...v0.2.0) (2023-01-18)
 
 
