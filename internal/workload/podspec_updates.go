@@ -702,7 +702,13 @@ func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1
 }
 
 func (s *updateState) addVolumeMount(p *cloudsqlapi.AuthProxyWorkload, is *cloudsqlapi.InstanceSpec, m corev1.VolumeMount, v corev1.Volume) {
-	key := dbInst(p.Namespace, p.Name, is.ConnectionString)
+	key := proxyInstanceID{
+		AuthProxyWorkload: types.NamespacedName{
+			Namespace: p.Namespace,
+			Name:      p.Name,
+		},
+		ConnectionString: is.ConnectionString,
+	}
 	vol := &managedVolume{
 		Instance:    key,
 		Volume:      v,
