@@ -135,6 +135,7 @@ add_copyright_header: # Add the copyright header
 update_version_in_docs:  # Fix version numbers that appear in the markdown documentation
 	# Update links to the install script
 	find . -name '*.md' | xargs sed -i.bak -E 's|storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/[^/]+/install.sh|storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/v$(VERSION)/install.sh|g' && \
+	find . -name '*.md' | xargs sed -i.bak -E 's|storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/[^/]+/cloud-sql-proxy-operator.yaml|storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/v$(VERSION)/cloud-sql-proxy-operator.yaml|g' && \
 	find . -name '*.md.bak' | xargs rm -f
 
 .PHONY: build_push_docker
