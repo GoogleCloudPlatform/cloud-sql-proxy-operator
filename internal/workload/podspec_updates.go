@@ -665,6 +665,7 @@ func (s *updateState) updateContainerEnv(c *corev1.Container) {
 func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1.Container) {
 	var portPtr *int32
 	var adminPortPtr *int32
+	var debug bool
 
 	cs := p.Spec.AuthProxyContainer
 
@@ -675,6 +676,9 @@ func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1
 		}
 		if cs.Telemetry.AdminPort != nil {
 			adminPortPtr = cs.Telemetry.AdminPort
+		}
+		if cs.Telemetry.Debug != nil {
+			debug = *cs.Telemetry.Debug
 		}
 	}
 
@@ -709,6 +713,9 @@ func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1
 	if adminPortPtr != nil {
 		s.addProxyContainerEnvVar(p, "CSQL_PROXY_ADMIN_PORT", fmt.Sprintf("%d", *adminPortPtr))
 		s.addProxyContainerEnvVar(p, "CSQL_PROXY_QUITQUITQUIT", "true")
+		if debug {
+			s.addProxyContainerEnvVar(p, "CSQL_PROXY_DEBUG", "true")
+		}
 	}
 
 	return

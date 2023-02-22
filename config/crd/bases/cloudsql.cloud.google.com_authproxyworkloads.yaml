@@ -911,6 +911,9 @@ spec:
                           description: AdminPort the port for the /quitquitquit endpoint. This sets the proxy container's CLI argument `--admin-port`
                           format: int32
                           type: integer
+                        debug:
+                          description: Debug enables the Debug endpoint. This is relevant only when AdminPort is set. This sets the proxy container's CLI argument `--debug`
+                          type: boolean
                         httpPort:
                           description: HTTPPort the port for Prometheus and health check server. This sets the proxy container's CLI argument `--http-port`
                           format: int32

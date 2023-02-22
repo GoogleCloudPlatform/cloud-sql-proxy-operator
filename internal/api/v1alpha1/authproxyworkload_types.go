@@ -204,6 +204,11 @@ type TelemetrySpec struct {
 	// This sets the proxy container's CLI argument `--admin-port`
 	//+kubebuilder:validation:Optional
 	AdminPort *int32 `json:"adminPort,omitempty"`
+
+	// Debug enables the Debug endpoint. This is relevant only when AdminPort is set.
+	// This sets the proxy container's CLI argument `--debug`
+	//+kubebuilder:validation:Optional
+	Debug *bool `json:"debug,omitempty"`
 }
 
 // InstanceSpec describes the configuration for how the proxy should expose
