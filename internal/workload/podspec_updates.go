@@ -683,6 +683,7 @@ func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1
 	}
 
 	port := s.usePort(portPtr, DefaultHealthCheckPort, p)
+	adminPort := s.usePort(adminPortPtr, DefaultAdminPort, p)
 
 	c.StartupProbe = &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{
@@ -710,11 +711,10 @@ func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HTTP_PORT", fmt.Sprintf("%d", port))
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HTTP_ADDRESS", "0.0.0.0")
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HEALTH_CHECK", "true")
-	if adminPortPtr != nil {
-		s.addProxyContainerEnvVar(p, "CSQL_PROXY_ADMIN_PORT", fmt.Sprintf("%d", *adminPortPtr))
-		if debug {
-			s.addProxyContainerEnvVar(p, "CSQL_PROXY_DEBUG", "true")
-		}
+
+	if debug {
+		s.addProxyContainerEnvVar(p, "CSQL_PROXY_ADMIN_PORT", fmt.Sprintf("%d", adminPort))
+		s.addProxyContainerEnvVar(p, "CSQL_PROXY_DEBUG", "true")
 	}
 
 	return

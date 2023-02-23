@@ -669,10 +669,9 @@ func TestProxyCLIArgs(t *testing.T) {
 				fmt.Sprintf("hello:world:one?port=%d", workload.DefaultFirstPort),
 			},
 			wantWorkloadEnv: map[string]string{
-				"CSQL_PROXY_ADMIN_PORT":   "9091",
 				"CSQL_PROXY_HEALTH_CHECK": "true",
 			},
-			dontWantEnvSet: []string{"CSQL_PROXY_DEBUG"},
+			dontWantEnvSet: []string{"CSQL_PROXY_DEBUG", "CSQL_PROXY_ADMIN_PORT"},
 		},
 		{
 			desc: "port conflict with other instance causes error",
