@@ -646,7 +646,6 @@ func TestProxyCLIArgs(t *testing.T) {
 				"CSQL_PROXY_SQLADMIN_API_ENDPOINT": "https://example.com",
 				"CSQL_PROXY_HTTP_PORT":             "9092",
 				"CSQL_PROXY_ADMIN_PORT":            "9091",
-				"CSQL_PROXY_QUITQUITQUIT":          "true",
 				"CSQL_PROXY_DEBUG":                 "true",
 				"CSQL_PROXY_HEALTH_CHECK":          "true",
 				"CSQL_PROXY_MAX_CONNECTIONS":       "10",
@@ -691,7 +690,6 @@ func TestProxyCLIArgs(t *testing.T) {
 			},
 			wantWorkloadEnv: map[string]string{
 				"CSQL_PROXY_ADMIN_PORT":   "9091",
-				"CSQL_PROXY_QUITQUITQUIT": "true",
 				"CSQL_PROXY_HEALTH_CHECK": "true",
 			},
 			dontWantEnvSet: []string{"CSQL_PROXY_DEBUG"},
