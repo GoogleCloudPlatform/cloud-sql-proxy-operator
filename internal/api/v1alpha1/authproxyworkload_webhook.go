@@ -16,6 +16,7 @@ package v1alpha1
 
 import (
 	"fmt"
+	"path"
 	"reflect"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -208,15 +209,36 @@ func validateInstances(spec *[]InstanceSpec, f *field.Path) field.ErrorList {
 				errs = append(errs, field.Invalid(ff.Child("port"), inst.Port, s))
 			}
 		}
-		if inst.PortEnvName != "" {
-			for _, s := range apivalidation.IsEnvVarName(inst.PortEnvName) {
-				errs = append(errs, field.Invalid(ff.Child("portEnvName"), inst.PortEnvName, s))
-			}
+		errs = append(errs, validateEnvName(ff.Child("portEnvName"),
+			inst.PortEnvName)...)
+		errs = append(errs, validateEnvName(ff.Child("hostEnvName"),
+			inst.HostEnvName)...)
+		errs = append(errs, validateEnvName(ff.Child("unixSocketPathEnvName"),
+			inst.UnixSocketPathEnvName)...)
+
+		if inst.UnixSocketPath != "" && !path.IsAbs(inst.UnixSocketPath) {
+			errs = append(errs, field.Invalid(ff.Child("unixSocketPath"),
+				inst.UnixSocketPath, "must be an absolute path"))
 		}
-		if inst.HostEnvName != "" {
-			for _, s := range apivalidation.IsEnvVarName(inst.HostEnvName) {
-				errs = append(errs, field.Invalid(ff.Child("hostEnvName"), inst.HostEnvName, s))
-			}
+		if inst.UnixSocketPath != "" && (inst.Port != nil || inst.PortEnvName != "") {
+			errs = append(errs, field.Invalid(ff.Child("unixSocketPath"),
+				inst.UnixSocketPath,
+				"unixSocketPath cannot be set when portEnvName or port are set. Databases can be configured to listen for either TCP or Unix socket connections, not both."))
+		}
+		if inst.UnixSocketPath == "" && inst.Port == nil && inst.PortEnvName == "" {
+			errs = append(errs, field.Invalid(f,
+				inst.UnixSocketPath,
+				"instance must specify at least one of the following: portEnvName, port, or unixSocketPath"))
+		}
+	}
+	return errs
+}
+
+func validateEnvName(f *field.Path, envName string) field.ErrorList {
+	var errs field.ErrorList
+	if envName != "" {
+		for _, s := range apivalidation.IsEnvVarName(envName) {
+			errs = append(errs, field.Invalid(f, envName, s))
 		}
 	}
 	return errs
