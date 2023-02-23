@@ -27,6 +27,7 @@ func ptr[T int | int32 | int64 | string](i T) *T {
 }
 
 func TestAuthProxyWorkload_ValidateCreate_Instances(t *testing.T) {
+
 	data := []struct {
 		desc      string
 		spec      []cloudsqlapi.InstanceSpec
@@ -195,6 +196,69 @@ func TestAuthProxyWorkload_ValidateCreate_WorkloadSpec(t *testing.T) {
 				ObjectMeta: v1.ObjectMeta{Name: "sample"},
 				Spec: cloudsqlapi.AuthProxyWorkloadSpec{
 					Workload: tc.spec,
+					Instances: []cloudsqlapi.InstanceSpec{{
+						ConnectionString: "proj:region:db2",
+						Port:             ptr(int32(2443)),
+					}},
+				},
+			}
+			p.Default()
+			err := p.ValidateCreate()
+			gotValid := err == nil
+			switch {
+			case tc.wantValid && !gotValid:
+				t.Errorf("wants create valid, got error %v", err)
+				printFieldErrors(t, err)
+			case !tc.wantValid && gotValid:
+				t.Errorf("wants an error on create, got no error")
+			default:
+				t.Logf("create passed %s", tc.desc)
+				// test passes, do nothing.
+			}
+		})
+	}
+}
+func TestAuthProxyWorkload_ValidateCreate_AuthProxyContainerSpec(t *testing.T) {
+	wantTrue := true
+	wantPort := int32(9393)
+
+	data := []struct {
+		desc      string
+		spec      cloudsqlapi.AuthProxyContainerSpec
+		wantValid bool
+	}{
+
+		{
+			desc: "Valid, Debug and AdminPort set",
+			spec: cloudsqlapi.AuthProxyContainerSpec{
+				Telemetry: &cloudsqlapi.TelemetrySpec{
+					Debug:     &wantTrue,
+					AdminPort: &wantPort,
+				},
+			},
+			wantValid: true,
+		},
+		{
+			desc: "Invalid, Debug set without AdminPort",
+			spec: cloudsqlapi.AuthProxyContainerSpec{
+				Telemetry: &cloudsqlapi.TelemetrySpec{
+					Debug: &wantTrue,
+				},
+			},
+			wantValid: false,
+		},
+	}
+
+	for _, tc := range data {
+		t.Run(tc.desc, func(t *testing.T) {
+			p := cloudsqlapi.AuthProxyWorkload{
+				ObjectMeta: v1.ObjectMeta{Name: "sample"},
+				Spec: cloudsqlapi.AuthProxyWorkloadSpec{
+					Workload: cloudsqlapi.WorkloadSelectorSpec{
+						Kind: "Deployment",
+						Name: "webapp",
+					},
+					AuthProxyContainer: &tc.spec,
 					Instances: []cloudsqlapi.InstanceSpec{{
 						ConnectionString: "proj:region:db2",
 						Port:             ptr(int32(2443)),

@@ -105,6 +105,8 @@ _Appears in:_
 | Field | Description |
 | --- | --- |
 | `httpPort` _integer_ | HTTPPort the port for Prometheus and health check server. This sets the proxy container's CLI argument `--http-port` |
+| `adminPort` _integer_ | AdminPort the port for the /quitquitquit endpoint. This sets the proxy container's CLI argument `--admin-port` |
+| `debug` _boolean_ | Debug enables the Debug endpoint. This is relevant only when AdminPort is set. This sets the proxy container's CLI argument `--debug` |
 
 
 #### WorkloadSelectorSpec

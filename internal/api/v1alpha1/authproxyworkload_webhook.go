@@ -100,9 +100,26 @@ func (r *AuthProxyWorkload) validate() field.ErrorList {
 	allErrs = append(allErrs, validation.ValidateLabelName(r.Name, field.NewPath("metadata", "name"))...)
 	allErrs = append(allErrs, validateWorkload(&r.Spec.Workload, field.NewPath("spec", "workload"))...)
 	allErrs = append(allErrs, validateInstances(&r.Spec.Instances, field.NewPath("spec", "instances"))...)
+	allErrs = append(allErrs, validateContainer(r.Spec.AuthProxyContainer, field.NewPath("spec", "authProxyContainer"))...)
 
 	return allErrs
 
+}
+
+func validateContainer(spec *AuthProxyContainerSpec, f *field.Path) field.ErrorList {
+	if spec == nil || spec.Telemetry == nil {
+		return nil
+	}
+
+	var allErrs field.ErrorList
+	// if telemetry.debug == true then telemetry.adminPort must also be set
+	if spec.Telemetry.Debug != nil && *spec.Telemetry.Debug && spec.Telemetry.AdminPort == nil {
+		allErrs = append(allErrs, field.Invalid(
+			f.Child("telemetry", "adminPort"), nil,
+			"adminPort must be set when debug is enabled"))
+	}
+
+	return allErrs
 }
 
 // validateUpdateFrom checks that an update to an AuthProxyWorkload resource
