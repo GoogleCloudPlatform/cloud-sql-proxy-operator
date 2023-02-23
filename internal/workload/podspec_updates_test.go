@@ -653,26 +653,6 @@ func TestProxyCLIArgs(t *testing.T) {
 			},
 		},
 		{
-			desc: "debug flag ignored enabled when admin port is not set",
-			proxySpec: v1alpha1.AuthProxyWorkloadSpec{
-				AuthProxyContainer: &v1alpha1.AuthProxyContainerSpec{
-					Telemetry: &v1alpha1.TelemetrySpec{
-						Debug: ptr(true),
-					},
-				},
-				Instances: []v1alpha1.InstanceSpec{{
-					ConnectionString: "hello:world:one",
-				}},
-			},
-			wantProxyArgContains: []string{
-				fmt.Sprintf("hello:world:one?port=%d", workload.DefaultFirstPort),
-			},
-			wantWorkloadEnv: map[string]string{
-				"CSQL_PROXY_HEALTH_CHECK": "true",
-			},
-			dontWantEnvSet: []string{"CSQL_PROXY_DEBUG", "CSQL_PROXY_ADMIN_PORT"},
-		},
-		{
 			desc: "debug flag false respected enabled when admin port is not set",
 			proxySpec: v1alpha1.AuthProxyWorkloadSpec{
 				AuthProxyContainer: &v1alpha1.AuthProxyContainerSpec{
@@ -744,6 +724,12 @@ func TestProxyCLIArgs(t *testing.T) {
 
 			// Create a AuthProxyWorkload that matches the deployment
 			csqls := []*v1alpha1.AuthProxyWorkload{authProxyWorkloadFromSpec("instance1", tc.proxySpec)}
+
+			// ensure valid
+			err := csqls[0].ValidateCreate()
+			if err != nil {
+				t.Fatal("Invalid AuthProxyWorkload resource", err)
+			}
 
 			// update the containers
 			updateErr := configureProxies(u, wl, csqls)
