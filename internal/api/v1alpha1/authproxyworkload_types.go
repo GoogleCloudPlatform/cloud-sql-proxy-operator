@@ -158,6 +158,7 @@ type AuthProxyContainerSpec struct {
 	// MaxConnections limits the number of connections. Default value is no limit.
 	// This sets the proxy container's CLI argument `--max-connections`
 	//+kubebuilder:validation:Optional
+	//+kubebuilder:validation:Minimum=0
 	MaxConnections *int64 `json:"maxConnections,omitempty"`
 
 	// MaxSigtermDelay is the maximum number of seconds to wait for connections to
@@ -165,6 +166,7 @@ type AuthProxyContainerSpec struct {
 	// CLI argument `--max-sigterm-delay` and
 	// configures `terminationGracePeriodSeconds` on the workload's PodSpec.
 	//+kubebuilder:validation:Optional
+	//+kubebuilder:validation:Minimum=0
 	MaxSigtermDelay *int64 `json:"maxSigtermDelay,omitempty"`
 
 	// SQLAdminAPIEndpoint is a debugging parameter that when specified will

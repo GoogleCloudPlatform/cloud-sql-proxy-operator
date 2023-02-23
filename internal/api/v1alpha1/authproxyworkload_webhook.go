@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/validation"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	apivalidation "k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -97,6 +98,7 @@ func (r *AuthProxyWorkload) validate() field.ErrorList {
 
 	allErrs = append(allErrs, validation.ValidateLabelName(r.Name, field.NewPath("metadata", "name"))...)
 	allErrs = append(allErrs, validateWorkload(&r.Spec.Workload, field.NewPath("spec", "workload"))...)
+	allErrs = append(allErrs, validateInstances(&r.Spec.Instances, field.NewPath("spec", "instances"))...)
 
 	return allErrs
 
@@ -194,5 +196,28 @@ func validateWorkload(spec *WorkloadSelectorSpec, f *field.Path) field.ErrorList
 
 	}
 
+	return errs
+}
+
+func validateInstances(spec *[]InstanceSpec, f *field.Path) field.ErrorList {
+	var errs field.ErrorList
+	for i, inst := range *spec {
+		ff := f.Child(fmt.Sprintf("[%d]", i))
+		if inst.Port != nil {
+			for _, s := range apivalidation.IsValidPortNum(int(*inst.Port)) {
+				errs = append(errs, field.Invalid(ff.Child("port"), inst.Port, s))
+			}
+		}
+		if inst.PortEnvName != "" {
+			for _, s := range apivalidation.IsEnvVarName(inst.PortEnvName) {
+				errs = append(errs, field.Invalid(ff.Child("portEnvName"), inst.PortEnvName, s))
+			}
+		}
+		if inst.HostEnvName != "" {
+			for _, s := range apivalidation.IsEnvVarName(inst.HostEnvName) {
+				errs = append(errs, field.Invalid(ff.Child("hostEnvName"), inst.HostEnvName, s))
+			}
+		}
+	}
 	return errs
 }
