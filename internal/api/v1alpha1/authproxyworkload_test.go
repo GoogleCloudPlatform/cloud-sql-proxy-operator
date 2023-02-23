@@ -221,136 +221,6 @@ func TestAuthProxyWorkload_ValidateUpdate(t *testing.T) {
 				}},
 			},
 		},
-		{
-			desc: "Valid when AuthProxyContainerSpec.RolloutStrategy goes from default to same explicit value",
-			spec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{
-					Kind: "Deployment",
-					Selector: &v1.LabelSelector{
-						MatchLabels: map[string]string{"app": "sample"},
-					},
-				},
-				Instances: []cloudsqlapi.InstanceSpec{{
-					ConnectionString: "proj:region:db2",
-					PortEnvName:      "DB_PORT",
-				}},
-			},
-			oldSpec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{
-					Kind: "Deployment",
-					Selector: &v1.LabelSelector{
-						MatchLabels: map[string]string{"app": "sample"},
-					},
-				},
-				AuthProxyContainer: &cloudsqlapi.AuthProxyContainerSpec{
-					RolloutStrategy: "Workload",
-				},
-				Instances: []cloudsqlapi.InstanceSpec{{
-					ConnectionString: "proj:region:db2",
-					PortEnvName:      "DB_PORT",
-				}},
-			},
-			wantValid: true,
-		},
-		{
-			desc: "Invalid when AuthProxyContainerSpec.RolloutStrategy changes from default to different explicit value",
-			spec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{
-					Kind: "Deployment",
-					Selector: &v1.LabelSelector{
-						MatchLabels: map[string]string{"app": "sample"},
-					},
-				},
-				Instances: []cloudsqlapi.InstanceSpec{{
-					ConnectionString: "proj:region:db2",
-					PortEnvName:      "DB_PORT",
-				}},
-			},
-			oldSpec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{
-					Kind: "Deployment",
-					Selector: &v1.LabelSelector{
-						MatchLabels: map[string]string{"app": "sample"},
-					},
-				},
-				AuthProxyContainer: &cloudsqlapi.AuthProxyContainerSpec{
-					RolloutStrategy: "None",
-				},
-				Instances: []cloudsqlapi.InstanceSpec{{
-					ConnectionString: "proj:region:db2",
-					PortEnvName:      "DB_PORT",
-				}},
-			},
-			wantValid: false,
-		},
-		{
-			desc: "Invalid when AuthProxyContainerSpec.RolloutStrategy changes to different explicit value",
-			spec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{
-					Kind: "Deployment",
-					Selector: &v1.LabelSelector{
-						MatchLabels: map[string]string{"app": "sample"},
-					},
-				},
-				AuthProxyContainer: &cloudsqlapi.AuthProxyContainerSpec{
-					RolloutStrategy: "None",
-				},
-				Instances: []cloudsqlapi.InstanceSpec{{
-					ConnectionString: "proj:region:db2",
-					PortEnvName:      "DB_PORT",
-				}},
-			},
-			oldSpec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{
-					Kind: "Deployment",
-					Selector: &v1.LabelSelector{
-						MatchLabels: map[string]string{"app": "sample"},
-					},
-				},
-				AuthProxyContainer: &cloudsqlapi.AuthProxyContainerSpec{
-					RolloutStrategy: "Workload",
-				},
-				Instances: []cloudsqlapi.InstanceSpec{{
-					ConnectionString: "proj:region:db2",
-					PortEnvName:      "DB_PORT",
-				}},
-			},
-			wantValid: false,
-		},
-		{
-			desc: "Invalid when AuthProxyContainerSpec.RolloutStrategy changes from explict to different default value",
-			spec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{
-					Kind: "Deployment",
-					Selector: &v1.LabelSelector{
-						MatchLabels: map[string]string{"app": "sample"},
-					},
-				},
-				AuthProxyContainer: &cloudsqlapi.AuthProxyContainerSpec{
-					RolloutStrategy: "None",
-				},
-				Instances: []cloudsqlapi.InstanceSpec{{
-					ConnectionString: "proj:region:db2",
-					PortEnvName:      "DB_PORT",
-				}},
-			},
-			oldSpec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{
-					Kind: "Deployment",
-					Selector: &v1.LabelSelector{
-						MatchLabels: map[string]string{"app": "sample"},
-					},
-				},
-				AuthProxyContainer: &cloudsqlapi.AuthProxyContainerSpec{
-					RolloutStrategy: "Workload",
-				},
-				Instances: []cloudsqlapi.InstanceSpec{{
-					ConnectionString: "proj:region:db2",
-					PortEnvName:      "DB_PORT",
-				}},
-			},
-			wantValid: false,
-		},
 	}
 
 	for _, tc := range data {
@@ -371,7 +241,7 @@ func TestAuthProxyWorkload_ValidateUpdate(t *testing.T) {
 
 			switch {
 			case tc.wantValid && !gotValid:
-				t.Errorf("wants create valid, got error %v", err)
+				t.Errorf("wants update valid, got error %v", err)
 			case !tc.wantValid && gotValid:
 				t.Errorf("wants an error on update, got no error")
 			default:
@@ -380,6 +250,111 @@ func TestAuthProxyWorkload_ValidateUpdate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAuthProxyWorkload_ValidateUpdate_AuthProxyContainerSpec(t *testing.T) {
+	data := []struct {
+		desc      string
+		spec      *cloudsqlapi.AuthProxyContainerSpec
+		oldSpec   *cloudsqlapi.AuthProxyContainerSpec
+		wantValid bool
+	}{
+		{
+			desc: "Invalid when AuthProxyContainerSpec.RolloutStrategy changes from explict to different default value",
+			spec: &cloudsqlapi.AuthProxyContainerSpec{
+				RolloutStrategy: "None",
+			},
+			oldSpec: &cloudsqlapi.AuthProxyContainerSpec{
+				RolloutStrategy: "Workload",
+			},
+		},
+		{
+			desc: "Valid when AuthProxyContainerSpec.RolloutStrategy goes from default to same explicit value",
+			spec: &cloudsqlapi.AuthProxyContainerSpec{
+				RolloutStrategy: "Workload",
+			},
+			wantValid: true,
+		},
+		{
+			desc: "Invalid when AuthProxyContainerSpec.RolloutStrategy changes from default to different explicit value",
+			spec: &cloudsqlapi.AuthProxyContainerSpec{
+				RolloutStrategy: "None",
+			},
+			wantValid: false,
+		},
+		{
+			desc: "Invalid when AuthProxyContainerSpec.RolloutStrategy changes to different explicit value",
+			spec: &cloudsqlapi.AuthProxyContainerSpec{
+				RolloutStrategy: "None",
+			},
+			oldSpec: &cloudsqlapi.AuthProxyContainerSpec{
+				RolloutStrategy: "Workload",
+			},
+			wantValid: false,
+		},
+		{
+			desc: "Invalid when AuthProxyContainerSpec.RolloutStrategy changes from explict to different default value",
+			spec: &cloudsqlapi.AuthProxyContainerSpec{
+				RolloutStrategy: "None",
+			},
+			oldSpec: &cloudsqlapi.AuthProxyContainerSpec{
+				RolloutStrategy: "Workload",
+			},
+			wantValid: false,
+		},
+	}
+	for _, tc := range data {
+		t.Run(tc.desc, func(t *testing.T) {
+			p := cloudsqlapi.AuthProxyWorkload{
+				ObjectMeta: v1.ObjectMeta{Name: "sample"},
+				Spec: cloudsqlapi.AuthProxyWorkloadSpec{
+					Workload: cloudsqlapi.WorkloadSelectorSpec{
+						Kind: "Deployment",
+						Selector: &v1.LabelSelector{
+							MatchLabels: map[string]string{"app": "sample"},
+						},
+					},
+					AuthProxyContainer: tc.spec,
+					Instances: []cloudsqlapi.InstanceSpec{{
+						ConnectionString: "proj:region:db2",
+						PortEnvName:      "DB_PORT",
+					}},
+				},
+			}
+			oldP := cloudsqlapi.AuthProxyWorkload{
+				ObjectMeta: v1.ObjectMeta{Name: "sample"},
+				Spec: cloudsqlapi.AuthProxyWorkloadSpec{
+					Workload: cloudsqlapi.WorkloadSelectorSpec{
+						Kind: "Deployment",
+						Selector: &v1.LabelSelector{
+							MatchLabels: map[string]string{"app": "sample"},
+						},
+					},
+					AuthProxyContainer: tc.oldSpec,
+					Instances: []cloudsqlapi.InstanceSpec{{
+						ConnectionString: "proj:region:db2",
+						PortEnvName:      "DB_PORT",
+					}},
+				},
+			}
+			p.Default()
+			oldP.Default()
+
+			err := p.ValidateUpdate(&oldP)
+			gotValid := err == nil
+
+			switch {
+			case tc.wantValid && !gotValid:
+				t.Errorf("wants update valid, got error %v", err)
+			case !tc.wantValid && gotValid:
+				t.Errorf("wants an error on update, got no error")
+			default:
+				t.Logf("update passed %s", tc.desc)
+				// test passes, do nothing.
+			}
+		})
+	}
+
 }
 
 func printFieldErrors(t *testing.T, err error) {

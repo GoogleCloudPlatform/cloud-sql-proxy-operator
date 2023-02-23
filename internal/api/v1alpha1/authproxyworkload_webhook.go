@@ -126,6 +126,8 @@ func (r *AuthProxyWorkload) validateUpdateFrom(op *AuthProxyWorkload) field.Erro
 	return allErrs
 }
 
+// validateRolloutStrategyChange ensures that the rollout strategy does not
+// change on update, taking default values into account.
 func validateRolloutStrategyChange(c *AuthProxyContainerSpec, oc *AuthProxyContainerSpec) []*field.Error {
 	var allErrs field.ErrorList
 	var (
