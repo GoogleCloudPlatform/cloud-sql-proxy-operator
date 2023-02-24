@@ -868,10 +868,12 @@ spec:
                     maxConnections:
                       description: MaxConnections limits the number of connections. Default value is no limit. This sets the proxy container's CLI argument `--max-connections`
                       format: int64
+                      minimum: 0
                       type: integer
                     maxSigtermDelay:
                       description: MaxSigtermDelay is the maximum number of seconds to wait for connections to close after receiving a TERM signal. This sets the proxy container's CLI argument `--max-sigterm-delay` and configures `terminationGracePeriodSeconds` on the workload's PodSpec.
                       format: int64
+                      minimum: 0
                       type: integer
                     resources:
                       description: Resources specifies the resources required for the proxy pod.
@@ -939,6 +941,7 @@ spec:
                         type: boolean
                       connectionString:
                         description: ConnectionString is the connection string for the Cloud SQL Instance in the format `project_id:region:instance_name`
+                        pattern: ^([^:]+(:[^:]+)?):([^:]+):([^:]+)$
                         type: string
                       hostEnvName:
                         description: HostEnvName The name of the environment variable containing this instances tcp hostname Optional, when set this environment variable will be added to all containers in the workload.
@@ -946,6 +949,7 @@ spec:
                       port:
                         description: Port (optional) sets the tcp port for this instance. If not set, a value will be automatically assigned by the operator and set as an environment variable on all containers in the workload named according to PortEnvName. The operator will choose a port so that it does not conflict with other ports on the workload.
                         format: int32
+                        minimum: 1
                         type: integer
                       portEnvName:
                         description: PortEnvName is name of the environment variable containing this instance's tcp port. Optional, when set this environment variable will be added to all containers in the workload.

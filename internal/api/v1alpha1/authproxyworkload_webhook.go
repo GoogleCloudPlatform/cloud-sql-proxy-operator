@@ -16,6 +16,7 @@ package v1alpha1
 
 import (
 	"fmt"
+	"path"
 	"reflect"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -23,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/validation"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	apivalidation "k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -97,11 +99,16 @@ func (r *AuthProxyWorkload) validate() field.ErrorList {
 
 	allErrs = append(allErrs, validation.ValidateLabelName(r.Name, field.NewPath("metadata", "name"))...)
 	allErrs = append(allErrs, validateWorkload(&r.Spec.Workload, field.NewPath("spec", "workload"))...)
+	allErrs = append(allErrs, validateInstances(&r.Spec.Instances, field.NewPath("spec", "instances"))...)
 
 	return allErrs
 
 }
 
+// validateUpdateFrom checks that an update to an AuthProxyWorkload resource
+// adheres to these rules:
+// - No changes to the workload selector
+// - No changes to the RolloutStrategy
 func (r *AuthProxyWorkload) validateUpdateFrom(op *AuthProxyWorkload) field.ErrorList {
 	var allErrs field.ErrorList
 
@@ -164,6 +171,11 @@ func selectorNotEqual(s *metav1.LabelSelector, os *metav1.LabelSelector) bool {
 
 var supportedKinds = []string{"CronJob", "Job", "StatefulSet", "Deployment", "DaemonSet", "ReplicaSet", "Pod"}
 
+// validateWorkload ensures that the WorkloadSelectorSpec follows these rules:
+//   - Either Name or Selector is set
+//   - Kind is one of the supported kinds: "CronJob", "Job", "StatefulSet",
+//     "Deployment", "DaemonSet", "ReplicaSet", "Pod"
+//   - Selector is valid according to the k8s validation rules for LabelSelector
 func validateWorkload(spec *WorkloadSelectorSpec, f *field.Path) field.ErrorList {
 	var errs field.ErrorList
 	if spec.Selector != nil {
@@ -194,5 +206,64 @@ func validateWorkload(spec *WorkloadSelectorSpec, f *field.Path) field.ErrorList
 
 	}
 
+	return errs
+}
+
+// validateInstances ensures that InstanceSpec follows these rule:
+//   - There is at least 1 InstanceSpec
+//   - portEnvName, hostEnvName, and unixSocketPathEnvName have values that adhere
+//     to the standard k8s EnvName field validation.
+//   - Port has a valid port number according to the standard k8s Port field
+//     validation.
+//   - UnixSocketPath contains an absolute path.
+//   - The configuration clearly specifies either a TCP or a Unix socket but not
+//     both.
+func validateInstances(spec *[]InstanceSpec, f *field.Path) field.ErrorList {
+	var errs field.ErrorList
+	if len(*spec) == 0 {
+		errs = append(errs, field.Invalid(f,
+			nil,
+			"at least one database instance must be declared"))
+		return errs
+	}
+	for i, inst := range *spec {
+		ff := f.Child(fmt.Sprintf("[%d]", i))
+		if inst.Port != nil {
+			for _, s := range apivalidation.IsValidPortNum(int(*inst.Port)) {
+				errs = append(errs, field.Invalid(ff.Child("port"), inst.Port, s))
+			}
+		}
+		errs = append(errs, validateEnvName(ff.Child("portEnvName"),
+			inst.PortEnvName)...)
+		errs = append(errs, validateEnvName(ff.Child("hostEnvName"),
+			inst.HostEnvName)...)
+		errs = append(errs, validateEnvName(ff.Child("unixSocketPathEnvName"),
+			inst.UnixSocketPathEnvName)...)
+
+		if inst.UnixSocketPath != "" && !path.IsAbs(inst.UnixSocketPath) {
+			errs = append(errs, field.Invalid(ff.Child("unixSocketPath"),
+				inst.UnixSocketPath, "must be an absolute path"))
+		}
+		if inst.UnixSocketPath != "" && (inst.Port != nil || inst.PortEnvName != "") {
+			errs = append(errs, field.Invalid(ff.Child("unixSocketPath"),
+				inst.UnixSocketPath,
+				"unixSocketPath cannot be set when portEnvName or port are set. Databases can be configured to listen for either TCP or Unix socket connections, not both"))
+		}
+		if inst.UnixSocketPath == "" && inst.Port == nil && inst.PortEnvName == "" {
+			errs = append(errs, field.Invalid(f,
+				inst.UnixSocketPath,
+				"instance must specify at least one of the following: portEnvName, port, or unixSocketPath"))
+		}
+	}
+	return errs
+}
+
+func validateEnvName(f *field.Path, envName string) field.ErrorList {
+	var errs field.ErrorList
+	if envName != "" {
+		for _, s := range apivalidation.IsEnvVarName(envName) {
+			errs = append(errs, field.Invalid(f, envName, s))
+		}
+	}
 	return errs
 }
