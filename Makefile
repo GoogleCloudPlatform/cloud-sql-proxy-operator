@@ -86,7 +86,7 @@ install_tools: remove_tools all_tools ## Installs all development tools
 	@echo "TIME: $(shell date) end install tools"
 
 .PHONY: generate
-generate:  ctrl_generate ctrl_manifests go_lint tf_lint installer reset_image add_copyright_header go_fmt yaml_fmt ## Runs code generation, format, and validation tools
+generate:  ctrl_generate ctrl_manifests generate_crd_docs go_lint tf_lint installer reset_image add_copyright_header go_fmt yaml_fmt ## Runs code generation, format, and validation tools
 	@echo "TIME: $(shell date) end make generate"
 
 .PHONY: build
@@ -137,6 +137,11 @@ update_version_in_docs:  # Fix version numbers that appear in the markdown docum
 	find . -name '*.md' | xargs sed -i.bak -E 's|storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/[^/]+/install.sh|storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/v$(VERSION)/install.sh|g' && \
 	find . -name '*.md' | xargs sed -i.bak -E 's|storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/[^/]+/cloud-sql-proxy-operator.yaml|storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/v$(VERSION)/cloud-sql-proxy-operator.yaml|g' && \
 	find . -name '*.md.bak' | xargs rm -f
+
+.PHONY: generate_crd_docs
+generate_crd_docs: crd-ref-docs # Generate the
+	 $(CRD_REF_DOCS) --source-path=internal/api/ --config=tools/config-crd-ref-docs.yaml --output-path=bin --renderer=markdown && \
+ 		cp bin/out.md docs/api.md
 
 .PHONY: build_push_docker
 build_push_docker: # Build docker image with the operator. set IMG env var before running: `IMG=example.com/img:1.0 make build`
@@ -409,6 +414,7 @@ KUBECTL ?= $(LOCALBIN)/kubectl
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 TERRAFORM ?= $(LOCALBIN)/terraform
 GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
+CRD_REF_DOCS ?= $(LOCALBIN)/crd-ref-docs
 
 ## Tool Versions
 CONTROLLER_TOOLS_VERSION ?= latest
@@ -417,6 +423,7 @@ TERRAFORM_VERSION ?= 1.2.7
 KUSTOMIZE_VERSION ?= v4.5.2
 ENVTEST_VERSION ?= latest
 GOLANGCI_LINT_VERSION ?= latest
+CRD_REF_DOCS_VERSION ?= latest
 
 GOOS?=$(shell go env GOOS | tr -d '\n')
 GOARCH?=$(shell go env GOARCH | tr -d '\n')
@@ -424,7 +431,7 @@ GOARCH?=$(shell go env GOARCH | tr -d '\n')
 remove_tools:
 	rm -rf $(LOCALBIN)/*
 
-all_tools: kustomize controller-gen envtest kubectl terraform golangci-lint
+all_tools: kustomize controller-gen envtest kubectl terraform golangci-lint crd-ref-docs
 
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN) # Download controller-gen locally if necessary.
@@ -441,6 +448,11 @@ $(KUSTOMIZE): $(LOCALBIN)
 envtest: $(ENVTEST) # Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
 	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@$(ENVTEST_VERSION)
+
+.PHONY: crd-ref-docs
+crd-ref-docs: $(CRD_REF_DOCS) # Download crd-ref-docs locally if necessary.
+$(CRD_REF_DOCS): $(LOCALBIN)
+	test -s $(LOCALBIN)/crd-ref-docs || GOBIN=$(LOCALBIN) go install github.com/elastic/crd-ref-docs@$(CRD_REF_DOCS_VERSION)
 
 .PHONY: kubectl
 kubectl: $(KUBECTL) # Download kubectl

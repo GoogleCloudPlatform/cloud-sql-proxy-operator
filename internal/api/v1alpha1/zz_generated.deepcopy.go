@@ -128,17 +128,17 @@ func (in *AuthProxyWorkloadList) DeepCopyObject() runtime.Object {
 func (in *AuthProxyWorkloadSpec) DeepCopyInto(out *AuthProxyWorkloadSpec) {
 	*out = *in
 	in.Workload.DeepCopyInto(&out.Workload)
-	if in.AuthProxyContainer != nil {
-		in, out := &in.AuthProxyContainer, &out.AuthProxyContainer
-		*out = new(AuthProxyContainerSpec)
-		(*in).DeepCopyInto(*out)
-	}
 	if in.Instances != nil {
 		in, out := &in.Instances, &out.Instances
 		*out = make([]InstanceSpec, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.AuthProxyContainer != nil {
+		in, out := &in.AuthProxyContainer, &out.AuthProxyContainer
+		*out = new(AuthProxyContainerSpec)
+		(*in).DeepCopyInto(*out)
 	}
 }
 

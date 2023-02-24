@@ -48,7 +48,7 @@ spec:
     - name: v1alpha1
       schema:
         openAPIV3Schema:
-          description: AuthProxyWorkload declares how a Cloud SQL Proxy container should be applied to a matching set of workloads, and shows the status of those proxy containers. This is the Schema for the authproxyworkloads API.
+          description: AuthProxyWorkload declares how a Cloud SQL Proxy container should be applied to a matching set of workloads, and shows the status of those proxy containers.
           properties:
             apiVersion:
               description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
@@ -59,10 +59,10 @@ spec:
             metadata:
               type: object
             spec:
-              description: AuthProxyWorkloadSpec defines the desired state of AuthProxyWorkload
+              description: AuthProxyWorkloadSpec describes where and how to configure the proxy.
               properties:
                 authProxyContainer:
-                  description: AuthProxyContainer describes the resources and config for the Auth Proxy container
+                  description: AuthProxyContainer describes the resources and config for the Auth Proxy container.
                   properties:
                     container:
                       description: Container is debugging parameter that when specified will override the proxy container with a completely custom Container spec.
@@ -930,28 +930,28 @@ spec:
                       type: object
                   type: object
                 instances:
-                  description: Instances lists the Cloud SQL instances to connect
+                  description: Instances describes the Cloud SQL instances to configure on the proxy container.
                   items:
-                    description: "InstanceSpec describes the configuration for how the proxy should expose a Cloud SQL database instance to a workload. The simplest possible configuration declares just the connection string and the port number or unix socket. \n For example, for a TCP port: \n { \"connectionString\":\"my-project:us-central1:my-db-server\", \"port\":5000 } \n or for a unix socket: \n { \"connectionString\":\"my-project:us-central1:my-db-server\", \"unixSocketPath\" : \"/mnt/db/my-db-server\" } \n You may allow the operator to choose a non-conflicting TCP port or unix socket instead of explicitly setting the port or socket path. This may be easier to manage when workload needs to connect to many databases. \n For example, for a TCP port: \n { \"connectionString\":\"my-project:us-central1:my-db-server\", \"portEnvName\":\"MY_DB_SERVER_PORT\" \"hostEnvName\":\"MY_DB_SERVER_HOST\" } \n will set environment variables MY_DB_SERVER_PORT MY_DB_SERVER_HOST with the value of the TCP port and hostname. Then, the application can read these values to connect to the database through the proxy. \n or for a unix socket: \n { \"connectionString\":\"my-project:us-central1:my-db-server\", \"unixSocketPathEnvName\" : \"MY_DB_SERVER_SOCKET_DIR\" } \n will set environment variables MY_DB_SERVER_SOCKET_DIR with the value of the unix socket path. Then, the application can read this value to connect to the database through the proxy."
+                    description: "InstanceSpec describes the configuration for how the proxy should expose a Cloud SQL database instance to a workload. \n In the minimum recommended configuration, the operator will choose a non-conflicting TCP port and set environment variables MY_DB_SERVER_PORT MY_DB_SERVER_HOST with the value of the TCP port and hostname. The application can read these values to connect to the database through the proxy. For example: \n `{ \"connectionString\":\"my-project:us-central1:my-db-server\", \"portEnvName\":\"MY_DB_SERVER_PORT\" \"hostEnvName\":\"MY_DB_SERVER_HOST\" }` \n If you want to assign a specific port number for a database, set the `port` field. For example: \n `{ \"connectionString\":\"my-project:us-central1:my-db-server\", \"port\":5000 }`"
                     properties:
                       autoIAMAuthN:
-                        description: AutoIAMAuthN Enables IAM Authentication for this instance. Optional, default false.
+                        description: AutoIAMAuthN (optional) Enables IAM Authentication for this instance. Default value is false.
                         type: boolean
                       connectionString:
-                        description: ConnectionString is the Cloud SQL instance.
+                        description: ConnectionString is the connection string for the Cloud SQL Instance in the format `project_id:region:instance_name`
                         type: string
                       hostEnvName:
                         description: HostEnvName The name of the environment variable containing this instances tcp hostname Optional, when set this environment variable will be added to all containers in the workload.
                         type: string
                       port:
-                        description: Port sets the tcp port for this instance. Optional, if not set, a value will be automatically assigned by the operator and set as an environment variable on all containers in the workload named according to PortEnvName. The operator will choose a port so that it does not conflict with other ports on the workload.
+                        description: Port (optional) sets the tcp port for this instance. If not set, a value will be automatically assigned by the operator and set as an environment variable on all containers in the workload named according to PortEnvName. The operator will choose a port so that it does not conflict with other ports on the workload.
                         format: int32
                         type: integer
                       portEnvName:
                         description: PortEnvName is name of the environment variable containing this instance's tcp port. Optional, when set this environment variable will be added to all containers in the workload.
                         type: string
                       privateIP:
-                        description: PrivateIP Enable connection to the Cloud SQL instance's private ip for this instance. Optional, default false.
+                        description: PrivateIP (optional) Enable connection to the Cloud SQL instance's private ip for this instance. Default value is false.
                         type: boolean
                       unixSocketPath:
                         description: UnixSocketPath is the path to the unix socket where the proxy will listen for connnections. This will be mounted to all containers in the pod.
@@ -963,7 +963,7 @@ spec:
                   minItems: 1
                   type: array
                 workloadSelector:
-                  description: Workload selects the workload to
+                  description: Workload selects the workload where the proxy container will be added.
                   properties:
                     kind:
                       description: 'Kind specifies what kind of workload Supported kinds: Deployment, StatefulSet, Pod, ReplicaSet,DaemonSet, Job, CronJob Example: "Deployment" "Deployment.v1" or "Deployment.v1.apps".'
@@ -973,7 +973,7 @@ spec:
                       description: Name specifies the name of the resource to select.
                       type: string
                     selector:
-                      description: Selector selects resources using labels. See "Label selectors" in the kubernetes docs https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors
+                      description: Selector (optional) selects resources using labels. See "Label selectors" in the kubernetes docs https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors
                       properties:
                         matchExpressions:
                           description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
