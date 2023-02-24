@@ -202,6 +202,12 @@ func validateWorkload(spec *WorkloadSelectorSpec, f *field.Path) field.ErrorList
 
 func validateInstances(spec *[]InstanceSpec, f *field.Path) field.ErrorList {
 	var errs field.ErrorList
+	if len(*spec) == 0 {
+		errs = append(errs, field.Invalid(f,
+			nil,
+			"at least one database instance must be declared"))
+		return errs
+	}
 	for i, inst := range *spec {
 		ff := f.Child(fmt.Sprintf("[%d]", i))
 		if inst.Port != nil {
@@ -223,7 +229,7 @@ func validateInstances(spec *[]InstanceSpec, f *field.Path) field.ErrorList {
 		if inst.UnixSocketPath != "" && (inst.Port != nil || inst.PortEnvName != "") {
 			errs = append(errs, field.Invalid(ff.Child("unixSocketPath"),
 				inst.UnixSocketPath,
-				"unixSocketPath cannot be set when portEnvName or port are set. Databases can be configured to listen for either TCP or Unix socket connections, not both."))
+				"unixSocketPath cannot be set when portEnvName or port are set. Databases can be configured to listen for either TCP or Unix socket connections, not both"))
 		}
 		if inst.UnixSocketPath == "" && inst.Port == nil && inst.PortEnvName == "" {
 			errs = append(errs, field.Invalid(f,

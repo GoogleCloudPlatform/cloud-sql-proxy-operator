@@ -26,194 +26,166 @@ func ptr[T int | int32 | int64 | string](i T) *T {
 	return &i
 }
 
-func TestAuthProxyWorkload_ValidateCreate(t *testing.T) {
+func TestAuthProxyWorkload_ValidateCreate_Instances(t *testing.T) {
 	data := []struct {
 		desc      string
-		spec      cloudsqlapi.AuthProxyWorkloadSpec
+		spec      []cloudsqlapi.InstanceSpec
+		wantValid bool
+	}{
+		{
+			desc:      "Invalid, empty instances",
+			wantValid: false,
+		},
+		{
+			desc: "Invalid, Instance configured without PortEnvName, Port, or UnixSocketPath",
+			spec: []cloudsqlapi.InstanceSpec{{
+				ConnectionString: "proj:region:db2",
+			}},
+			wantValid: false,
+		},
+		{
+			desc: "Valid, Instance configured with UnixSocketPath",
+			spec: []cloudsqlapi.InstanceSpec{{
+				ConnectionString: "proj:region:db2",
+				UnixSocketPath:   "/db/socket",
+			}},
+			wantValid: true,
+		},
+		{
+			desc: "Invalid, Instance configured with UnixSocketPath and Port",
+			spec: []cloudsqlapi.InstanceSpec{{
+				ConnectionString: "proj:region:db2",
+				UnixSocketPath:   "/db/socket",
+				Port:             ptr(int32(2443)),
+			}},
+			wantValid: false,
+		},
+		{
+			desc: "Valid, Instance configured with valid port",
+			spec: []cloudsqlapi.InstanceSpec{{
+				ConnectionString: "proj:region:db2",
+				Port:             ptr(int32(2443)),
+			}},
+			wantValid: true,
+		},
+		{
+			desc: "Invalid, Instance configured with bad port",
+			spec: []cloudsqlapi.InstanceSpec{{
+				ConnectionString: "proj:region:db2",
+				Port:             ptr(int32(-22)),
+			}},
+			wantValid: false,
+		},
+		{
+			desc: "Invalid, Instance configured with bad portEnvName",
+			spec: []cloudsqlapi.InstanceSpec{{
+				ConnectionString: "proj:region:db2",
+				PortEnvName:      "22423!",
+			}},
+			wantValid: false,
+		},
+		{
+			desc: "Invalid, Instance configured with bad hostEnvName",
+			spec: []cloudsqlapi.InstanceSpec{{
+				ConnectionString: "proj:region:db2",
+				HostEnvName:      "22423!",
+			}},
+			wantValid: false,
+		},
+		{
+			desc: "Invalid, Instance configured with bad UnixSocketPathEnvName",
+			spec: []cloudsqlapi.InstanceSpec{{
+				ConnectionString:      "proj:region:db2",
+				UnixSocketPathEnvName: "22423!",
+				UnixSocketPath:        "/db/socket",
+			}},
+			wantValid: false,
+		},
+		{
+			desc: "Invalid, Instance configured with bad relative UnixSocketPath",
+			spec: []cloudsqlapi.InstanceSpec{{
+				ConnectionString: "proj:region:db2",
+				UnixSocketPath:   "db/socket",
+			}},
+			wantValid: false,
+		},
+	}
+	for _, tc := range data {
+		t.Run(tc.desc, func(t *testing.T) {
+			p := cloudsqlapi.AuthProxyWorkload{
+				ObjectMeta: v1.ObjectMeta{Name: "sample"},
+				Spec: cloudsqlapi.AuthProxyWorkloadSpec{
+					Workload: cloudsqlapi.WorkloadSelectorSpec{
+						Kind: "Deployment",
+						Name: "webapp",
+					},
+					Instances: tc.spec,
+				},
+			}
+			p.Default()
+			err := p.ValidateCreate()
+			gotValid := err == nil
+			switch {
+			case tc.wantValid && !gotValid:
+				t.Errorf("wants create valid, got error %v", err)
+				printFieldErrors(t, err)
+			case !tc.wantValid && gotValid:
+				t.Errorf("wants an error on create, got no error")
+			default:
+				t.Logf("create passed %s", tc.desc)
+				// test passes, do nothing.
+			}
+		})
+	}
+
+}
+func TestAuthProxyWorkload_ValidateCreate_WorkloadSpec(t *testing.T) {
+	data := []struct {
+		desc      string
+		spec      cloudsqlapi.WorkloadSelectorSpec
 		wantValid bool
 	}{
 		{
 			desc: "Valid WorkloadSelectorSpec with Name",
-			spec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{
-					Kind: "Deployment",
-					Name: "webapp",
-				},
+			spec: cloudsqlapi.WorkloadSelectorSpec{
+				Kind: "Deployment",
+				Name: "webapp",
 			},
 			wantValid: true,
 		},
 		{
 			desc: "Valid WorkloadSelectorSpec with Selector",
-			spec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{
-					Kind: "Deployment",
-					Selector: &v1.LabelSelector{
-						MatchLabels: map[string]string{"app": "sample"},
-					},
+			spec: cloudsqlapi.WorkloadSelectorSpec{
+				Kind: "Deployment",
+				Selector: &v1.LabelSelector{
+					MatchLabels: map[string]string{"app": "sample"},
 				},
 			},
 			wantValid: true,
 		},
 		{
 			desc: "Invalid, both workload selector and name both set",
-			spec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{
-					Kind: "Deployment",
-					Name: "webapp",
-					Selector: &v1.LabelSelector{
-						MatchLabels: map[string]string{"app": "sample"},
-					},
+			spec: cloudsqlapi.WorkloadSelectorSpec{
+				Kind: "Deployment",
+				Name: "webapp",
+				Selector: &v1.LabelSelector{
+					MatchLabels: map[string]string{"app": "sample"},
 				},
 			},
 			wantValid: false,
 		},
 		{
-			desc: "Invalid, WorkloadSelector missing name and selector",
-			spec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{Kind: "Deployment"},
-			},
+			desc:      "Invalid, WorkloadSelector missing name and selector",
+			spec:      cloudsqlapi.WorkloadSelectorSpec{Kind: "Deployment"},
 			wantValid: false,
 		},
 		{
 			desc: "Valid, Instance configured with PortEnvName",
-			spec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{
-					Kind: "Deployment",
-					Name: "webapp",
-				},
-				Instances: []cloudsqlapi.InstanceSpec{{
-					ConnectionString: "proj:region:db2",
-					PortEnvName:      "DB_PORT",
-				}},
+			spec: cloudsqlapi.WorkloadSelectorSpec{
+				Kind: "Deployment",
+				Name: "webapp",
 			},
 			wantValid: true,
-		},
-		{
-			desc: "Invalid, Instance configured without PortEnvName, Port, or UnixSocketPath",
-			spec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{
-					Kind: "Deployment",
-					Name: "webapp",
-				},
-				Instances: []cloudsqlapi.InstanceSpec{{
-					ConnectionString: "proj:region:db2",
-				}},
-			},
-			wantValid: false,
-		},
-		{
-			desc: "Valid, Instance configured with UnixSocketPath",
-			spec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{
-					Kind: "Deployment",
-					Name: "webapp",
-				},
-				Instances: []cloudsqlapi.InstanceSpec{{
-					ConnectionString: "proj:region:db2",
-					UnixSocketPath:   "/db/socket",
-				}},
-			},
-			wantValid: true,
-		},
-		{
-			desc: "Invalid, Instance configured with UnixSocketPath and Port",
-			spec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{
-					Kind: "Deployment",
-					Name: "webapp",
-				},
-				Instances: []cloudsqlapi.InstanceSpec{{
-					ConnectionString: "proj:region:db2",
-					UnixSocketPath:   "/db/socket",
-					Port:             ptr(int32(2443)),
-				}},
-			},
-			wantValid: false,
-		},
-		{
-			desc: "Valid, Instance configured with valid port",
-			spec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{
-					Kind: "Deployment",
-					Name: "webapp",
-				},
-				Instances: []cloudsqlapi.InstanceSpec{{
-					ConnectionString: "proj:region:db2",
-					Port:             ptr(int32(2443)),
-				}},
-			},
-			wantValid: true,
-		},
-		{
-			desc: "Invalid, Instance configured with bad port",
-			spec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{
-					Kind: "Deployment",
-					Name: "webapp",
-				},
-				Instances: []cloudsqlapi.InstanceSpec{{
-					ConnectionString: "proj:region:db2",
-					Port:             ptr(int32(-22)),
-				}},
-			},
-			wantValid: false,
-		},
-		{
-			desc: "Invalid, Instance configured with bad portEnvName",
-			spec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{
-					Kind: "Deployment",
-					Name: "webapp",
-				},
-				Instances: []cloudsqlapi.InstanceSpec{{
-					ConnectionString: "proj:region:db2",
-					PortEnvName:      "22423!",
-				}},
-			},
-			wantValid: false,
-		},
-		{
-			desc: "Invalid, Instance configured with bad hostEnvName",
-			spec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{
-					Kind: "Deployment",
-					Name: "webapp",
-				},
-				Instances: []cloudsqlapi.InstanceSpec{{
-					ConnectionString: "proj:region:db2",
-					HostEnvName:      "22423!",
-				}},
-			},
-			wantValid: false,
-		},
-		{
-			desc: "Invalid, Instance configured with bad UnixSocketPathEnvName",
-			spec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{
-					Kind: "Deployment",
-					Name: "webapp",
-				},
-				Instances: []cloudsqlapi.InstanceSpec{{
-					ConnectionString:      "proj:region:db2",
-					UnixSocketPathEnvName: "22423!",
-					UnixSocketPath:        "/db/socket",
-				}},
-			},
-			wantValid: false,
-		},
-		{
-			desc: "Invalid, Instance configured with bad relative UnixSocketPath",
-			spec: cloudsqlapi.AuthProxyWorkloadSpec{
-				Workload: cloudsqlapi.WorkloadSelectorSpec{
-					Kind: "Deployment",
-					Name: "webapp",
-				},
-				Instances: []cloudsqlapi.InstanceSpec{{
-					ConnectionString: "proj:region:db2",
-					UnixSocketPath:   "db/socket",
-				}},
-			},
-			wantValid: false,
 		},
 	}
 
@@ -221,7 +193,13 @@ func TestAuthProxyWorkload_ValidateCreate(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			p := cloudsqlapi.AuthProxyWorkload{
 				ObjectMeta: v1.ObjectMeta{Name: "sample"},
-				Spec:       tc.spec,
+				Spec: cloudsqlapi.AuthProxyWorkloadSpec{
+					Workload: tc.spec,
+					Instances: []cloudsqlapi.InstanceSpec{{
+						ConnectionString: "proj:region:db2",
+						Port:             ptr(int32(2443)),
+					}},
+				},
 			}
 			p.Default()
 			err := p.ValidateCreate()
