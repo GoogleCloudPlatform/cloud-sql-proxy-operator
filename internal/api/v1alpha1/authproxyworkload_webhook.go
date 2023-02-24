@@ -121,7 +121,33 @@ func (r *AuthProxyWorkload) validateUpdateFrom(op *AuthProxyWorkload) field.Erro
 			"selector cannot be changed on update"))
 	}
 
+	allErrs = append(allErrs, validateRolloutStrategyChange(r.Spec.AuthProxyContainer, op.Spec.AuthProxyContainer)...)
+
 	return allErrs
+}
+
+// validateRolloutStrategyChange ensures that the rollout strategy does not
+// change on update, taking default values into account.
+func validateRolloutStrategyChange(c *AuthProxyContainerSpec, oc *AuthProxyContainerSpec) []*field.Error {
+	var allErrs field.ErrorList
+	var (
+		s  = WorkloadStrategy
+		os = WorkloadStrategy
+	)
+	if c != nil && c.RolloutStrategy != "" {
+		s = c.RolloutStrategy
+	}
+	if oc != nil && oc.RolloutStrategy != "" {
+		os = oc.RolloutStrategy
+	}
+	if s != os {
+		allErrs = append(allErrs, field.Invalid(
+			field.NewPath("spec", "authProxyContainer", "rolloutStrategy"), s,
+			fmt.Sprintf("rolloutStrategy cannot be changed on update from %s", os)))
+	}
+
+	return allErrs
+
 }
 
 func selectorNotEqual(s *metav1.LabelSelector, os *metav1.LabelSelector) bool {
