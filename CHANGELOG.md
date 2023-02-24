@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v0.3.0...v0.4.0) (2023-02-24)
+
+
+### Features
+
+* Updating the RolloutStrategy field is not allowed. ([#212](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/212)) ([f31b637](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/f31b637373b073357431aec0d1b4176507e9a00c))
+
 ## [0.3.0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v0.2.0...v0.3.0) (2023-02-21)
 
 
