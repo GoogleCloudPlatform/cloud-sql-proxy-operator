@@ -47,7 +47,7 @@ var _ webhook.Defaulter = &AuthProxyWorkload{}
 func (r *AuthProxyWorkload) Default() {
 	authproxyworkloadlog.Info("default", "name", r.Name)
 	if r.Spec.AuthProxyContainer != nil &&
-			r.Spec.AuthProxyContainer.RolloutStrategy == "" {
+		r.Spec.AuthProxyContainer.RolloutStrategy == "" {
 		r.Spec.AuthProxyContainer.RolloutStrategy = WorkloadStrategy
 	}
 }
@@ -172,10 +172,10 @@ func selectorNotEqual(s *metav1.LabelSelector, os *metav1.LabelSelector) bool {
 var supportedKinds = []string{"CronJob", "Job", "StatefulSet", "Deployment", "DaemonSet", "ReplicaSet", "Pod"}
 
 // validateWorkload ensures that the WorkloadSelectorSpec follows these rules:
-// - Either Name or Selector is set
-// - Kind is one of the supported kinds: "CronJob", "Job", "StatefulSet",
-//   "Deployment", "DaemonSet", "ReplicaSet", "Pod"
-// - Selector is valid according to the k8s validation rules for LabelSelector
+//   - Either Name or Selector is set
+//   - Kind is one of the supported kinds: "CronJob", "Job", "StatefulSet",
+//     "Deployment", "DaemonSet", "ReplicaSet", "Pod"
+//   - Selector is valid according to the k8s validation rules for LabelSelector
 func validateWorkload(spec *WorkloadSelectorSpec, f *field.Path) field.ErrorList {
 	var errs field.ErrorList
 	if spec.Selector != nil {
@@ -210,14 +210,14 @@ func validateWorkload(spec *WorkloadSelectorSpec, f *field.Path) field.ErrorList
 }
 
 // validateInstances ensures that InstanceSpec follows these rule:
-// - There is at least 1 InstanceSpec
-// - portEnvName, hostEnvName, and unixSocketPathEnvName have values that adhere
-//   to the standard k8s EnvName field validation.
-// - Port has a valid port number according to the standard k8s Port field
-//   validation.
-// - UnixSocketPath contains an absolute path.
-// - The configuration clearly specifies either a TCP or a Unix socket but not
-//   both.
+//   - There is at least 1 InstanceSpec
+//   - portEnvName, hostEnvName, and unixSocketPathEnvName have values that adhere
+//     to the standard k8s EnvName field validation.
+//   - Port has a valid port number according to the standard k8s Port field
+//     validation.
+//   - UnixSocketPath contains an absolute path.
+//   - The configuration clearly specifies either a TCP or a Unix socket but not
+//     both.
 func validateInstances(spec *[]InstanceSpec, f *field.Path) field.ErrorList {
 	var errs field.ErrorList
 	if len(*spec) == 0 {
