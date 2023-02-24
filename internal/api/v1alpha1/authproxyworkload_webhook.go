@@ -112,17 +112,17 @@ func validateContainer(spec *AuthProxyContainerSpec, f *field.Path) field.ErrorL
 	}
 
 	var allErrs field.ErrorList
-	if spec.AdminService != nil && len(spec.AdminService.EnableAPIs) == 0 {
+	if spec.AdminServer != nil && len(spec.AdminServer.EnableAPIs) == 0 {
 		allErrs = append(allErrs, field.Invalid(
-			f.Child("adminService", "enableAPIs"), nil,
+			f.Child("adminServer", "enableAPIs"), nil,
 			"enableAPIs must have at least one valid element: Debug or QuitQuitQuit"))
 	}
-	if spec.AdminService != nil {
-		errors := apivalidation.IsValidPortNum(int(spec.AdminService.Port))
+	if spec.AdminServer != nil {
+		errors := apivalidation.IsValidPortNum(int(spec.AdminServer.Port))
 		for _, e := range errors {
 			allErrs = append(allErrs, field.Invalid(
-				f.Child("adminService", "port"),
-				spec.AdminService.Port, e))
+				f.Child("adminServer", "port"),
+				spec.AdminServer.Port, e))
 		}
 	}
 

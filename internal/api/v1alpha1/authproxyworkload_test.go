@@ -230,7 +230,7 @@ func TestAuthProxyWorkload_ValidateCreate_AuthProxyContainerSpec(t *testing.T) {
 		{
 			desc: "Valid, Debug and AdminPort set",
 			spec: cloudsqlapi.AuthProxyContainerSpec{
-				AdminService: &cloudsqlapi.AdminServiceSpec{
+				AdminServer: &cloudsqlapi.AdminServerSpec{
 					EnableAPIs: []string{"Debug"},
 					Port:       wantPort,
 				},
@@ -240,7 +240,7 @@ func TestAuthProxyWorkload_ValidateCreate_AuthProxyContainerSpec(t *testing.T) {
 		{
 			desc: "Invalid, Debug set without AdminPort",
 			spec: cloudsqlapi.AuthProxyContainerSpec{
-				AdminService: &cloudsqlapi.AdminServiceSpec{
+				AdminServer: &cloudsqlapi.AdminServerSpec{
 					EnableAPIs: []string{"Debug"},
 				},
 			},
@@ -249,7 +249,7 @@ func TestAuthProxyWorkload_ValidateCreate_AuthProxyContainerSpec(t *testing.T) {
 		{
 			desc: "Invalid, EnableAPIs is empty",
 			spec: cloudsqlapi.AuthProxyContainerSpec{
-				AdminService: &cloudsqlapi.AdminServiceSpec{
+				AdminServer: &cloudsqlapi.AdminServerSpec{
 					Port: wantPort,
 				},
 			},

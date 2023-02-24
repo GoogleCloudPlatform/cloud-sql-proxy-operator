@@ -15,11 +15,11 @@ the custom resource AuthProxyWorkload version v1alpha1.
 
 
 
-#### AdminServiceSpec
+#### AdminServerSpec
 
 
 
-
+AdminServerSpec specifies how to start the proxy's admin server: which port and whether to enable debugging or quitquitquit. It controls to the proxy's --admin-port, --debug, and --quitquitquit CLI flags.
 
 _Appears in:_
 - [AuthProxyContainerSpec](#authproxycontainerspec)
@@ -44,7 +44,7 @@ _Appears in:_
 | `container` _[Container](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#container-v1-core)_ | Container is debugging parameter that when specified will override the proxy container with a completely custom Container spec. |
 | `resources` _[ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#resourcerequirements-v1-core)_ | Resources specifies the resources required for the proxy pod. |
 | `telemetry` _[TelemetrySpec](#telemetryspec)_ | Telemetry specifies how the proxy should expose telemetry. Optional, by default |
-| `adminService` _[AdminServiceSpec](#adminservicespec)_ | AdminService specifies the config for the proxy's admin service which is available to other containers in the same pod. |
+| `adminServer` _[AdminServerSpec](#adminserverspec)_ | AdminServer specifies the config for the proxy's admin service which is available to other containers in the same pod. |
 | `maxConnections` _integer_ | MaxConnections limits the number of connections. Default value is no limit. This sets the proxy container's CLI argument `--max-connections` |
 | `maxSigtermDelay` _integer_ | MaxSigtermDelay is the maximum number of seconds to wait for connections to close after receiving a TERM signal. This sets the proxy container's CLI argument `--max-sigterm-delay` and configures `terminationGracePeriodSeconds` on the workload's PodSpec. |
 | `sqlAdminAPIEndpoint` _string_ | SQLAdminAPIEndpoint is a debugging parameter that when specified will change the Google Cloud api endpoint used by the proxy. |

@@ -630,7 +630,7 @@ func TestProxyCLIArgs(t *testing.T) {
 					Telemetry: &v1alpha1.TelemetrySpec{
 						HTTPPort: ptr(int32(9092)),
 					},
-					AdminService: &v1alpha1.AdminServiceSpec{
+					AdminServer: &v1alpha1.AdminServerSpec{
 						EnableAPIs: []string{"Debug", "QuitQuitQuit"},
 						Port:       int32(9091),
 					},
@@ -657,7 +657,7 @@ func TestProxyCLIArgs(t *testing.T) {
 			},
 		},
 		{
-			desc: "No admin port enabled when AdminServiceSpec is nil",
+			desc: "No admin port enabled when AdminServerSpec is nil",
 			proxySpec: v1alpha1.AuthProxyWorkloadSpec{
 				AuthProxyContainer: &v1alpha1.AuthProxyContainerSpec{},
 				Instances: []v1alpha1.InstanceSpec{{

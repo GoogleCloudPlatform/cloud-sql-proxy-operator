@@ -509,7 +509,7 @@ func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, wl Workl
 	s.addHealthCheck(p, c)
 
 	// enable the proxy's admin service
-	s.addAdminService(p)
+	s.addAdminServer(p)
 
 	// add the user agent
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_USER_AGENT", s.updater.userAgent)
@@ -707,13 +707,13 @@ func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HEALTH_CHECK", "true")
 }
 
-func (s *updateState) addAdminService(p *cloudsqlapi.AuthProxyWorkload) {
+func (s *updateState) addAdminServer(p *cloudsqlapi.AuthProxyWorkload) {
 
-	if p.Spec.AuthProxyContainer == nil || p.Spec.AuthProxyContainer.AdminService == nil {
+	if p.Spec.AuthProxyContainer == nil || p.Spec.AuthProxyContainer.AdminServer == nil {
 		return
 	}
 
-	cs := p.Spec.AuthProxyContainer.AdminService
+	cs := p.Spec.AuthProxyContainer.AdminServer
 	s.addProxyPort(cs.Port, p)
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_ADMIN_PORT", fmt.Sprintf("%d", cs.Port))
 	for _, name := range cs.EnableAPIs {

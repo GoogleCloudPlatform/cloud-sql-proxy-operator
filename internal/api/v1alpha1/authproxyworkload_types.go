@@ -155,9 +155,9 @@ type AuthProxyContainerSpec struct {
 	//+kubebuilder:validation:Optional
 	Telemetry *TelemetrySpec `json:"telemetry,omitempty"`
 
-	// AdminService specifies the config for the proxy's admin service which is
+	// AdminServer specifies the config for the proxy's admin service which is
 	// available to other containers in the same pod.
-	AdminService *AdminServiceSpec `json:"adminService,omitempty"`
+	AdminServer *AdminServerSpec `json:"adminServer,omitempty"`
 
 	// MaxConnections limits the number of connections. Default value is no limit.
 	// This sets the proxy container's CLI argument `--max-connections`
@@ -197,7 +197,10 @@ type AuthProxyContainerSpec struct {
 	RolloutStrategy string `json:"rolloutStrategy,omitempty"`
 }
 
-type AdminServiceSpec struct {
+// AdminServerSpec specifies how to start the proxy's admin server:
+// which port and whether to enable debugging or quitquitquit. It controls
+// to the proxy's --admin-port, --debug, and --quitquitquit CLI flags.
+type AdminServerSpec struct {
 
 	// Port the port for the proxy's localhost-only admin server.
 	// This sets the proxy container's CLI argument `--admin-port`
