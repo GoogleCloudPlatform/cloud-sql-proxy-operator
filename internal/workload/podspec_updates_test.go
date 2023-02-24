@@ -628,15 +628,18 @@ func TestProxyCLIArgs(t *testing.T) {
 				AuthProxyContainer: &v1alpha1.AuthProxyContainerSpec{
 					SQLAdminAPIEndpoint: "https://example.com",
 					Telemetry: &v1alpha1.TelemetrySpec{
-						HTTPPort:  ptr(int32(9092)),
-						AdminPort: ptr(int32(9091)),
-						Debug:     ptr(true),
+						HTTPPort: ptr(int32(9092)),
+					},
+					AdminService: &v1alpha1.AdminServiceSpec{
+						EnableAPIs: []string{"Debug", "QuitQuitQuit"},
+						Port:       int32(9091),
 					},
 					MaxConnections:  ptr(int64(10)),
 					MaxSigtermDelay: ptr(int64(20)),
 				},
 				Instances: []v1alpha1.InstanceSpec{{
 					ConnectionString: "hello:world:one",
+					Port:             ptr(int32(5000)),
 				}},
 			},
 			wantProxyArgContains: []string{
@@ -647,22 +650,19 @@ func TestProxyCLIArgs(t *testing.T) {
 				"CSQL_PROXY_HTTP_PORT":             "9092",
 				"CSQL_PROXY_ADMIN_PORT":            "9091",
 				"CSQL_PROXY_DEBUG":                 "true",
+				"CSQL_PROXY_QUITQUITQUIT":          "true",
 				"CSQL_PROXY_HEALTH_CHECK":          "true",
 				"CSQL_PROXY_MAX_CONNECTIONS":       "10",
 				"CSQL_PROXY_MAX_SIGTERM_DELAY":     "20",
 			},
 		},
 		{
-			desc: "debug flag false respected enabled when admin port is not set",
+			desc: "No admin port enabled when AdminServiceSpec is nil",
 			proxySpec: v1alpha1.AuthProxyWorkloadSpec{
-				AuthProxyContainer: &v1alpha1.AuthProxyContainerSpec{
-					Telemetry: &v1alpha1.TelemetrySpec{
-						Debug:     ptr(false),
-						AdminPort: ptr(int32(9091)),
-					},
-				},
+				AuthProxyContainer: &v1alpha1.AuthProxyContainerSpec{},
 				Instances: []v1alpha1.InstanceSpec{{
 					ConnectionString: "hello:world:one",
+					Port:             ptr(int32(5000)),
 				}},
 			},
 			wantProxyArgContains: []string{

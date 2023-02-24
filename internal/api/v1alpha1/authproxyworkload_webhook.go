@@ -107,16 +107,23 @@ func (r *AuthProxyWorkload) validate() field.ErrorList {
 }
 
 func validateContainer(spec *AuthProxyContainerSpec, f *field.Path) field.ErrorList {
-	if spec == nil || spec.Telemetry == nil {
+	if spec == nil {
 		return nil
 	}
 
 	var allErrs field.ErrorList
-	// if telemetry.debug == true then telemetry.adminPort must also be set
-	if spec.Telemetry.Debug != nil && *spec.Telemetry.Debug && spec.Telemetry.AdminPort == nil {
+	if spec.AdminService != nil && len(spec.AdminService.EnableAPIs) == 0 {
 		allErrs = append(allErrs, field.Invalid(
-			f.Child("telemetry", "adminPort"), nil,
-			"adminPort must be set when debug is enabled"))
+			f.Child("adminService", "enableAPIs"), nil,
+			"enableAPIs must have at least one valid element: Debug or QuitQuitQuit"))
+	}
+	if spec.AdminService != nil {
+		errors := apivalidation.IsValidPortNum(int(spec.AdminService.Port))
+		for _, e := range errors {
+			allErrs = append(allErrs, field.Invalid(
+				f.Child("adminService", "port"),
+				spec.AdminService.Port, e))
+		}
 	}
 
 	return allErrs

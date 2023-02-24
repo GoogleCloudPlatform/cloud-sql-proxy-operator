@@ -22,11 +22,11 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func ptr[T int | int32 | int64 | string](i T) *T {
+func ptr[T int | int32 | int64 | string | bool](i T) *T {
 	return &i
 }
 
-func TestAuthProxyWorkload_ValidateCreate_Instances(t *testing.T) {
+func TestAuthProxyWorkload_ValidateCreate_InstanceSpec(t *testing.T) {
 
 	data := []struct {
 		desc      string
@@ -219,7 +219,6 @@ func TestAuthProxyWorkload_ValidateCreate_WorkloadSpec(t *testing.T) {
 	}
 }
 func TestAuthProxyWorkload_ValidateCreate_AuthProxyContainerSpec(t *testing.T) {
-	wantTrue := true
 	wantPort := int32(9393)
 
 	data := []struct {
@@ -231,9 +230,9 @@ func TestAuthProxyWorkload_ValidateCreate_AuthProxyContainerSpec(t *testing.T) {
 		{
 			desc: "Valid, Debug and AdminPort set",
 			spec: cloudsqlapi.AuthProxyContainerSpec{
-				Telemetry: &cloudsqlapi.TelemetrySpec{
-					Debug:     &wantTrue,
-					AdminPort: &wantPort,
+				AdminService: &cloudsqlapi.AdminServiceSpec{
+					EnableAPIs: []string{"Debug"},
+					Port:       wantPort,
 				},
 			},
 			wantValid: true,
@@ -241,8 +240,17 @@ func TestAuthProxyWorkload_ValidateCreate_AuthProxyContainerSpec(t *testing.T) {
 		{
 			desc: "Invalid, Debug set without AdminPort",
 			spec: cloudsqlapi.AuthProxyContainerSpec{
-				Telemetry: &cloudsqlapi.TelemetrySpec{
-					Debug: &wantTrue,
+				AdminService: &cloudsqlapi.AdminServiceSpec{
+					EnableAPIs: []string{"Debug"},
+				},
+			},
+			wantValid: false,
+		},
+		{
+			desc: "Invalid, EnableAPIs is empty",
+			spec: cloudsqlapi.AuthProxyContainerSpec{
+				AdminService: &cloudsqlapi.AdminServiceSpec{
+					Port: wantPort,
 				},
 			},
 			wantValid: false,

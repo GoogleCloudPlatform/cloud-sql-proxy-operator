@@ -15,6 +15,21 @@ the custom resource AuthProxyWorkload version v1alpha1.
 
 
 
+#### AdminServiceSpec
+
+
+
+
+
+_Appears in:_
+- [AuthProxyContainerSpec](#authproxycontainerspec)
+
+| Field | Description |
+| --- | --- |
+| `port` _integer_ | Port the port for the proxy's localhost-only admin server. This sets the proxy container's CLI argument `--admin-port` |
+| `enableAPIs` _string array_ | EnableAPIs specifies the list of admin APIs to enable. At least one API must be enabled. Possible values: - "Debug" will enable pprof debugging by setting the `--debug` cli flag. - "QuitQuitQuit" will enable pprof debugging by setting the `--quitquitquit`   cli flag. |
+
+
 #### AuthProxyContainerSpec
 
 
@@ -29,6 +44,7 @@ _Appears in:_
 | `container` _[Container](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#container-v1-core)_ | Container is debugging parameter that when specified will override the proxy container with a completely custom Container spec. |
 | `resources` _[ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#resourcerequirements-v1-core)_ | Resources specifies the resources required for the proxy pod. |
 | `telemetry` _[TelemetrySpec](#telemetryspec)_ | Telemetry specifies how the proxy should expose telemetry. Optional, by default |
+| `adminService` _[AdminServiceSpec](#adminservicespec)_ | AdminService specifies the config for the proxy's admin service which is available to other containers in the same pod. |
 | `maxConnections` _integer_ | MaxConnections limits the number of connections. Default value is no limit. This sets the proxy container's CLI argument `--max-connections` |
 | `maxSigtermDelay` _integer_ | MaxSigtermDelay is the maximum number of seconds to wait for connections to close after receiving a TERM signal. This sets the proxy container's CLI argument `--max-sigterm-delay` and configures `terminationGracePeriodSeconds` on the workload's PodSpec. |
 | `sqlAdminAPIEndpoint` _string_ | SQLAdminAPIEndpoint is a debugging parameter that when specified will change the Google Cloud api endpoint used by the proxy. |
@@ -105,8 +121,6 @@ _Appears in:_
 | Field | Description |
 | --- | --- |
 | `httpPort` _integer_ | HTTPPort the port for Prometheus and health check server. This sets the proxy container's CLI argument `--http-port` |
-| `adminPort` _integer_ | AdminPort the port for the /quitquitquit endpoint. This sets the proxy container's CLI argument `--admin-port` |
-| `debug` _boolean_ | Debug enables the Debug endpoint. This is relevant only when AdminPort is set. This sets the proxy container's CLI argument `--debug` |
 
 
 #### WorkloadSelectorSpec
