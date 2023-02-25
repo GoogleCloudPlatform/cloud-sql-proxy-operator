@@ -155,6 +155,10 @@ type AuthProxyContainerSpec struct {
 	//+kubebuilder:validation:Optional
 	Telemetry *TelemetrySpec `json:"telemetry,omitempty"`
 
+	// AdminServer specifies the config for the proxy's admin service which is
+	// available to other containers in the same pod.
+	AdminServer *AdminServerSpec `json:"adminServer,omitempty"`
+
 	// MaxConnections limits the number of connections. Default value is no limit.
 	// This sets the proxy container's CLI argument `--max-connections`
 	//+kubebuilder:validation:Optional
@@ -191,6 +195,27 @@ type AuthProxyContainerSpec struct {
 	//+kubebuilder:validation:Enum=Workload;None
 	//+kubebuilder:default=Workload
 	RolloutStrategy string `json:"rolloutStrategy,omitempty"`
+}
+
+// AdminServerSpec specifies how to start the proxy's admin server:
+// which port and whether to enable debugging or quitquitquit. It controls
+// to the proxy's --admin-port, --debug, and --quitquitquit CLI flags.
+type AdminServerSpec struct {
+
+	// Port the port for the proxy's localhost-only admin server.
+	// This sets the proxy container's CLI argument `--admin-port`
+	//+kubebuilder:validation:required
+	//+kubebuilder:validation:Minimum=1
+	Port int32 `json:"port,omitempty"`
+
+	// EnableAPIs specifies the list of admin APIs to enable. At least one
+	// API must be enabled. Possible values:
+	// - "Debug" will enable pprof debugging by setting the `--debug` cli flag.
+	// - "QuitQuitQuit" will enable pprof debugging by setting the `--quitquitquit`
+	//   cli flag.
+	//+kubebuilder:validation:MinItems:=1
+	//+kubebuilder:validation:Enum=Debug;QuitQuitQuit
+	EnableAPIs []string `json:"enableAPIs,omitempty"`
 }
 
 // TelemetrySpec specifies how the proxy container will expose telemetry.

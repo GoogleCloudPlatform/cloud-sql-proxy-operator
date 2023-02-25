@@ -461,7 +461,7 @@ func TestContainerReplaced(t *testing.T) {
 
 }
 
-func ptr[T int | int32 | int64 | string](i T) *T {
+func ptr[T int | int32 | int64 | string | bool](i T) *T {
 	return &i
 }
 
@@ -512,19 +512,19 @@ func TestResourcesFromSpec(t *testing.T) {
 }
 
 func TestProxyCLIArgs(t *testing.T) {
-	type testParam struct {
-		desc                 string
-		proxySpec            v1alpha1.AuthProxyWorkloadSpec
-		wantProxyArgContains []string
-		wantErrorCodes       []string
-		wantWorkloadEnv      map[string]string
-	}
 	wantTrue := true
 	wantFalse := false
 
 	var wantPort int32 = 5000
 
-	var testcases = []testParam{
+	testcases := []struct {
+		desc                 string
+		proxySpec            v1alpha1.AuthProxyWorkloadSpec
+		wantProxyArgContains []string
+		wantErrorCodes       []string
+		wantWorkloadEnv      map[string]string
+		dontWantEnvSet       []string
+	}{
 		{
 			desc: "default cli config",
 			proxySpec: v1alpha1.AuthProxyWorkloadSpec{
@@ -630,11 +630,16 @@ func TestProxyCLIArgs(t *testing.T) {
 					Telemetry: &v1alpha1.TelemetrySpec{
 						HTTPPort: ptr(int32(9092)),
 					},
+					AdminServer: &v1alpha1.AdminServerSpec{
+						EnableAPIs: []string{"Debug", "QuitQuitQuit"},
+						Port:       int32(9091),
+					},
 					MaxConnections:  ptr(int64(10)),
 					MaxSigtermDelay: ptr(int64(20)),
 				},
 				Instances: []v1alpha1.InstanceSpec{{
 					ConnectionString: "hello:world:one",
+					Port:             ptr(int32(5000)),
 				}},
 			},
 			wantProxyArgContains: []string{
@@ -643,10 +648,30 @@ func TestProxyCLIArgs(t *testing.T) {
 			wantWorkloadEnv: map[string]string{
 				"CSQL_PROXY_SQLADMIN_API_ENDPOINT": "https://example.com",
 				"CSQL_PROXY_HTTP_PORT":             "9092",
+				"CSQL_PROXY_ADMIN_PORT":            "9091",
+				"CSQL_PROXY_DEBUG":                 "true",
+				"CSQL_PROXY_QUITQUITQUIT":          "true",
 				"CSQL_PROXY_HEALTH_CHECK":          "true",
 				"CSQL_PROXY_MAX_CONNECTIONS":       "10",
 				"CSQL_PROXY_MAX_SIGTERM_DELAY":     "20",
 			},
+		},
+		{
+			desc: "No admin port enabled when AdminServerSpec is nil",
+			proxySpec: v1alpha1.AuthProxyWorkloadSpec{
+				AuthProxyContainer: &v1alpha1.AuthProxyContainerSpec{},
+				Instances: []v1alpha1.InstanceSpec{{
+					ConnectionString: "hello:world:one",
+					Port:             ptr(int32(5000)),
+				}},
+			},
+			wantProxyArgContains: []string{
+				fmt.Sprintf("hello:world:one?port=%d", workload.DefaultFirstPort),
+			},
+			wantWorkloadEnv: map[string]string{
+				"CSQL_PROXY_HEALTH_CHECK": "true",
+			},
+			dontWantEnvSet: []string{"CSQL_PROXY_DEBUG", "CSQL_PROXY_ADMIN_PORT"},
 		},
 		{
 			desc: "port conflict with other instance causes error",
@@ -682,8 +707,7 @@ func TestProxyCLIArgs(t *testing.T) {
 		},
 	}
 
-	for i := 0; i < len(testcases); i++ {
-		tc := &testcases[i]
+	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
 			u := workload.NewUpdater("cloud-sql-proxy-operator/dev")
 
@@ -699,6 +723,12 @@ func TestProxyCLIArgs(t *testing.T) {
 
 			// Create a AuthProxyWorkload that matches the deployment
 			csqls := []*v1alpha1.AuthProxyWorkload{authProxyWorkloadFromSpec("instance1", tc.proxySpec)}
+
+			// ensure valid
+			err := csqls[0].ValidateCreate()
+			if err != nil {
+				t.Fatal("Invalid AuthProxyWorkload resource", err)
+			}
 
 			// update the containers
 			updateErr := configureProxies(u, wl, csqls)
@@ -733,6 +763,13 @@ func TestProxyCLIArgs(t *testing.T) {
 				if gotEnvVar.Value != wantValue {
 					t.Errorf("got %v, wants %v workload env var %v", gotEnvVar, wantValue, wantKey)
 				}
+			}
+			for _, dontWantKey := range tc.dontWantEnvSet {
+				gotEnvVar, err := findEnvVar(wl, csqlContainer.Name, dontWantKey)
+				if err != nil {
+					continue
+				}
+				t.Errorf("got env %v=%v, wants no env var set", dontWantKey, gotEnvVar)
 			}
 
 		})

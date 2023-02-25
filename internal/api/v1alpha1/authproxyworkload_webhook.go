@@ -100,9 +100,33 @@ func (r *AuthProxyWorkload) validate() field.ErrorList {
 	allErrs = append(allErrs, validation.ValidateLabelName(r.Name, field.NewPath("metadata", "name"))...)
 	allErrs = append(allErrs, validateWorkload(&r.Spec.Workload, field.NewPath("spec", "workload"))...)
 	allErrs = append(allErrs, validateInstances(&r.Spec.Instances, field.NewPath("spec", "instances"))...)
+	allErrs = append(allErrs, validateContainer(r.Spec.AuthProxyContainer, field.NewPath("spec", "authProxyContainer"))...)
 
 	return allErrs
 
+}
+
+func validateContainer(spec *AuthProxyContainerSpec, f *field.Path) field.ErrorList {
+	if spec == nil {
+		return nil
+	}
+
+	var allErrs field.ErrorList
+	if spec.AdminServer != nil && len(spec.AdminServer.EnableAPIs) == 0 {
+		allErrs = append(allErrs, field.Invalid(
+			f.Child("adminServer", "enableAPIs"), nil,
+			"enableAPIs must have at least one valid element: Debug or QuitQuitQuit"))
+	}
+	if spec.AdminServer != nil {
+		errors := apivalidation.IsValidPortNum(int(spec.AdminServer.Port))
+		for _, e := range errors {
+			allErrs = append(allErrs, field.Invalid(
+				f.Child("adminServer", "port"),
+				spec.AdminServer.Port, e))
+		}
+	}
+
+	return allErrs
 }
 
 // validateUpdateFrom checks that an update to an AuthProxyWorkload resource

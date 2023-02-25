@@ -45,6 +45,10 @@ const (
 	// DefaultHealthCheckPort is the used by the proxy to expose prometheus
 	// and kubernetes health checks.
 	DefaultHealthCheckPort int32 = 9801
+
+	// DefaultAdminPort is the used by the proxy to expose prometheus
+	// and kubernetes health checks.
+	DefaultAdminPort int32 = 9802
 )
 
 var l = logf.Log.WithName("internal.workload")
@@ -504,6 +508,9 @@ func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, wl Workl
 	// always enable http port healthchecks on 0.0.0.0 and structured logs
 	s.addHealthCheck(p, c)
 
+	// enable the proxy's admin service
+	s.addAdminServer(p)
+
 	// add the user agent
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_USER_AGENT", s.updater.userAgent)
 
@@ -663,7 +670,7 @@ func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1
 
 	cs := p.Spec.AuthProxyContainer
 
-	// if the TelemetrySpec.exists, get Port values
+	// if the TelemetrySpec.exists, get Port and Port values
 	if cs != nil && cs.Telemetry != nil {
 		if cs.Telemetry.HTTPPort != nil {
 			portPtr = cs.Telemetry.HTTPPort
@@ -694,11 +701,30 @@ func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1
 		PeriodSeconds: 30,
 	}
 	// Add a port that is associated with the proxy, but not a specific db instance
-	s.addPort(port, proxyInstanceID{AuthProxyWorkload: types.NamespacedName{Namespace: p.Namespace, Name: p.Name}})
+	s.addProxyPort(port, p)
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HTTP_PORT", fmt.Sprintf("%d", port))
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HTTP_ADDRESS", "0.0.0.0")
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HEALTH_CHECK", "true")
-	return
+}
+
+func (s *updateState) addAdminServer(p *cloudsqlapi.AuthProxyWorkload) {
+
+	if p.Spec.AuthProxyContainer == nil || p.Spec.AuthProxyContainer.AdminServer == nil {
+		return
+	}
+
+	cs := p.Spec.AuthProxyContainer.AdminServer
+	s.addProxyPort(cs.Port, p)
+	s.addProxyContainerEnvVar(p, "CSQL_PROXY_ADMIN_PORT", fmt.Sprintf("%d", cs.Port))
+	for _, name := range cs.EnableAPIs {
+		switch name {
+		case "Debug":
+			s.addProxyContainerEnvVar(p, "CSQL_PROXY_DEBUG", "true")
+		case "QuitQuitQuit":
+			s.addProxyContainerEnvVar(p, "CSQL_PROXY_QUITQUITQUIT", "true")
+		}
+	}
+
 }
 
 func (s *updateState) addVolumeMount(p *cloudsqlapi.AuthProxyWorkload, is *cloudsqlapi.InstanceSpec, m corev1.VolumeMount, v corev1.Volume) {

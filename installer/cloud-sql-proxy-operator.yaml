@@ -64,6 +64,24 @@ spec:
                 authProxyContainer:
                   description: AuthProxyContainer describes the resources and config for the Auth Proxy container.
                   properties:
+                    adminServer:
+                      description: AdminServer specifies the config for the proxy's admin service which is available to other containers in the same pod.
+                      properties:
+                        enableAPIs:
+                          description: 'EnableAPIs specifies the list of admin APIs to enable. At least one API must be enabled. Possible values: - "Debug" will enable pprof debugging by setting the `--debug` cli flag. - "QuitQuitQuit" will enable pprof debugging by setting the `--quitquitquit` cli flag.'
+                          enum:
+                            - Debug
+                            - QuitQuitQuit
+                          items:
+                            type: string
+                          minItems: 1
+                          type: array
+                        port:
+                          description: Port the port for the proxy's localhost-only admin server. This sets the proxy container's CLI argument `--admin-port`
+                          format: int32
+                          minimum: 1
+                          type: integer
+                      type: object
                     container:
                       description: Container is debugging parameter that when specified will override the proxy container with a completely custom Container spec.
                       properties:
