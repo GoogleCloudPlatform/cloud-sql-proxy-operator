@@ -27,6 +27,11 @@ terraform {
 provider "google" {
 }
 
+provider "google-beta" {
+  region = "us-central1"
+  zone   = "us-central1-a"
+}
+
 # Enable gcloud project APIs
 locals {
   standard_labels = {

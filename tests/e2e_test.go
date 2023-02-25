@@ -487,3 +487,104 @@ func TestUpdateWorkloadOnDelete(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestPublicDBConnections(t *testing.T) {
+	// When running tests during development, set the SKIP_CLEANUP=true envvar so that
+	// the test namespace remains after the test ends. By default, the test
+	// namespace will be deleted when the test exits.
+	skipCleanup := loadValue("SKIP_CLEANUP", "", "false") == "true"
+	const (
+		pwlName  = "newss"
+		appLabel = "client"
+		kind     = "Deployment"
+	)
+
+	tests := []struct {
+		name        string
+		c           *testhelpers.TestCaseClient
+		podTemplate corev1.PodTemplateSpec
+		allOrAny    string
+	}{
+		{
+			name:        "postgres",
+			c:           newPrivatePostgresClient("postgresconn"),
+			podTemplate: testhelpers.BuildPgPodSpec(600, appLabel, "db-secret"),
+			allOrAny:    "all",
+		},
+	}
+	for i := range tests {
+		test := tests[i]
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testContext()
+			tp := test.c
+
+			err := tp.CreateOrPatchNamespace(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() {
+				if skipCleanup {
+					return
+				}
+
+				err = tp.DeleteNamespace(ctx)
+				if err != nil {
+					t.Fatal(err)
+				}
+			})
+
+			key := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
+
+			s := testhelpers.BuildSecret("db-secret", tp.DBRootUsername, tp.DBRootPassword, tp.DBName)
+			s.SetNamespace(tp.Namespace)
+			err = tp.Client.Create(ctx, &s)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			wl := &workload.DeploymentWorkload{Deployment: testhelpers.BuildDeployment(types.NamespacedName{}, appLabel)}
+			wl.Deployment.Spec.Template = test.podTemplate
+			t.Log("Creating AuthProxyWorkload")
+
+			_, err = tp.CreateAuthProxyWorkload(ctx, key, appLabel, tp.ConnectionString, kind)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			t.Log("Waiting for AuthProxyWorkload operator to begin the reconcile loop")
+			_, err = tp.GetAuthProxyWorkloadAfterReconcile(ctx, key)
+			if err != nil {
+				t.Fatal("unable to create AuthProxyWorkload", err)
+			}
+
+			t.Log("Creating ", kind)
+			wl.Object().SetNamespace(tp.Namespace)
+			wl.Object().SetName(pwlName)
+			err = tp.CreateWorkload(ctx, wl.Object())
+			if err != nil {
+				t.Fatal("unable to create ", kind, err)
+			}
+			selector := &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": appLabel},
+			}
+			t.Log("Checking for container counts", kind)
+			err = tp.ExpectPodContainerCount(ctx, selector, 2, "all")
+			if err != nil {
+				t.Error(err)
+			}
+
+			// The pods are configured to only be ready when the real database client
+			// successfully executes a simple query on the database.
+			t.Log("Checking for ready", kind)
+			err = tp.ExpectPodReady(ctx, selector, "all")
+			if err != nil {
+				t.Error(err)
+			}
+
+			t.Log("Done, OK", kind)
+
+		})
+	}
+
+}
