@@ -120,6 +120,7 @@ _Appears in:_
 
 | Field | Description |
 | --- | --- |
+| `quotaProject` _string_ | QuotaProject Specifies the project to use for Cloud SQL Admin API quota tracking. The IAM principal must have the "serviceusage.services.use" permission for the given project. See https://cloud.google.com/service-usage/docs/overview and https://cloud.google.com/storage/docs/requester-pays This sets the proxy container's CLI argument `--quota-project` |
 | `prometheus` _boolean_ | Prometheus Enables Prometheus HTTP endpoint /metrics on localhost This sets the proxy container's CLI argument `--prometheus` |
 | `prometheusNamespace` _string_ | PrometheusNamespace is used the provided Prometheus namespace for metrics This sets the proxy container's CLI argument `--prometheus-namespace` |
 | `telemetryProject` _string_ | TelemetryProject enables Cloud Monitoring and Cloud Trace with the provided project ID. This sets the proxy container's CLI argument `--telemetry-project` |
