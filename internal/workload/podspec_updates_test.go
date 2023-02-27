@@ -628,7 +628,9 @@ func TestProxyCLIArgs(t *testing.T) {
 				AuthProxyContainer: &v1alpha1.AuthProxyContainerSpec{
 					SQLAdminAPIEndpoint: "https://example.com",
 					Telemetry: &v1alpha1.TelemetrySpec{
-						HTTPPort: ptr(int32(9092)),
+						HTTPPort:       ptr(int32(9092)),
+						DisableTraces:  &wantTrue,
+						DisableMetrics: &wantTrue,
 					},
 					AdminServer: &v1alpha1.AdminServerSpec{
 						EnableAPIs: []string{"Debug", "QuitQuitQuit"},
@@ -652,6 +654,8 @@ func TestProxyCLIArgs(t *testing.T) {
 				"CSQL_PROXY_DEBUG":                 "true",
 				"CSQL_PROXY_QUITQUITQUIT":          "true",
 				"CSQL_PROXY_HEALTH_CHECK":          "true",
+				"CSQL_PROXY_DISABLE_TRACES":        "true",
+				"CSQL_PROXY_DISABLE_METRICS":       "true",
 				"CSQL_PROXY_MAX_CONNECTIONS":       "10",
 				"CSQL_PROXY_MAX_SIGTERM_DELAY":     "20",
 			},
