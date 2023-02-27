@@ -120,6 +120,8 @@ _Appears in:_
 
 | Field | Description |
 | --- | --- |
+| `prometheus` _boolean_ | Prometheus Enables Prometheus HTTP endpoint /metrics on localhost This sets the proxy container's CLI argument `--prometheus` |
+| `prometheusNamespace` _string_ | PrometheusNamespace is used the provided Prometheus namespace for metrics This sets the proxy container's CLI argument `--prometheus-namespace` |
 | `telemetryProject` _string_ | TelemetryProject enables Cloud Monitoring and Cloud Trace with the provided project ID. This sets the proxy container's CLI argument `--telemetry-project` |
 | `telemetryPrefix` _string_ | TelemetryPrefix is the prefix for Cloud Monitoring metrics. This sets the proxy container's CLI argument `--telemetry-prefix` |
 | `telemetrySampleRate` _integer_ | TelemetrySampleRate is the Cloud Trace sample rate. A smaller number means more traces. This sets the proxy container's CLI argument `--telemetry-sample-rate` |
