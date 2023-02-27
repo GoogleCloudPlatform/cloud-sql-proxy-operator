@@ -120,6 +120,9 @@ _Appears in:_
 
 | Field | Description |
 | --- | --- |
+| `telemetryProject` _string_ | TelemetryProject enables Cloud Monitoring and Cloud Trace with the provided project ID. This sets the proxy container's CLI argument `--telemetry-project` |
+| `telemetryPrefix` _string_ | TelemetryPrefix is the prefix for Cloud Monitoring metrics. This sets the proxy container's CLI argument `--telemetry-prefix` |
+| `telemetrySampleRate` _integer_ | TelemetrySampleRate is the Cloud Trace sample rate. A smaller number means more traces. This sets the proxy container's CLI argument `--telemetry-sample-rate` |
 | `httpPort` _integer_ | HTTPPort the port for Prometheus and health check server. This sets the proxy container's CLI argument `--http-port` |
 | `disableTraces` _boolean_ | DisableTraces disables Cloud Trace testintegration (used with telemetryProject) This sets the proxy container's CLI argument `--disable-traces` |
 | `disableMetrics` _boolean_ | DisableMetrics disables Cloud Monitoring testintegration (used with telemetryProject) This sets the proxy container's CLI argument `--disable-metrics` |
