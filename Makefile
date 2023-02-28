@@ -286,6 +286,7 @@ e2e_cluster_job: e2e_project terraform # Build infrastructure for e2e tests in t
 	PROJECT_DIR=$(PWD) \
   		E2E_PROJECT_ID=$(E2E_PROJECT_ID) \
   		KUBECONFIG_E2E=$(KUBECONFIG_E2E) \
+  		PRIVATE_KUBECONFIG_E2E=$(PRIVATE_KUBECONFIG_E2E) \
   		E2E_DOCKER_URL_FILE=$(E2E_DOCKER_URL_FILE) \
   		ENVIRONMENT_NAME=$(ENVIRONMENT_NAME) \
   		NODEPOOL_SERVICEACCOUNT_EMAIL=$(NODEPOOL_SERVICEACCOUNT_EMAIL) \
@@ -310,6 +311,7 @@ e2e_cluster_destroy: e2e_project terraform # Destroy the infrastructure for e2e 
 	PROJECT_DIR=$(PWD) \
   		E2E_PROJECT_ID=$(E2E_PROJECT_ID) \
   		KUBECONFIG_E2E=$(KUBECONFIG_E2E) \
+  		PRIVATE_KUBECONFIG_E2E=$(PRIVATE_KUBECONFIG_E2E) \
   		E2E_DOCKER_URL_FILE=$(E2E_DOCKER_URL_FILE) \
   		ENVIRONMENT_NAME=$(ENVIRONMENT_NAME) \
   		TESTINFRA_JSON_FILE=$(LOCALBIN)/testinfra.json \
@@ -348,10 +350,6 @@ e2e_install_crd: generate e2e_project kustomize kubectl $(E2E_WORK_DIR) # Instal
 	$(KUSTOMIZE) build config/crd > $(E2E_WORK_DIR)/crd.yaml
 	$(E2E_KUBECTL) apply -f $(E2E_WORK_DIR)/crd.yaml
 	$(E2E_PRIVATE_KUBECTL) apply -f $(E2E_WORK_DIR)/crd.yaml
-
-.PHONY: e2e_per_cluster
-e2e_per_cluster: $(KUBECONFIG_E2E) $(PRIVATE_KUBECONFIG_E2E)
-	for kubeconfig in $^; do echo "Cluster: $$kubeconfig"; done
 
 .PHONY: e2e_deploy
 e2e_deploy: e2e_project kustomize kubectl $(E2E_WORK_DIR) # Deploy the operator to the GKE cluster
