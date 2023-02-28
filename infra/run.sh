@@ -141,6 +141,7 @@ EOF
       -var "gcloud_docker_url_file=$E2E_DOCKER_URL_FILE" \
       -var "project_id=$E2E_PROJECT_ID" \
       -var "kubeconfig_path=$KUBECONFIG_E2E" \
+      -var "private_kubeconfig_path=$PRIVATE_KUBECONFIG_E2E" \
       -var "environment_name=$ENVIRONMENT_NAME" \
       -var "nodepool_serviceaccount_email=$NODEPOOL_SERVICEACCOUNT_EMAIL"
 
