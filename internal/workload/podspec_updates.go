@@ -656,6 +656,12 @@ func (s *updateState) applyTelemetrySpec(p *cloudsqlapi.AuthProxyWorkload) {
 	if tel.DisableMetrics != nil && *tel.DisableMetrics {
 		s.addProxyContainerEnvVar(p, "CSQL_PROXY_DISABLE_METRICS", "true")
 	}
+	if tel.PrometheusNamespace != nil || (tel.Prometheus != nil && *tel.Prometheus) {
+		s.addProxyContainerEnvVar(p, "CSQL_PROXY_PROMETHEUS", "true")
+	}
+	if tel.PrometheusNamespace != nil {
+		s.addProxyContainerEnvVar(p, "CSQL_PROXY_PROMETHEUS_NAMESPACE", *tel.PrometheusNamespace)
+	}
 	if tel.TelemetryProject != nil {
 		s.addProxyContainerEnvVar(p, "CSQL_PROXY_TELEMETRY_PROJECT", *tel.TelemetryProject)
 	}

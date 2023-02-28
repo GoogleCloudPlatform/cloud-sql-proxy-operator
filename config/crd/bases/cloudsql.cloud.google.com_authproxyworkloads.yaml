@@ -935,6 +935,12 @@ spec:
                           description: HTTPPort the port for Prometheus and health check server. This sets the proxy container's CLI argument `--http-port`
                           format: int32
                           type: integer
+                        prometheus:
+                          description: Prometheus Enables Prometheus HTTP endpoint /metrics on localhost This sets the proxy container's CLI argument `--prometheus`
+                          type: boolean
+                        prometheusNamespace:
+                          description: PrometheusNamespace is used the provided Prometheus namespace for metrics This sets the proxy container's CLI argument `--prometheus-namespace`
+                          type: string
                         telemetryPrefix:
                           description: TelemetryPrefix is the prefix for Cloud Monitoring metrics. This sets the proxy container's CLI argument `--telemetry-prefix`
                           type: string

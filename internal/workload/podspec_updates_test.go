@@ -628,12 +628,14 @@ func TestProxyCLIArgs(t *testing.T) {
 				AuthProxyContainer: &v1alpha1.AuthProxyContainerSpec{
 					SQLAdminAPIEndpoint: "https://example.com",
 					Telemetry: &v1alpha1.TelemetrySpec{
-						HTTPPort:            ptr(int32(9092)),
-						DisableTraces:       &wantTrue,
-						DisableMetrics:      &wantTrue,
 						TelemetryPrefix:     ptr("telprefix"),
 						TelemetryProject:    ptr("telproject"),
 						TelemetrySampleRate: ptr(200),
+						HTTPPort:            ptr(int32(9092)),
+						DisableTraces:       &wantTrue,
+						DisableMetrics:      &wantTrue,
+						Prometheus:          &wantTrue,
+						PrometheusNamespace: ptr("hello"),
 					},
 					AdminServer: &v1alpha1.AdminServerSpec{
 						EnableAPIs: []string{"Debug", "QuitQuitQuit"},
@@ -653,6 +655,7 @@ func TestProxyCLIArgs(t *testing.T) {
 			wantWorkloadEnv: map[string]string{
 				"CSQL_PROXY_SQLADMIN_API_ENDPOINT": "https://example.com",
 				"CSQL_PROXY_TELEMETRY_SAMPLE_RATE": "200",
+				"CSQL_PROXY_PROMETHEUS_NAMESPACE":  "hello",
 				"CSQL_PROXY_TELEMETRY_PROJECT":     "telproject",
 				"CSQL_PROXY_TELEMETRY_PREFIX":      "telprefix",
 				"CSQL_PROXY_HTTP_PORT":             "9092",
@@ -662,6 +665,7 @@ func TestProxyCLIArgs(t *testing.T) {
 				"CSQL_PROXY_HEALTH_CHECK":          "true",
 				"CSQL_PROXY_DISABLE_TRACES":        "true",
 				"CSQL_PROXY_DISABLE_METRICS":       "true",
+				"CSQL_PROXY_PROMETHEUS":            "true",
 				"CSQL_PROXY_MAX_CONNECTIONS":       "10",
 				"CSQL_PROXY_MAX_SIGTERM_DELAY":     "20",
 			},
