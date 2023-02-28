@@ -14,7 +14,7 @@ to the matching workload pods.
 
 ## Installation
 
-Check for the latest version on the [releases page][releases/latest] and use the
+Check for the latest version on the [releases page](/releases/latest) and use the
 following instructions. 
 
 Confirm that kubectl can connect to your kubernetes cluster.
