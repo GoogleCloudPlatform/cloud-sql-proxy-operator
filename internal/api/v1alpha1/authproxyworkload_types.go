@@ -220,6 +220,21 @@ type AdminServerSpec struct {
 
 // TelemetrySpec specifies how the proxy container will expose telemetry.
 type TelemetrySpec struct {
+	// TelemetryProject enables Cloud Monitoring and Cloud Trace with the provided project ID.
+	// This sets the proxy container's CLI argument `--telemetry-project`
+	//+kubebuilder:validation:Optional
+	TelemetryProject *string `json:"telemetryProject,omitempty"`
+
+	// TelemetryPrefix is the prefix for Cloud Monitoring metrics.
+	// This sets the proxy container's CLI argument `--telemetry-prefix`
+	//+kubebuilder:validation:Optional
+	TelemetryPrefix *string `json:"telemetryPrefix,omitempty"`
+
+	// TelemetrySampleRate is the Cloud Trace sample rate. A smaller number means more traces.
+	// This sets the proxy container's CLI argument `--telemetry-sample-rate`
+	//+kubebuilder:validation:Optional
+	TelemetrySampleRate *int `json:"telemetrySampleRate,omitempty"`
+
 	// HTTPPort the port for Prometheus and health check server.
 	// This sets the proxy container's CLI argument `--http-port`
 	//+kubebuilder:validation:Optional

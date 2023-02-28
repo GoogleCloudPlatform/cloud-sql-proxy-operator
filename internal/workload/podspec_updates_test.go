@@ -628,9 +628,12 @@ func TestProxyCLIArgs(t *testing.T) {
 				AuthProxyContainer: &v1alpha1.AuthProxyContainerSpec{
 					SQLAdminAPIEndpoint: "https://example.com",
 					Telemetry: &v1alpha1.TelemetrySpec{
-						HTTPPort:       ptr(int32(9092)),
-						DisableTraces:  &wantTrue,
-						DisableMetrics: &wantTrue,
+						HTTPPort:            ptr(int32(9092)),
+						DisableTraces:       &wantTrue,
+						DisableMetrics:      &wantTrue,
+						TelemetryPrefix:     ptr("telprefix"),
+						TelemetryProject:    ptr("telproject"),
+						TelemetrySampleRate: ptr(200),
 					},
 					AdminServer: &v1alpha1.AdminServerSpec{
 						EnableAPIs: []string{"Debug", "QuitQuitQuit"},
@@ -649,6 +652,9 @@ func TestProxyCLIArgs(t *testing.T) {
 			},
 			wantWorkloadEnv: map[string]string{
 				"CSQL_PROXY_SQLADMIN_API_ENDPOINT": "https://example.com",
+				"CSQL_PROXY_TELEMETRY_SAMPLE_RATE": "200",
+				"CSQL_PROXY_TELEMETRY_PROJECT":     "telproject",
+				"CSQL_PROXY_TELEMETRY_PREFIX":      "telprefix",
 				"CSQL_PROXY_HTTP_PORT":             "9092",
 				"CSQL_PROXY_ADMIN_PORT":            "9091",
 				"CSQL_PROXY_DEBUG":                 "true",

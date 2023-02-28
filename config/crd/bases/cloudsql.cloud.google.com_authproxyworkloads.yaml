@@ -935,6 +935,15 @@ spec:
                           description: HTTPPort the port for Prometheus and health check server. This sets the proxy container's CLI argument `--http-port`
                           format: int32
                           type: integer
+                        telemetryPrefix:
+                          description: TelemetryPrefix is the prefix for Cloud Monitoring metrics. This sets the proxy container's CLI argument `--telemetry-prefix`
+                          type: string
+                        telemetryProject:
+                          description: TelemetryProject enables Cloud Monitoring and Cloud Trace with the provided project ID. This sets the proxy container's CLI argument `--telemetry-project`
+                          type: string
+                        telemetrySampleRate:
+                          description: TelemetrySampleRate is the Cloud Trace sample rate. A smaller number means more traces. This sets the proxy container's CLI argument `--telemetry-sample-rate`
+                          type: integer
                       type: object
                   type: object
                 instances:

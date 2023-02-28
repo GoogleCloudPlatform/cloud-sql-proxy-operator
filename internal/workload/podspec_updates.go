@@ -647,11 +647,20 @@ func (s *updateState) applyTelemetrySpec(p *cloudsqlapi.AuthProxyWorkload) {
 	}
 	tel := p.Spec.AuthProxyContainer.Telemetry
 
+	if tel.TelemetrySampleRate != nil {
+		s.addProxyContainerEnvVar(p, "CSQL_PROXY_TELEMETRY_SAMPLE_RATE", fmt.Sprintf("%d", *tel.TelemetrySampleRate))
+	}
 	if tel.DisableTraces != nil && *tel.DisableTraces {
 		s.addProxyContainerEnvVar(p, "CSQL_PROXY_DISABLE_TRACES", "true")
 	}
 	if tel.DisableMetrics != nil && *tel.DisableMetrics {
 		s.addProxyContainerEnvVar(p, "CSQL_PROXY_DISABLE_METRICS", "true")
+	}
+	if tel.TelemetryProject != nil {
+		s.addProxyContainerEnvVar(p, "CSQL_PROXY_TELEMETRY_PROJECT", *tel.TelemetryProject)
+	}
+	if tel.TelemetryPrefix != nil {
+		s.addProxyContainerEnvVar(p, "CSQL_PROXY_TELEMETRY_PREFIX", *tel.TelemetryPrefix)
 	}
 
 	return
