@@ -47,23 +47,27 @@ var (
 	}))
 
 	// These vars hold state initialized by SetupTests.
-	c             client.Client
+	publicClient  client.Client
+	privateClient client.Client
 	infra         testInfra
 	proxyImageURL string
 	operatorURL   string
 )
 
+func newPrivatePostgresClient(ns string) *testhelpers.TestCaseClient {
+	return newTestClient(ns, infra.Private.Postgres, privateClient)
+}
 func newPublicPostgresClient(ns string) *testhelpers.TestCaseClient {
-	return newTestClient(ns, infra.Public.Postgres)
+	return newTestClient(ns, infra.Public.Postgres, publicClient)
 }
 func newPublicMySQLClient(ns string) *testhelpers.TestCaseClient {
-	return newTestClient(ns, infra.Public.MySQL)
+	return newTestClient(ns, infra.Public.MySQL, publicClient)
 }
 func newPublicMSSQLClient(ns string) *testhelpers.TestCaseClient {
-	return newTestClient(ns, infra.Public.MSSQL)
+	return newTestClient(ns, infra.Public.MSSQL, publicClient)
 }
 
-func newTestClient(ns string, db testDatabase) *testhelpers.TestCaseClient {
+func newTestClient(ns string, db testDatabase, c client.Client) *testhelpers.TestCaseClient {
 	return &testhelpers.TestCaseClient{
 		Client:           c,
 		Namespace:        testhelpers.NewNamespaceName(ns),
@@ -119,35 +123,43 @@ func setupTests() (func(), error) {
 	}
 	infra = ti
 
-	setupKubernetesClient(ctx, infra.Public)
+	publicClient, err = setupKubernetesClient(infra.Public)
+	privateClient, err = setupKubernetesClient(infra.Private)
+	waitForAndTailOperatorPods(ctx, publicClient)
+	waitForAndTailOperatorPods(ctx, privateClient)
 
 	return cancelFunc, nil
 }
 
-func setupKubernetesClient(ctx context.Context, ti testEnvironment) error {
+func setupKubernetesClient(ti testEnvironment) (client.Client, error) {
 	// Build the kubernetes client
 	config, err := clientcmd.BuildConfigFromFlags("", ti.Kubeconfig)
 	if err != nil {
-		return fmt.Errorf("unable to build kubernetes client for config %s, %v", ti.Kubeconfig, err)
+		return nil, fmt.Errorf("unable to build kubernetes client for config %s, %v", ti.Kubeconfig, err)
 	}
 	config.RateLimiter = nil
 	k8sClientSet, err = kubernetes.NewForConfig(config)
 	if err != nil {
-		return fmt.Errorf("unable to setup e2e kubernetes client  %v", err)
+		return nil, fmt.Errorf("unable to setup e2e kubernetes client  %v", err)
 	}
 	s := scheme.Scheme
 	controller.InitScheme(s)
-	c, err = client.New(config, client.Options{Scheme: s})
+
+	c, err := client.New(config, client.Options{Scheme: s})
 	if err != nil {
-		return fmt.Errorf("Unable to initialize kubernetes client %{v}", err)
+		return nil, fmt.Errorf("Unable to initialize kubernetes client %{v}", err)
 	}
 	if c == nil {
-		return fmt.Errorf("Kubernetes client was empty after initialization %v", err)
+		return nil, fmt.Errorf("Kubernetes client was empty after initialization %v", err)
 	}
+	return c, nil
+}
+
+func waitForAndTailOperatorPods(ctx context.Context, c client.Client) error {
 
 	// Check that the e2e k8s cluster is the operator that was last built from
 	// this working directory.
-	d, err := waitForCorrectOperatorPods(ctx, err)
+	d, err := waitForCorrectOperatorPods(ctx, c)
 
 	if err != nil {
 		return fmt.Errorf("unable to find manager deployment %v", err)
@@ -167,10 +179,10 @@ func setupKubernetesClient(ctx context.Context, ti testEnvironment) error {
 	return nil
 }
 
-func waitForCorrectOperatorPods(ctx context.Context, err error) (*appsv1.Deployment, error) {
+func waitForCorrectOperatorPods(ctx context.Context, c client.Client) (*appsv1.Deployment, error) {
 	deployment := &appsv1.Deployment{}
 	managerDeploymentKey := client.ObjectKey{Namespace: "cloud-sql-proxy-operator-system", Name: "cloud-sql-proxy-operator-controller-manager"}
-	err = testhelpers.RetryUntilSuccess(5, testhelpers.DefaultRetryInterval, func() error {
+	err := testhelpers.RetryUntilSuccess(5, testhelpers.DefaultRetryInterval, func() error {
 		// Fetch the deployment
 		err := c.Get(ctx, managerDeploymentKey, deployment)
 		if err != nil {
@@ -273,7 +285,8 @@ type testDatabase struct {
 }
 
 type testInfra struct {
-	Public testEnvironment `json:"public"`
+	Public  testEnvironment `json:"public"`
+	Private testEnvironment `json:"private"`
 }
 
 type testEnvironment struct {

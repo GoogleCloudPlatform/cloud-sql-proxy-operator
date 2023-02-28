@@ -28,7 +28,7 @@ resource "google_sql_database_instance" "private_postgres" {
   project          = var.project_id
   region           = var.gcloud_region
   database_version = "POSTGRES_13"
-  depends_on = [google_service_networking_connection.private_vpc_connection]
+  depends_on       = [google_service_networking_connection.private_vpc_connection]
 
   settings {
     tier        = "db-f1-micro"

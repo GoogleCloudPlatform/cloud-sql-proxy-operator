@@ -38,8 +38,8 @@ resource "google_container_cluster" "private" {
   subnetwork = google_compute_subnetwork.private_k8s_network.id
 
   ip_allocation_policy {
-    cluster_secondary_range_name  = "pod-ranges"
     services_secondary_range_name = google_compute_subnetwork.private_k8s_network.secondary_ip_range.0.range_name
+    cluster_secondary_range_name  = google_compute_subnetwork.private_k8s_network.secondary_ip_range.1.range_name
   }
 }
 
@@ -61,8 +61,9 @@ resource "google_container_node_pool" "private_preemptible_nodes" {
   }
 
   network_config {
-    enable_private_nodes = true
-    create_pod_range = true
+    enable_private_nodes = false
+    pod_range            = google_compute_subnetwork.private_k8s_network.secondary_ip_range.2.range_name
+    create_pod_range     = false
   }
 
   node_config {

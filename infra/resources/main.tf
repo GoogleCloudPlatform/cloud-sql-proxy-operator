@@ -68,6 +68,15 @@ locals {
       }
       kubeconfig = var.kubeconfig_path
     }
+    private = {
+      postgres = {
+        instance     = google_sql_database_instance.private_postgres.connection_name
+        dbName       = google_sql_database.private_db.name
+        rootUser     = "postgres"
+        rootPassword = random_id.db_password.hex
+      }
+      kubeconfig = var.private_kubeconfig_path
+    }
   }
 }
 
