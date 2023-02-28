@@ -64,18 +64,3 @@ resource "google_service_networking_connection" "private_vpc_connection" {
   service                 = "servicenetworking.googleapis.com"
   reserved_peering_ranges = [google_compute_global_address.private_ip_address.name]
 }
-
-resource "google_compute_firewall" "private_k8s_network" {
-  provider           = google-beta
-  name               = "test-network-egress-allow-all"
-  network            = google_compute_network.private_k8s_network.name
-  direction          = "EGRESS"
-  project            = var.project_id
-  destination_ranges = ["0.0.0.0/0"]
-  priority           = 1000
-
-  allow {
-    protocol = "all"
-  }
-
-}

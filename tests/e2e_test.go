@@ -508,7 +508,7 @@ func TestPrivateDBConnections(t *testing.T) {
 		{
 			name:        "postgres",
 			c:           newPrivatePostgresClient("postgresconn"),
-			podTemplate: testhelpers.BuildPgUnixPodSpec(600, appLabel, "db-secret"),
+			podTemplate: testhelpers.BuildPgPodSpec(600, appLabel, "db-secret"),
 			allOrAny:    "all",
 		},
 	}
