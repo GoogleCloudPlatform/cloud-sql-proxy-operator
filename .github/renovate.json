@@ -24,16 +24,10 @@
   },
   "regexManagers": [
     {
-      "fileMatch": [
-        "Makefile$"
-      ],
-      "matchStrings": [
-        "TERRAFORM_VERSION\\s.=\\s(?<currentValue>.*)"
-      ],
-      "datasourceTemplate": "github-tags",
-      "datasource": "hashicorp/terraform",
-      "versioningTemplate": "semver"
+      "fileMatch": ["^Makefile$"],
+      "matchStrings": ["TERRAFORM_VERSION=(?<currentValue>.*?)\\n"],
+      "depNameTemplate": "hashicorp/terraform",
+      "datasourceTemplate": "github-tags"
     }
-
-  ]
+  ],
 }
