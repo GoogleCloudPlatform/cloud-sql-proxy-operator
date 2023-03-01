@@ -636,6 +636,7 @@ func TestProxyCLIArgs(t *testing.T) {
 						DisableMetrics:      &wantTrue,
 						Prometheus:          &wantTrue,
 						PrometheusNamespace: ptr("hello"),
+						QuotaProject:        ptr("qp"),
 					},
 					AdminServer: &v1alpha1.AdminServerSpec{
 						EnableAPIs: []string{"Debug", "QuitQuitQuit"},
@@ -666,6 +667,7 @@ func TestProxyCLIArgs(t *testing.T) {
 				"CSQL_PROXY_DISABLE_TRACES":        "true",
 				"CSQL_PROXY_DISABLE_METRICS":       "true",
 				"CSQL_PROXY_PROMETHEUS":            "true",
+				"CSQL_PROXY_QUOTA_PROJECT":         "qp",
 				"CSQL_PROXY_MAX_CONNECTIONS":       "10",
 				"CSQL_PROXY_MAX_SIGTERM_DELAY":     "20",
 			},

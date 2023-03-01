@@ -668,6 +668,9 @@ func (s *updateState) applyTelemetrySpec(p *cloudsqlapi.AuthProxyWorkload) {
 	if tel.TelemetryPrefix != nil {
 		s.addProxyContainerEnvVar(p, "CSQL_PROXY_TELEMETRY_PREFIX", *tel.TelemetryPrefix)
 	}
+	if tel.QuotaProject != nil {
+		s.addProxyContainerEnvVar(p, "CSQL_PROXY_QUOTA_PROJECT", *tel.QuotaProject)
+	}
 
 	return
 }

@@ -220,6 +220,14 @@ type AdminServerSpec struct {
 
 // TelemetrySpec specifies how the proxy container will expose telemetry.
 type TelemetrySpec struct {
+	// QuotaProject Specifies the project to use for Cloud SQL Admin API quota tracking.
+	// The IAM principal must have the "serviceusage.services.use" permission
+	// for the given project. See https://cloud.google.com/service-usage/docs/overview and
+	// https://cloud.google.com/storage/docs/requester-pays
+	// This sets the proxy container's CLI argument `--quota-project`
+	//+kubebuilder:validation:Optional
+	QuotaProject *string `json:"quotaProject,omitempty"`
+
 	// Prometheus Enables Prometheus HTTP endpoint /metrics on localhost
 	// This sets the proxy container's CLI argument `--prometheus`
 	//+kubebuilder:validation:Optional
