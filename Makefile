@@ -424,7 +424,7 @@ KUBECTL_VERSION=$(shell curl -L -s https://dl.k8s.io/release/stable.txt | tr -d 
 # renovate datasource=github-tags depName=hashicorp/terraform
 TERRAFORM_VERSION=v1.2.7
 KUSTOMIZE_VERSION=v4.5.2 # renovate datasource=go depName=sigs.k8s.io/controller-runtime/tools/setup-envtest
-ENVTEST_VERSION=0.13.1 # renovate: datasource=go depName=sigs.k8s.io/controller-runtime/tools/setup-envtest
+ENVTEST_VERSION=0.13.1
 GOLANGCI_LINT_VERSION=latest
 CRD_REF_DOCS_VERSION=latest
 
