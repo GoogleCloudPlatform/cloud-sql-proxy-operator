@@ -37,7 +37,8 @@
       "fileMatch": ["^Makefile$"],
       "matchStrings": ["[A-Z]+_VERSION *\\?= *(?<currentValue>.*?)\\n"],
       "depNameTemplate": "hashicorp/terraform",
-      "datasourceTemplate": "github-tags"
+      "datasourceTemplate": "github-tags",
+      "versioningTemplate":"semver"
     }
   ]
 }
