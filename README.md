@@ -14,8 +14,10 @@ to the matching workload pods.
 
 ## Installation
 
-Check for the latest version on the [releases page][releases] and use the
+Check for the latest version on the [releases page][latest-release] and use the
 following instructions. 
+
+[latest-release]: https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/releases/latest
 
 Confirm that kubectl can connect to your kubernetes cluster.
 
