@@ -17,7 +17,9 @@
   "packageRules": [
     {
       "description": "Disable MAJOR update types",
-      "matchUpdateTypes": ["major"],
+      "matchUpdateTypes": [
+        "major"
+      ],
       "enabled": false
     }
   ],
@@ -33,9 +35,9 @@
   "regexManagers": [
     {
       "fileMatch": ["^Makefile$"],
-      "matchStrings": ["TERRAFORM_VERSION=(?<currentValue>.*?)\\n"],
+      "matchStrings": ["[A-Z]+_VERSION *\\?= *(?<currentValue>.*?)\\n"],
       "depNameTemplate": "hashicorp/terraform",
       "datasourceTemplate": "github-tags"
     }
-  ],
+  ]
 }
