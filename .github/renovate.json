@@ -14,6 +14,14 @@
   "postUpdateOptions": [
     "gomodTidy"
   ],
+  "packageRules": [
+    {
+      "description": "Disable MAJOR update types",
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    }
+  ],
+
   "ignoreDeps": [
     "golang.org/x/net"
   ],
