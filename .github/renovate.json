@@ -25,19 +25,10 @@
   "regexManagers": [
     {
       "fileMatch": [
-        "^Makefile$"
+        "Makefile$"
       ],
       "matchStrings": [
-        "s.*?_VERSION *.= *(?<currentValue>.*) *# *datasource=(?<datasource>.*?) depName=(?<depName>.*?)( versioning=(?<versioning>.*?))?"
-      ],
-      "versioningTemplate": "{{#if versioning}}{{{versioning}}}{{else}}semver{{/if}}"
-    },
-    {
-      "fileMatch": [
-        "^Makefile$"
-      ],
-      "matchStrings": [
-        "TERRAFORM_VERSION \\?= (?<currentValue>.*)"
+        "TERRAFORM_VERSION\\s.=\\s(?<currentValue>.*)"
       ],
       "datasourceTemplate": "github-tags",
       "datasource": "hashicorp/terraform",
