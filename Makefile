@@ -417,11 +417,16 @@ GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
 CRD_REF_DOCS ?= $(LOCALBIN)/crd-ref-docs
 
 ## Tool Versions
+
+# renovate: datasource=gomod depName=sigs.k8s.io/controller-tools/cmd/controller-gen versioning=semver
 CONTROLLER_TOOLS_VERSION ?= latest
 KUBECTL_VERSION ?= $(shell curl -L -s https://dl.k8s.io/release/stable.txt | tr -d '\n')
+# renovate: datasource=github-tags depName=hashicorp/terraform versioning=semver
 TERRAFORM_VERSION ?= 1.2.7
 KUSTOMIZE_VERSION ?= v4.5.2
-ENVTEST_VERSION ?= latest
+# renovate: datasource=gomod depName=sigs.k8s.io/controller-runtime/tools/setup-envtest versioning=semver
+ENVTEST_VERSION ?= 0.13.1
+# renovate: datasource=gomod depName=sigs.k8s.io/controller-runtime/tools/setup-envtest versioning=semver
 GOLANGCI_LINT_VERSION ?= latest
 CRD_REF_DOCS_VERSION ?= latest
 
