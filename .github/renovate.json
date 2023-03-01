@@ -35,7 +35,7 @@
   "regexManagers": [
     {
       "fileMatch": ["^Makefile$"],
-      "matchStrings": ["TERRAFORM_VERSION=(?<currentValue>.*?)(\\s*#|\\n)"],
+      "matchStrings": ["TERRAFORM_VERSION=(?<currentValue>.*?)(\\s*#)"],
       "depNameTemplate": "hashicorp/terraform",
       "datasourceTemplate": "github-tags",
       "versioningTemplate":"semver"
