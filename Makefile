@@ -422,7 +422,7 @@ CRD_REF_DOCS ?= $(LOCALBIN)/crd-ref-docs
 CONTROLLER_TOOLS_VERSION=0.10.0 # renovate datasource=go depName=sigs.k8s.io/controller-tools
 KUBECTL_VERSION=$(shell curl -L -s https://dl.k8s.io/release/stable.txt | tr -d '\n')
 TERRAFORM_VERSION=v1.2.7 # renovate datasource=github-tags depName=hashicorp/terraform
-KUSTOMIZE_VERSION=v4.5.2
+KUSTOMIZE_VERSION=v4.5.2 # renovate datasource=github-tags depName=kubernetes-sigs/kustomize
 ENVTEST_VERSION=0.13.1 # renovate datasource=go depName=sigs.k8s.io/controller-runtime
 GOLANGCI_LINT_VERSION=latest
 CRD_REF_DOCS_VERSION=latest
@@ -468,7 +468,7 @@ $(KUBECTL): $(LOCALBIN)
 terraform: $(TERRAFORM) # Download terraform
 $(TERRAFORM): $(LOCALBIN)
 	test -s $@ || \
-		( curl -L -o $@.zip https://releases.hashicorp.com/terraform/$(TERRAFORM_VERSION)/terraform_$(TERRAFORM_VERSION)_$(GOOS)_$(GOARCH).zip && \
+		( curl -L -o $@.zip https://releases.hashicorp.com/terraform/$(subst v,,$(TERRAFORM_VERSION))/terraform_$(subst v,,$(TERRAFORM_VERSION))_$(GOOS)_$(GOARCH).zip && \
 		cd $(LOCALBIN) && unzip -o $@.zip && \
 		rm -f $@.zip && \
 		chmod a+x $@ && \
