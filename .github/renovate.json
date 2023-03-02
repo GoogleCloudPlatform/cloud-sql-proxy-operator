@@ -36,7 +36,8 @@
     {
       "fileMatch": ["^Makefile$"],
       "matchStrings": [
-        "(?<envName>.*?_VERSION)\\s*=\\s*(?<currentValue>.*?)\\s*# renovate datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\n"
+        "(?<envName>.*?_VERSION)\\s*=\\s*(?<currentValue>.*?)\\s*# renovate datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\n",
+        "(?<envName>KUSTOMIZE_VERSION)\\s*=\\s*(?<currentValue>.*?)\\s*# renovate datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\n"
       ],
       "autoReplaceStringTemplate": "{{{envName}}}={{{newValue}}}\\n",
       "depNameTemplate": "{{{depName}}}",

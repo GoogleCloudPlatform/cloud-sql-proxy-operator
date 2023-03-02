@@ -419,13 +419,13 @@ CRD_REF_DOCS ?= $(LOCALBIN)/crd-ref-docs
 ## Tool Versions
 KUBECTL_VERSION=v0.26.2# renovate datasource=github-tags depName=kubernetes/kubectl
 TERRAFORM_VERSION=v1.2.7# renovate datasource=github-tags depName=hashicorp/terraform
-KUSTOMIZE_VERSION=kustomize/v4.5.2# renovate datasource=github-tags depName=kubernetes-sigs/kustomize
 
 CONTROLLER_TOOLS_VERSION=v0.10.0# renovate datasource=go depName=sigs.k8s.io/controller-tools
-ENVTEST_VERSION=latest# don't manage with renovate, setup-envtest does not have semantic releases
-GOLANGCI_LINT_VERSION=latest# don't manage with renovate, setup-envtest does not have semantic releases
 CRD_REF_DOCS_VERSION=v0.0.8# renovate datasource=go depName=github.com/elastic/crd-ref-docs
 
+ENVTEST_VERSION=latest# don't manage with renovate, setup-envtest does not have semantic releases
+GOLANGCI_LINT_VERSION=latest# don't manage with renovate, setup-envtest does not have semantic releases
+KUSTOMIZE_VERSION=v4.5.2# don't manage with renovate, this repo has non-standard tags
 
 GOOS?=$(shell go env GOOS | tr -d '\n')
 GOARCH?=$(shell go env GOARCH | tr -d '\n')
