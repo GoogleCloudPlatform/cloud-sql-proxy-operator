@@ -20,12 +20,14 @@
       "matchUpdateTypes": [
         "major"
       ],
-      "enabled": false
+      "enabled": false,
+    },
+    {
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "automerge": true,
+      "automergeType": "pr",
+      "automergeStrategy": "rebase"
     }
-  ],
-
-  "ignoreDeps": [
-    "golang.org/x/net"
   ],
   "force": {
     "constraints": {
