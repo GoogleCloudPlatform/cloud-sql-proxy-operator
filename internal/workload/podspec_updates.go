@@ -36,7 +36,7 @@ import (
 // package and documented here so that they appear in the godoc. These also
 // need to be documented in the CRD
 const (
-	DefaultProxyImage = "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.1.0"
+	DefaultProxyImage = "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.1.1"
 
 	// DefaultFirstPort is the first port number chose for an instance listener by the
 	// proxy.
