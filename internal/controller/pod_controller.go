@@ -134,9 +134,9 @@ func (a *PodAdmissionWebhook) listOwners(ctx context.Context, object client.Obje
 
 		wl, err := workload.WorkloadForKind(r.Kind)
 		if err != nil {
-			owner = &metav1.PartialObjectMetadata{
-				TypeMeta: metav1.TypeMeta{Kind: r.Kind, APIVersion: r.APIVersion},
-			}
+			// If the operator can't recognize the owner's Kind, then ignore
+			// that owner.
+			continue
 		} else {
 			owners = append(owners, wl)
 			owner = wl.Object()
