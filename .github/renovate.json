@@ -45,7 +45,7 @@
     {
       "fileMatch": ["podspec_updates.go$"],
       "matchStrings": [
-        "DefaultProxyImage = \"(?<depName>gcr.io/cloud-sql-connectors/cloud-sql-proxy):(?<currentValue>2.1.0)\"\\n"
+        "DefaultProxyImage = \"(?<depName>gcr.io/cloud-sql-connectors/cloud-sql-proxy):(?<currentValue>.*?)\"\\n"
       ],
       "depNameTemplate": "{{{depName}}}",
       "datasourceTemplate": "docker",
