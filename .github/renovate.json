@@ -1,22 +1,54 @@
 {
   "extends": [
     "config:base",
-    ":semanticCommitTypeAll(chore)"
+    ":semanticCommitTypeAll(chore)",
+    ":disableDependencyDashboard"
   ],
-  "ignorePresets": [":semanticPrefixFixDepsChoreOthers"],
+  "ignorePresets": [
+    ":semanticPrefixFixDepsChoreOthers"
+  ],
   "prConcurrentLimit": 0,
-  "rebaseStalePrs": true,
+  "rebaseWhen": "behind-base-branch",
   "dependencyDashboard": true,
-  "semanticCommits": true,
+  "semanticCommits": "enabled",
   "postUpdateOptions": [
     "gomodTidy"
   ],
+  "packageRules": [
+    {
+      "description": "Disable MAJOR update types",
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "enabled": false
+    }
+  ],
+
   "ignoreDeps": [
-      "golang.org/x/net"
+    "golang.org/x/net"
   ],
   "force": {
     "constraints": {
       "go": "1.20"
     }
-  }
+  },
+  "regexManagers": [
+    {
+      "fileMatch": ["^Makefile$"],
+      "matchStrings": [
+        "(?<envName>.*?_VERSION)\\s*=\\s*(?<currentValue>.*?)\\s*# renovate datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\n"
+      ],
+      "depNameTemplate": "{{{depName}}}",
+      "datasourceTemplate": "{{{datasource}}}",
+      "versioningTemplate": "semver"
+    },
+    {
+      "fileMatch": ["podspec_updates.go$"],
+      "matchStrings": [
+        "DefaultProxyImage = \"(?<depName>gcr.io/cloud-sql-connectors/cloud-sql-proxy):(?<currentValue>2.1.0)\"\\n"
+      ],
+      "depNameTemplate": "{{{depName}}}",
+      "datasourceTemplate": "docker",
+    }
+  ]
 }
