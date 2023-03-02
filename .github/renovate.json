@@ -35,19 +35,14 @@
   "regexManagers": [
     {
       "fileMatch": ["^Makefile$"],
-      "matchStrings": ["TERRAFORM_VERSION=(?<currentValue>.*?)\\n"],
-      "autoReplaceStringTemplate": "TERRAFORM_VERSION={{{newValue}}}\\n",
-      "depNameTemplate": "hashicorp/terraform",
-      "datasourceTemplate": "github-tags",
-      "versioningTemplate": "semver"
-    },
-    {
-      "fileMatch": ["^Makefile$"],
-      "matchStrings": ["ENVTEST_VERSION=(?<currentValue>.*?)\\n"],
-      "autoReplaceStringTemplate": "ENVTEST_VERSION={{{newValue}}}\\n",
-      "depName": "sigs.k8s.io/controller-runtime/tools/setup-envtest",
-      "datasource": "gomod",
+      "matchStrings": [
+        "(?<envName>.*?_VERSION)\\s*=\\s*(?<currentValue>.*?)\\s*# renovate datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\n"
+      ],
+      "autoReplaceStringTemplate": "{{{envName}}}={{{newValue}}}\\n",
+      "depNameTemplate": "{{{depName}}}",
+      "datasourceTemplate": "{{{datasource}}}",
       "versioningTemplate": "semver"
     }
   ]
+
 }
