@@ -417,21 +417,21 @@ GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
 CRD_REF_DOCS ?= $(LOCALBIN)/crd-ref-docs
 
 ## Tool Versions
-
-
-CONTROLLER_TOOLS_VERSION=0.10.0 # renovate datasource=go depName=sigs.k8s.io/controller-tools
-KUBECTL_VERSION=$(shell curl -L -s https://dl.k8s.io/release/stable.txt | tr -d '\n')
+KUBECTL_VERSION=v0.26.2 # renovate datasource=github-tags depName=kubernetes/kubectl
 TERRAFORM_VERSION=v1.2.7 # renovate datasource=github-tags depName=hashicorp/terraform
 KUSTOMIZE_VERSION=v4.5.2 # renovate datasource=github-tags depName=kubernetes-sigs/kustomize
+
+CONTROLLER_TOOLS_VERSION=0.10.0 # renovate datasource=go depName=sigs.k8s.io/controller-tools
 ENVTEST_VERSION=0.13.1 # renovate datasource=go depName=sigs.k8s.io/controller-runtime
-GOLANGCI_LINT_VERSION=latest
-CRD_REF_DOCS_VERSION=latest
+GOLANGCI_LINT_VERSION=1.52.1 # renovate datasource=go depName=github.com/golangci/golangci-lint/cmd/golangci-lint
+CRD_REF_DOCS_VERSION=0.0.8 # renovate datasource=go depName=github.com/elastic/crd-ref-docs
+
 
 GOOS?=$(shell go env GOOS | tr -d '\n')
 GOARCH?=$(shell go env GOARCH | tr -d '\n')
 
 remove_tools:
-	rm -rf $(LOCALBIN)/*
+	rm -rf $(KUSTOMIZE) $(CONTROLLER_GEN) $(KUBECTL) $(ENVTEST) $(TERRAFORM) $(GOLANGCI_LINT) $(CRD_REF_DOCS)
 
 all_tools: kustomize controller-gen envtest kubectl terraform golangci-lint crd-ref-docs
 
