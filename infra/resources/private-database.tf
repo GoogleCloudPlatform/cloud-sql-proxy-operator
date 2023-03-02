@@ -24,7 +24,7 @@ resource "random_id" "private_db_name_suffix" {
 resource "google_sql_database_instance" "private_postgres" {
   provider = google-beta
 
-  name             = "privateinst${random_id.private_db_name_suffix.hex}"
+  name             = "privateinst${random_id.private_db_name_suffix.hex}${var.environment_name}"
   project          = var.project_id
   region           = var.gcloud_region
   database_version = "POSTGRES_13"

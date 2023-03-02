@@ -17,7 +17,7 @@ resource "google_compute_network" "private_k8s_network" {
   provider = google-beta
   project  = var.project_id
 
-  name                    = "test-network"
+  name                    = "test-vpc-${var.environment_name}"
   auto_create_subnetworks = false
 }
 
@@ -26,7 +26,7 @@ resource "google_compute_subnetwork" "private_k8s_network" {
   project  = var.project_id
   region   = var.gcloud_region
 
-  name          = "test-subnetwork"
+  name          = "test-vpc-subnetwork-${var.environment_name}"
   ip_cidr_range = "10.2.0.0/16"
   network       = google_compute_network.private_k8s_network.id
 
@@ -50,7 +50,7 @@ resource "google_compute_global_address" "private_ip_address" {
   provider = google-beta
   project  = var.project_id
 
-  name          = "private-ip-address"
+  name          = "test-vpc-private-ip-address-${var.environment_name}"
   purpose       = "VPC_PEERING"
   address_type  = "INTERNAL"
   prefix_length = 16
@@ -63,19 +63,4 @@ resource "google_service_networking_connection" "private_vpc_connection" {
   network                 = google_compute_network.private_k8s_network.id
   service                 = "servicenetworking.googleapis.com"
   reserved_peering_ranges = [google_compute_global_address.private_ip_address.name]
-}
-
-resource "google_compute_firewall" "private_k8s_network" {
-  provider           = google-beta
-  name               = "test-network-egress-allow-all"
-  network            = google_compute_network.private_k8s_network.name
-  direction          = "EGRESS"
-  project            = var.project_id
-  destination_ranges = ["0.0.0.0/0"]
-  priority           = 1000
-
-  allow {
-    protocol = "all"
-  }
-
 }

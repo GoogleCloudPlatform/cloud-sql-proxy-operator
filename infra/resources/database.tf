@@ -24,7 +24,7 @@ resource "random_id" "db_password" {
 
 # See versions at https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/sql_database_instance#database_version
 resource "google_sql_database_instance" "instance" {
-  name             = "inst${random_id.db_name.hex}"
+  name             = "inst${random_id.db_name.hex}${var.environment_name}"
   project          = var.project_id
   region           = var.gcloud_region
   database_version = "POSTGRES_13"
@@ -44,7 +44,7 @@ resource "google_sql_database" "db" {
 
 # See versions at https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/sql_database_instance#database_version
 resource "google_sql_database_instance" "mysql" {
-  name             = "mysql${random_id.db_name.hex}"
+  name             = "mysql${random_id.db_name.hex}${var.environment_name}"
   project          = var.project_id
   region           = var.gcloud_region
   database_version = "MYSQL_8_0"
@@ -72,7 +72,7 @@ resource "google_sql_user" "mysql_user" {
 
 # See versions at https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/sql_database_instance#database_version
 resource "google_sql_database_instance" "mssql" {
-  name             = "mssql${random_id.db_name.hex}"
+  name             = "mssql${random_id.db_name.hex}${var.environment_name}"
   project          = var.project_id
   region           = var.gcloud_region
   database_version = "SQLSERVER_2019_EXPRESS"
