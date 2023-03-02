@@ -419,11 +419,11 @@ CRD_REF_DOCS ?= $(LOCALBIN)/crd-ref-docs
 ## Tool Versions
 
 
-CONTROLLER_TOOLS_VERSION=latest # renovate datasource=go depName=sigs.k8s.io/controller-tools/cmd/controller-gen
+CONTROLLER_TOOLS_VERSION=0.13.1 # renovate datasource=go depName=sigs.k8s.io/controller-tools/cmd/controller-gen
 KUBECTL_VERSION=$(shell curl -L -s https://dl.k8s.io/release/stable.txt | tr -d '\n')
 TERRAFORM_VERSION=v1.2.7 # renovate datasource=github-tags depName=hashicorp/terraform
 KUSTOMIZE_VERSION=v4.5.2
-ENVTEST_VERSION=v0.13.1 # renovate datasource=go depName=sigs.k8s.io/controller-runtime/tools/setup-envtest
+ENVTEST_VERSION=0.13.1 # renovate datasource=go depName=sigs.k8s.io/controller-runtime/tools/setup-envtest
 GOLANGCI_LINT_VERSION=latest
 CRD_REF_DOCS_VERSION=latest
 
