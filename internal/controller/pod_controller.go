@@ -134,13 +134,13 @@ func (a *PodAdmissionWebhook) listOwners(ctx context.Context, object client.Obje
 
 		wl, err := workload.WorkloadForKind(r.Kind)
 		if err != nil {
-			// If the operator can't recognize the owner's Kind, then ignore
+			// If the operator doesn't recognize the owner's Kind, then ignore
 			// that owner.
 			continue
-		} else {
-			owners = append(owners, wl)
-			owner = wl.Object()
 		}
+
+		owners = append(owners, wl)
+		owner = wl.Object()
 
 		err = a.Client.Get(ctx, key, owner)
 		if err != nil {
