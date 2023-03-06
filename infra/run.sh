@@ -44,6 +44,8 @@
 #   E2E_PROJECT_ID - The Google Cloud project ID to act upon.
 #   KUBECONFIG_E2E - The output filename for the kubeconfig json file
 #     for the kubernetes cluster for the e2e environment.
+#   PRIVATE_KUBECONFIG_E2E - The output filename for the kubeconfig json file
+#     for the private ip kubernetes cluster for the e2e environment.
 #   E2E_DOCKER_URL_FILE - The output filename for a text file containing the
 #     URL to the docker container registry for the e2e test environment.
 #
@@ -84,6 +86,7 @@ function apply() {
         -var "gcloud_docker_url_file=$E2E_DOCKER_URL_FILE" \
         -var "project_id=$E2E_PROJECT_ID" \
         -var "kubeconfig_path=$KUBECONFIG_E2E" \
+        -var "private_kubeconfig_path=$PRIVATE_KUBECONFIG_E2E" \
         -var "environment_name=$ENVIRONMENT_NAME" \
         -var "nodepool_serviceaccount_email=$nodepool_serviceaccount_email"
 
@@ -97,6 +100,7 @@ function destroy() {
         -var "gcloud_docker_url_file=$E2E_DOCKER_URL_FILE" \
         -var "project_id=$E2E_PROJECT_ID" \
         -var "kubeconfig_path=$KUBECONFIG_E2E" \
+        -var "private_kubeconfig_path=$PRIVATE_KUBECONFIG_E2E" \
         -var "environment_name=$ENVIRONMENT_NAME" \
         -var "nodepool_serviceaccount_email=$nodepool_serviceaccount_email"
 }
@@ -137,6 +141,7 @@ EOF
       -var "gcloud_docker_url_file=$E2E_DOCKER_URL_FILE" \
       -var "project_id=$E2E_PROJECT_ID" \
       -var "kubeconfig_path=$KUBECONFIG_E2E" \
+      -var "private_kubeconfig_path=$PRIVATE_KUBECONFIG_E2E" \
       -var "environment_name=$ENVIRONMENT_NAME" \
       -var "nodepool_serviceaccount_email=$NODEPOOL_SERVICEACCOUNT_EMAIL"
 
@@ -175,6 +180,12 @@ fi
 #expects KUBECONFIG_E2E
 if [[ -z "$KUBECONFIG_E2E" ]]; then
   echo "expects KUBECONFIG_E2E to be set the location where kubeconfig should be written."
+  FAIL=1
+fi
+
+#expects PRIVATE_KUBECONFIG_E2E
+if [[ -z "$PRIVATE_KUBECONFIG_E2E" ]]; then
+  echo "expects PRIVATE_KUBECONFIG_E2E to be set the location where kubeconfig should be written."
   FAIL=1
 fi
 

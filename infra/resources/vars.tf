@@ -28,6 +28,10 @@ variable "kubeconfig_path" {
   type        = string
   description = "The path to save the kubeconfig file"
 }
+variable "private_kubeconfig_path" {
+  type        = string
+  description = "The path to save the kubeconfig file"
+}
 variable "output_json_path" {
   type        = string
   description = "The path to save test-infra.json file, input for e2e tests"

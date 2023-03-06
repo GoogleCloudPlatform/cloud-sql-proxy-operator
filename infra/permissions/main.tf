@@ -43,6 +43,7 @@ locals {
     "replicapoolupdater.googleapis.com",
     "resourceviews.googleapis.com",
     "servicemanagement.googleapis.com",
+    "servicenetworking.googleapis.com",
     "sql-component.googleapis.com",
     "sqladmin.googleapis.com",
   "storage-api.googleapis.com"])

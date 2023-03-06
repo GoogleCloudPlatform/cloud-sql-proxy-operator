@@ -27,6 +27,11 @@ terraform {
 provider "google" {
 }
 
+provider "google-beta" {
+  region = "us-central1"
+  zone   = "us-central1-a"
+}
+
 # Enable gcloud project APIs
 locals {
   standard_labels = {
@@ -62,6 +67,15 @@ locals {
         rootPassword = google_sql_user.mssql_user.password
       }
       kubeconfig = var.kubeconfig_path
+    }
+    private = {
+      postgres = {
+        instance     = google_sql_database_instance.private_postgres.connection_name
+        dbName       = google_sql_database.private_db.name
+        rootUser     = "postgres"
+        rootPassword = random_id.db_password.hex
+      }
+      kubeconfig = var.private_kubeconfig_path
     }
   }
 }

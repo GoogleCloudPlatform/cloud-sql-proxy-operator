@@ -210,6 +210,7 @@ deploy_operator: kustomize kubectl # Deploy controller to the K8s cluster using 
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
 	$(KUSTOMIZE) build config/default | $(KUBECTL) apply -f -
 	$(E2E_KUBECTL) rollout status deployment -n cloud-sql-proxy-operator-system cloud-sql-proxy-operator-controller-manager --timeout=90s
+	$(E2E_PRIVATE_KUBECTL) rollout status deployment -n cloud-sql-proxy-operator-system cloud-sql-proxy-operator-controller-manager --timeout=90s
 
 ##
 # Update installer
@@ -235,6 +236,7 @@ installer/install.sh: ## Build install shell script to deploy the operator
 # This is the file where Terraform will write the kubeconfig.yaml for the
 # GKE cluster.
 KUBECONFIG_E2E ?= $(PWD)/bin/e2e-kubeconfig.yaml
+PRIVATE_KUBECONFIG_E2E ?= $(PWD)/bin/e2e-private-kubeconfig.yaml
 
 # This is the file where Terraform will write the kubeconfig.yaml for the
 # GKE cluster.
@@ -242,7 +244,9 @@ ENVIRONMENT_NAME ?= $(shell whoami)
 
 # kubectl command with proper environment vars set
 E2E_KUBECTL_ENV = USE_GKE_E2E_AUTH_PLUGIN=True KUBECONFIG=$(KUBECONFIG_E2E)
+E2E_PRIVATE_KUBECTL_ENV = USE_GKE_E2E_AUTH_PLUGIN=True KUBECONFIG=$(PRIVATE_KUBECONFIG_E2E)
 E2E_KUBECTL = $(E2E_KUBECTL_ENV) $(KUBECTL)
+E2E_PRIVATE_KUBECTL = $(E2E_PRIVATE_KUBECTL_ENV) $(KUBECTL)
 
 # This is the file where Terraform will write the URL to the e2e container registry
 E2E_DOCKER_URL_FILE :=$(PWD)/bin/gcloud-docker-repo.url
@@ -287,6 +291,7 @@ e2e_cluster_job: e2e_project terraform # Build infrastructure for e2e tests in t
 	PROJECT_DIR=$(PWD) \
   		E2E_PROJECT_ID=$(E2E_PROJECT_ID) \
   		KUBECONFIG_E2E=$(KUBECONFIG_E2E) \
+  		PRIVATE_KUBECONFIG_E2E=$(PRIVATE_KUBECONFIG_E2E) \
   		E2E_DOCKER_URL_FILE=$(E2E_DOCKER_URL_FILE) \
   		ENVIRONMENT_NAME=$(ENVIRONMENT_NAME) \
   		NODEPOOL_SERVICEACCOUNT_EMAIL=$(NODEPOOL_SERVICEACCOUNT_EMAIL) \
@@ -300,6 +305,7 @@ e2e_cluster: e2e_project terraform # Build infrastructure for e2e tests
 	PROJECT_DIR=$(PWD) \
   		E2E_PROJECT_ID=$(E2E_PROJECT_ID) \
   		KUBECONFIG_E2E=$(KUBECONFIG_E2E) \
+  		PRIVATE_KUBECONFIG_E2E=$(PRIVATE_KUBECONFIG_E2E) \
   		E2E_DOCKER_URL_FILE=$(E2E_DOCKER_URL_FILE) \
   		ENVIRONMENT_NAME=$(ENVIRONMENT_NAME) \
   		TESTINFRA_JSON_FILE=$(LOCALBIN)/testinfra.json \
@@ -310,6 +316,7 @@ e2e_cluster_destroy: e2e_project terraform # Destroy the infrastructure for e2e 
 	PROJECT_DIR=$(PWD) \
   		E2E_PROJECT_ID=$(E2E_PROJECT_ID) \
   		KUBECONFIG_E2E=$(KUBECONFIG_E2E) \
+  		PRIVATE_KUBECONFIG_E2E=$(PRIVATE_KUBECONFIG_E2E) \
   		E2E_DOCKER_URL_FILE=$(E2E_DOCKER_URL_FILE) \
   		ENVIRONMENT_NAME=$(ENVIRONMENT_NAME) \
   		TESTINFRA_JSON_FILE=$(LOCALBIN)/testinfra.json \
@@ -318,11 +325,24 @@ e2e_cluster_destroy: e2e_project terraform # Destroy the infrastructure for e2e 
 .PHONY: e2e_cert_manager_deploy
 e2e_cert_manager_deploy: e2e_project helm # Deploy the certificate manager
 	helm repo add jetstack https://charts.jetstack.io --kubeconfig=$(KUBECONFIG_E2E)
+	helm repo add jetstack https://charts.jetstack.io --kubeconfig=$(PRIVATE_KUBECONFIG_E2E)
+
 	helm repo update --kubeconfig=$(KUBECONFIG_E2E)
+	helm repo update --kubeconfig=$(PRIVATE_KUBECONFIG_E2E)
+
 	helm get all -n cert-manager cert-manager --kubeconfig=$(KUBECONFIG_E2E)  || \
 		helm --kubeconfig=$(KUBECONFIG_E2E) install \
 			cert-manager jetstack/cert-manager \
 			--kubeconfig=$(KUBECONFIG_E2E) \
+			--namespace cert-manager \
+			--version "$(CERT_MANAGER_VERSION)" \
+			--create-namespace \
+			--set global.leaderElection.namespace=cert-manager \
+			--set installCRDs=true
+	helm get all -n cert-manager cert-manager --kubeconfig=$(PRIVATE_KUBECONFIG_E2E)  || \
+		helm --kubeconfig=$(PRIVATE_KUBECONFIG_E2E) install \
+			cert-manager jetstack/cert-manager \
+			--kubeconfig=$(PRIVATE_KUBECONFIG_E2E) \
 			--namespace cert-manager \
 			--version "$(CERT_MANAGER_VERSION)" \
 			--create-namespace \
@@ -334,15 +354,16 @@ e2e_cert_manager_deploy: e2e_project helm # Deploy the certificate manager
 e2e_install_crd: generate e2e_project kustomize kubectl $(E2E_WORK_DIR) # Install CRDs into the GKE cluster
 	$(KUSTOMIZE) build config/crd > $(E2E_WORK_DIR)/crd.yaml
 	$(E2E_KUBECTL) apply -f $(E2E_WORK_DIR)/crd.yaml
-
-
+	$(E2E_PRIVATE_KUBECTL) apply -f $(E2E_WORK_DIR)/crd.yaml
 
 .PHONY: e2e_deploy
 e2e_deploy: e2e_project kustomize kubectl $(E2E_WORK_DIR) # Deploy the operator to the GKE cluster
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(E2E_OPERATOR_URL)
 	$(KUSTOMIZE) build config/default > $(E2E_WORK_DIR)/operator.yaml
 	$(E2E_KUBECTL) apply -f $(E2E_WORK_DIR)/operator.yaml
+	$(E2E_PRIVATE_KUBECTL) apply -f $(E2E_WORK_DIR)/operator.yaml
 	$(E2E_KUBECTL) rollout status deployment -n cloud-sql-proxy-operator-system cloud-sql-proxy-operator-controller-manager --timeout=90s
+	$(E2E_PRIVATE_KUBECTL) rollout status deployment -n cloud-sql-proxy-operator-system cloud-sql-proxy-operator-controller-manager --timeout=90s
 
 
 # Note: `go test --count=1` is used to make sure go actually runs the tests every
@@ -360,10 +381,14 @@ e2e_cleanup_test_namespaces: e2e_project kustomize kubectl # remove e2e test nam
 	( $(E2E_KUBECTL) get ns -o=name | \
 		grep namespace/test | \
 		$(E2E_KUBECTL_ENV) xargs $(KUBECTL) delete ) || true
+	( $(E2E_PRIVATE_KUBECTL) get ns -o=name | \
+		grep namespace/test | \
+		$(E2E_PRIVATE_KUBECTL_ENV) xargs $(KUBECTL) delete ) || true
 
 .PHONY: e2e_undeploy
 e2e_undeploy: e2e_project kustomize kubectl $(E2E_WORK_DIR) # Remove the operator from the GKE cluster
 	$(E2E_KUBECTL) delete -f $(E2E_WORK_DIR)/operator.yaml
+	$(E2E_PRIVATE_KUBECTL) delete -f $(E2E_WORK_DIR)/operator.yaml
 
 ###
 # Build the operator docker image and push it to the

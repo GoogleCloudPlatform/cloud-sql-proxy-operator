@@ -15,6 +15,7 @@
 package tests
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -25,7 +26,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func TestMain(m *testing.M) {
@@ -68,32 +68,32 @@ func TestProxyAppliedOnNewWorkload(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		o        client.Object
+		o        workload.Workload
 		allOrAny string
 	}{
 		{
 			name:     "deployment",
-			o:        testhelpers.BuildDeployment(types.NamespacedName{}, "busybox"),
+			o:        &workload.DeploymentWorkload{Deployment: testhelpers.BuildDeployment(types.NamespacedName{}, "busybox")},
 			allOrAny: "all",
 		},
 		{
 			name:     "statefulset",
-			o:        testhelpers.BuildStatefulSet(types.NamespacedName{}, "busybox"),
+			o:        &workload.StatefulSetWorkload{StatefulSet: testhelpers.BuildStatefulSet(types.NamespacedName{}, "busybox")},
 			allOrAny: "all",
 		},
 		{
 			name:     "daemonset",
-			o:        testhelpers.BuildDaemonSet(types.NamespacedName{}, "busybox"),
+			o:        &workload.DaemonSetWorkload{DaemonSet: testhelpers.BuildDaemonSet(types.NamespacedName{}, "busybox")},
 			allOrAny: "all",
 		},
 		{
 			name:     "job",
-			o:        testhelpers.BuildJob(types.NamespacedName{}, "busybox"),
+			o:        &workload.JobWorkload{Job: testhelpers.BuildJob(types.NamespacedName{}, "busybox")},
 			allOrAny: "any",
 		},
 		{
 			name:     "cronjob",
-			o:        testhelpers.BuildCronJob(types.NamespacedName{}, "busybox"),
+			o:        &workload.CronJobWorkload{CronJob: testhelpers.BuildCronJob(types.NamespacedName{}, "busybox")},
 			allOrAny: "any",
 		},
 	}
@@ -103,7 +103,7 @@ func TestProxyAppliedOnNewWorkload(t *testing.T) {
 			t.Parallel()
 			ctx := testContext()
 
-			kind := test.o.GetObjectKind().GroupVersionKind().Kind
+			kind := test.o.Object().GetObjectKind().GroupVersionKind().Kind
 			tp := newPublicPostgresClient("new" + strings.ToLower(kind))
 
 			err := tp.CreateOrPatchNamespace(ctx)
@@ -140,15 +140,11 @@ func TestProxyAppliedOnNewWorkload(t *testing.T) {
 			}
 
 			t.Log("Creating ", kind)
-			test.o.SetNamespace(tp.Namespace)
-			test.o.SetName(test.name)
-			err = tp.CreateWorkload(ctx, test.o)
+			err = createWorkload(ctx, tp, test.o, test.name)
 			if err != nil {
 				t.Fatal("unable to create ", kind, err)
 			}
-			selector := &metav1.LabelSelector{
-				MatchLabels: map[string]string{"app": appLabel},
-			}
+			selector := appSelector(appLabel)
 			t.Log("Checking for container counts", kind)
 			err = tp.ExpectPodContainerCount(ctx, selector, 2, test.allOrAny)
 			if err != nil {
@@ -227,15 +223,11 @@ func TestProxyAppliedOnExistingWorkload(t *testing.T) {
 			key := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
 
 			t.Log("Creating ", kind)
-			test.o.Object().SetNamespace(tp.Namespace)
-			test.o.Object().SetName(test.name)
-			err = tp.CreateWorkload(ctx, test.o.Object())
+			err = createWorkload(ctx, tp, test.o, test.name)
 			if err != nil {
 				t.Fatal("unable to create ", kind, err)
 			}
-			selector := &metav1.LabelSelector{
-				MatchLabels: map[string]string{"app": appLabel},
-			}
+			selector := appSelector(appLabel)
 
 			err = tp.ExpectPodContainerCount(ctx, selector, 1, test.allOrAny)
 			if err != nil {
@@ -373,15 +365,11 @@ func TestPublicDBConnections(t *testing.T) {
 			}
 
 			t.Log("Creating ", kind)
-			wl.Object().SetNamespace(tp.Namespace)
-			wl.Object().SetName(pwlName)
-			err = tp.CreateWorkload(ctx, wl.Object())
+			err = createWorkload(ctx, tp, wl, pwlName)
 			if err != nil {
 				t.Fatal("unable to create ", kind, err)
 			}
-			selector := &metav1.LabelSelector{
-				MatchLabels: map[string]string{"app": appLabel},
-			}
+			selector := appSelector(appLabel)
 			t.Log("Checking for container counts", kind)
 			err = tp.ExpectPodContainerCount(ctx, selector, 2, "all")
 			if err != nil {
@@ -454,15 +442,11 @@ func TestUpdateWorkloadOnDelete(t *testing.T) {
 
 	// Create deployment
 	t.Log("Creating ", kind)
-	o.SetNamespace(tp.Namespace)
-	o.SetName(name)
-	err = tp.CreateWorkload(ctx, o)
+	err = createWorkload(ctx, tp, wl, name)
 	if err != nil {
 		t.Fatal("unable to create ", kind, err)
 	}
-	selector := &metav1.LabelSelector{
-		MatchLabels: map[string]string{"app": appLabel},
-	}
+	selector := appSelector(appLabel)
 
 	// Check that the deployment pods are configured with the proxy: pods
 	// have 2 containers.
@@ -485,5 +469,106 @@ func TestUpdateWorkloadOnDelete(t *testing.T) {
 	err = tp.ExpectPodContainerCount(ctx, selector, 1, allOrAny)
 	if err != nil {
 		t.Error(err)
+	}
+}
+
+func TestPrivateDBConnections(t *testing.T) {
+	// When running tests during development, set the SKIP_CLEANUP=true envvar so that
+	// the test namespace remains after the test ends. By default, the test
+	// namespace will be deleted when the test exits.
+	skipCleanup := loadValue("SKIP_CLEANUP", "", "false") == "true"
+	const (
+		pwlName  = "newss"
+		appLabel = "client"
+		kind     = "Deployment"
+		allOrAny = "all"
+	)
+
+	ctx := testContext()
+	tp := newPrivatePostgresClient("postgresconn")
+
+	err := tp.CreateOrPatchNamespace(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if skipCleanup {
+			return
+		}
+
+		err = tp.DeleteNamespace(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	key := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
+
+	s := testhelpers.BuildSecret("db-secret", tp.DBRootUsername, tp.DBRootPassword, tp.DBName)
+	s.SetNamespace(tp.Namespace)
+	err = tp.Client.Create(ctx, &s)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log("Creating AuthProxyWorkload")
+	b := true
+	p := testhelpers.NewAuthProxyWorkload(key)
+	testhelpers.AddUnixInstance(p, tp.ConnectionString, "/var/tests/dbsocket")
+	tp.ConfigureSelector(p, appLabel, kind)
+	tp.ConfigureResources(p)
+	p.Spec.Instances[0].PrivateIP = &b
+
+	err = tp.Create(ctx, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log("Waiting for AuthProxyWorkload operator to begin the reconcile loop")
+	_, err = tp.GetAuthProxyWorkloadAfterReconcile(ctx, key)
+	if err != nil {
+		t.Fatal("unable to create AuthProxyWorkload", err)
+	}
+
+	t.Log("Creating ", kind)
+	wl := &workload.DeploymentWorkload{Deployment: testhelpers.BuildDeployment(types.NamespacedName{}, appLabel)}
+	wl.Deployment.Spec.Template = testhelpers.BuildPgUnixPodSpec(
+		600, appLabel, "db-secret")
+	err = createWorkload(ctx, tp, wl, pwlName)
+	if err != nil {
+		t.Fatal("unable to create ", kind, err)
+	}
+
+	selector := appSelector(appLabel)
+	t.Log("Checking for container counts", kind)
+	err = tp.ExpectPodContainerCount(ctx, selector, 2, "all")
+	if err != nil {
+		t.Error(err)
+	}
+
+	// The pods are configured to only be ready when the real database client
+	// successfully executes a simple query on the database.
+	t.Log("Checking for ready", kind)
+	err = tp.ExpectPodReady(ctx, selector, "all")
+	if err != nil {
+		t.Error(err)
+	}
+
+	t.Log("Done, OK", kind)
+
+}
+
+// createWorkload will set name and namespace appropriately, then use the client
+// to create the workload.
+func createWorkload(ctx context.Context, tp *testhelpers.TestCaseClient, wl workload.Workload, name string) error {
+	wl.Object().SetNamespace(tp.Namespace)
+	wl.Object().SetName(name)
+	return tp.CreateWorkload(ctx, wl.Object())
+}
+
+// appSelector creates a label selector for "app={appLabel}".
+func appSelector(appLabel string) *metav1.LabelSelector {
+	return &metav1.LabelSelector{
+		MatchLabels: map[string]string{"app": appLabel},
 	}
 }
