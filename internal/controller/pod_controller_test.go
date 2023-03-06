@@ -58,15 +58,16 @@ func TestPodWebhookWithDeploymentOwners(t *testing.T) {
 	}, "webapp")
 	dNoMatch.ObjectMeta.Labels = map[string]string{"app": "other"}
 
-	// Deployment that matches the proxy with an owner of an unknown kind
+	// Deployment matches the proxy and is owned by another resource
+	// called CustomApp
 	dWithOwner := testhelpers.BuildDeployment(types.NamespacedName{
 		Namespace: "default",
 		Name:      "test",
 	}, "webapp")
 	dWithOwner.ObjectMeta.Labels = map[string]string{"app": "webapp"}
 	deploymentOwner := &v1.PartialObjectMetadata{
-		TypeMeta:   v1.TypeMeta{Kind: "BuildToolOperatror", APIVersion: "v1"},
-		ObjectMeta: v1.ObjectMeta{Name: "BuildToolOperator", Namespace: "default"},
+		TypeMeta:   v1.TypeMeta{Kind: "CustomApp", APIVersion: "v1"},
+		ObjectMeta: v1.ObjectMeta{Name: "custom-app", Namespace: "default"},
 	}
 	err = controllerutil.SetOwnerReference(deploymentOwner, dWithOwner, scheme)
 	if err != nil {
