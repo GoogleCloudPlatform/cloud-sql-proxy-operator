@@ -28,6 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -527,6 +528,26 @@ func (cc *TestCaseClient) ExpectContainerCount(ctx context.Context, key types.Na
 // with the correct labels and ownership annotations as if it were in a live cluster.
 // This will make it easier to test and debug the behavior of our pod injection webhooks.
 func (cc *TestCaseClient) CreateDeploymentReplicaSetAndPods(ctx context.Context, d *appsv1.Deployment) (*appsv1.ReplicaSet, []*corev1.Pod, error) {
+	rs, pods, err := BuildDeploymentReplicaSetAndPods(d, cc.Client.Scheme())
+
+	err = cc.Client.Create(ctx, rs)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for _, p := range pods {
+		err = cc.Client.Create(ctx, p)
+		if err != nil {
+			return rs, nil, err
+		}
+	}
+	return rs, pods, nil
+}
+
+// BuildDeploymentReplicaSetAndPods mimics the behavior of the deployment controller
+// built into kubernetes. It builds one ReplicaSet and DeploymentSpec.Replicas pods
+// with the correct labels and ownership annotations as if it were in a live cluster.
+func BuildDeploymentReplicaSetAndPods(d *appsv1.Deployment, scheme *runtime.Scheme) (*appsv1.ReplicaSet, []*corev1.Pod, error) {
 	podTemplateHash := strconv.FormatUint(rand.Uint64(), 16)
 	rs := &appsv1.ReplicaSet{
 		TypeMeta: metav1.TypeMeta{Kind: "ReplicaSet", APIVersion: "apps/metav1"},
@@ -551,13 +572,7 @@ func (cc *TestCaseClient) CreateDeploymentReplicaSetAndPods(ctx context.Context,
 			Template: d.Spec.Template,
 		},
 	}
-
-	err := controllerutil.SetOwnerReference(d, rs, cc.Client.Scheme())
-	if err != nil {
-		return nil, nil, err
-	}
-
-	err = cc.Client.Create(ctx, rs)
+	err := controllerutil.SetOwnerReference(d, rs, scheme)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -585,15 +600,11 @@ func (cc *TestCaseClient) CreateDeploymentReplicaSetAndPods(ctx context.Context,
 			},
 			Spec: d.Spec.Template.Spec,
 		}
-		err = controllerutil.SetOwnerReference(rs, p, cc.Client.Scheme())
+		err = controllerutil.SetOwnerReference(rs, p, scheme)
 		if err != nil {
 			return rs, nil, err
 		}
 
-		err = cc.Client.Create(ctx, p)
-		if err != nil {
-			return rs, nil, err
-		}
 		pods = append(pods, p)
 	}
 	return rs, pods, nil
