@@ -456,15 +456,10 @@ GO_LICENSES ?= $(LOCALBIN)/go-licenses
 CRD_REF_DOCS ?= $(LOCALBIN)/crd-ref-docs
 
 ## Tool Versions
-CONTROLLER_TOOLS_VERSION ?= latest
-KUBECTL_VERSION ?= $(shell curl -L -s https://dl.k8s.io/release/stable.txt | tr -d '\n')
-TERRAFORM_VERSION ?= 1.2.7
-KUSTOMIZE_VERSION ?= v4.5.2
-ENVTEST_VERSION ?= latest
 # Important note: avoid adding spaces in the macro declarations as any
 # additional whitespace will break the renovate regex rules.
 
-KUBECTL_VERSION=v0.26.2# renovate datasource=github-tags depName=kubernetes/kubectl
+KUBECTL_VERSION=v1.26.2# renovate datasource=github-tags depName=kubernetes/kubernetes
 TERRAFORM_VERSION=v1.3.9# renovate datasource=github-tags depName=hashicorp/terraform
 
 CONTROLLER_TOOLS_VERSION=v0.11.3# renovate datasource=go depName=sigs.k8s.io/controller-tools
