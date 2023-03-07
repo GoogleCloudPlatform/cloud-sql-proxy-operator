@@ -39,4 +39,6 @@ ARG TARGETARCH
 WORKDIR /
 USER 65532:65532
 COPY --from=build --chown=nonroot "/work/bin/manager" "/manager"
+COPY "./ThirdPartyLicenses" "/ThirdPartyLicenses"
+COPY "./LICENSE" "/LICENSE"
 ENTRYPOINT ["/manager"]

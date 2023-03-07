@@ -28,3 +28,7 @@ testbin/*
 
 # Ignore secrets for the build
 /build.env
+
+# Ignore downloaded 3rd party license files
+ThirdPartyLicenses
+
