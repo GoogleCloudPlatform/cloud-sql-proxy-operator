@@ -34,7 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
+	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
 )
@@ -116,7 +116,7 @@ func TestReconcileState21ByName(t *testing.T) {
 	addFinalizers(p)
 	addPodWorkload(p)
 
-	_, _, err := runReconcileTestcase(p, []client.Object{p}, false, metav1.ConditionTrue, v1alpha1.ReasonNoWorkloadsFound)
+	_, _, err := runReconcileTestcase(p, []client.Object{p}, false, metav1.ConditionTrue, cloudsqlapi.ReasonNoWorkloadsFound)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +130,7 @@ func TestReconcileState21BySelector(t *testing.T) {
 	addFinalizers(p)
 	addSelectorWorkload(p, "Pod", "app", "things")
 
-	_, _, err := runReconcileTestcase(p, []client.Object{p}, false, metav1.ConditionTrue, v1alpha1.ReasonNoWorkloadsFound)
+	_, _, err := runReconcileTestcase(p, []client.Object{p}, false, metav1.ConditionTrue, cloudsqlapi.ReasonNoWorkloadsFound)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +141,7 @@ func TestReconcileState32(t *testing.T) {
 	const (
 		wantRequeue = true
 		wantStatus  = metav1.ConditionFalse
-		wantReason  = v1alpha1.ReasonWorkloadNeedsUpdate
+		wantReason  = cloudsqlapi.ReasonWorkloadNeedsUpdate
 		labelK      = "app"
 		labelV      = "things"
 	)
@@ -154,7 +154,7 @@ func TestReconcileState32(t *testing.T) {
 	addSelectorWorkload(p, "Deployment", labelK, labelV)
 
 	// mimic a pod that was updated by the webhook
-	reqName := v1alpha1.AnnotationPrefix + "/" + p.Name
+	reqName := cloudsqlapi.AnnotationPrefix + "/" + p.Name
 	pod := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "thing",
@@ -192,7 +192,7 @@ func TestReconcileState32RolloutStrategyNone(t *testing.T) {
 	const (
 		wantRequeue = false
 		wantStatus  = metav1.ConditionTrue
-		wantReason  = v1alpha1.ReasonFinishedReconcile
+		wantReason  = cloudsqlapi.ReasonFinishedReconcile
 		labelK      = "app"
 		labelV      = "things"
 	)
@@ -201,8 +201,8 @@ func TestReconcileState32RolloutStrategyNone(t *testing.T) {
 		Namespace: "default",
 		Name:      "test",
 	}, "project:region:db")
-	p.Spec.AuthProxyContainer = &v1alpha1.AuthProxyContainerSpec{
-		RolloutStrategy: v1alpha1.NoneStrategy,
+	p.Spec.AuthProxyContainer = &cloudsqlapi.AuthProxyContainerSpec{
+		RolloutStrategy: cloudsqlapi.NoneStrategy,
 	}
 	p.Generation = 2
 	addFinalizers(p)
@@ -248,7 +248,7 @@ func TestReconcileState33(t *testing.T) {
 	const (
 		wantRequeue = false
 		wantStatus  = metav1.ConditionTrue
-		wantReason  = v1alpha1.ReasonFinishedReconcile
+		wantReason  = cloudsqlapi.ReasonFinishedReconcile
 		labelK      = "app"
 		labelV      = "things"
 	)
@@ -262,7 +262,7 @@ func TestReconcileState33(t *testing.T) {
 	addSelectorWorkload(p, "Deployment", labelK, labelV)
 
 	// mimic a pod that was updated by the webhook
-	reqName := v1alpha1.AnnotationPrefix + "/" + p.Name
+	reqName := cloudsqlapi.AnnotationPrefix + "/" + p.Name
 	pod := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "thing",
@@ -361,7 +361,7 @@ func TestReconcileDeleteUpdatesWorkload(t *testing.T) {
 
 }
 
-func runReconcileTestcase(p *v1alpha1.AuthProxyWorkload, clientObjects []client.Object, wantRequeue bool, wantStatus metav1.ConditionStatus, wantReason string) (client.WithWatch, context.Context, error) {
+func runReconcileTestcase(p *cloudsqlapi.AuthProxyWorkload, clientObjects []client.Object, wantRequeue bool, wantStatus metav1.ConditionStatus, wantReason string) (client.WithWatch, context.Context, error) {
 	cb, _, err := clientBuilder()
 	if err != nil {
 		return nil, nil, err // shouldn't ever happen
@@ -386,7 +386,7 @@ func runReconcileTestcase(p *v1alpha1.AuthProxyWorkload, clientObjects []client.
 	}
 
 	if wantStatus != "" || wantReason != "" {
-		cond := findCondition(p.Status.Conditions, v1alpha1.ConditionUpToDate)
+		cond := findCondition(p.Status.Conditions, cloudsqlapi.ConditionUpToDate)
 		if cond == nil {
 			return nil, nil, fmt.Errorf("the UpToDate condition was nil, wants condition to exist")
 		}
@@ -402,7 +402,7 @@ func runReconcileTestcase(p *v1alpha1.AuthProxyWorkload, clientObjects []client.
 }
 
 func clientBuilder() (*fake.ClientBuilder, *runtime.Scheme, error) {
-	scheme, err := v1alpha1.SchemeBuilder.Build()
+	scheme, err := cloudsqlapi.SchemeBuilder.Build()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -418,7 +418,7 @@ func clientBuilder() (*fake.ClientBuilder, *runtime.Scheme, error) {
 
 }
 
-func reconciler(p *v1alpha1.AuthProxyWorkload, cb client.Client) (*AuthProxyWorkloadReconciler, ctrl.Request, context.Context) {
+func reconciler(p *cloudsqlapi.AuthProxyWorkload, cb client.Client) (*AuthProxyWorkloadReconciler, ctrl.Request, context.Context) {
 	ctx := log.IntoContext(context.Background(), logger)
 	r := &AuthProxyWorkloadReconciler{
 		Client:          cb,
@@ -434,17 +434,17 @@ func reconciler(p *v1alpha1.AuthProxyWorkload, cb client.Client) (*AuthProxyWork
 	return r, req, ctx
 }
 
-func addFinalizers(p *v1alpha1.AuthProxyWorkload) {
+func addFinalizers(p *cloudsqlapi.AuthProxyWorkload) {
 	p.Finalizers = []string{finalizerName}
 }
-func addPodWorkload(p *v1alpha1.AuthProxyWorkload) {
-	p.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
+func addPodWorkload(p *cloudsqlapi.AuthProxyWorkload) {
+	p.Spec.Workload = cloudsqlapi.WorkloadSelectorSpec{
 		Kind: "Pod",
 		Name: "testpod",
 	}
 }
-func addSelectorWorkload(p *v1alpha1.AuthProxyWorkload, kind, labelK, labelV string) {
-	p.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
+func addSelectorWorkload(p *cloudsqlapi.AuthProxyWorkload, kind, labelK, labelV string) {
+	p.Spec.Workload = cloudsqlapi.WorkloadSelectorSpec{
 		Kind: kind,
 		Selector: &metav1.LabelSelector{
 			MatchLabels: map[string]string{labelK: labelV},

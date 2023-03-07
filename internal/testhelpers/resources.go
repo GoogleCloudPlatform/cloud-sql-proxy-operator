@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
+	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -346,15 +346,15 @@ func (cc *TestCaseClient) CreateWorkload(ctx context.Context, o client.Object) e
 // GetAuthProxyWorkloadAfterReconcile finds an AuthProxyWorkload resource named key, waits for its
 // "UpToDate" condition to be "True", and the returns it. Fails after 30 seconds
 // if the containers does not match.
-func (cc *TestCaseClient) GetAuthProxyWorkloadAfterReconcile(ctx context.Context, key types.NamespacedName) (*v1alpha1.AuthProxyWorkload, error) {
-	createdPodmod := &v1alpha1.AuthProxyWorkload{}
+func (cc *TestCaseClient) GetAuthProxyWorkloadAfterReconcile(ctx context.Context, key types.NamespacedName) (*cloudsqlapi.AuthProxyWorkload, error) {
+	createdPodmod := &cloudsqlapi.AuthProxyWorkload{}
 	// We'll need to retry getting this newly created resource, given that creation may not immediately happen.
 	err := RetryUntilSuccess(6, DefaultRetryInterval, func() error {
 		err := cc.Client.Get(ctx, key, createdPodmod)
 		if err != nil {
 			return err
 		}
-		if GetConditionStatus(createdPodmod.Status.Conditions, v1alpha1.ConditionUpToDate) != metav1.ConditionTrue {
+		if GetConditionStatus(createdPodmod.Status.Conditions, cloudsqlapi.ConditionUpToDate) != metav1.ConditionTrue {
 			return errors.New("AuthProxyWorkload found, but reconcile not complete yet")
 		}
 		return nil
@@ -624,7 +624,7 @@ func BuildDeploymentReplicaSetPods(d *appsv1.Deployment, rs *appsv1.ReplicaSet, 
 
 // BuildAuthProxyWorkload creates an AuthProxyWorkload object with a
 // single instance with a tcp connection.
-func BuildAuthProxyWorkload(key types.NamespacedName, connectionString string) *v1alpha1.AuthProxyWorkload {
+func BuildAuthProxyWorkload(key types.NamespacedName, connectionString string) *cloudsqlapi.AuthProxyWorkload {
 	p := NewAuthProxyWorkload(key)
 	AddTCPInstance(p, connectionString)
 	return p
@@ -632,8 +632,8 @@ func BuildAuthProxyWorkload(key types.NamespacedName, connectionString string) *
 
 // AddTCPInstance adds a database instance with a tcp connection, setting
 // HostEnvName to "DB_HOST" and PortEnvName to "DB_PORT".
-func AddTCPInstance(p *v1alpha1.AuthProxyWorkload, connectionString string) {
-	p.Spec.Instances = append(p.Spec.Instances, v1alpha1.InstanceSpec{
+func AddTCPInstance(p *cloudsqlapi.AuthProxyWorkload, connectionString string) {
+	p.Spec.Instances = append(p.Spec.Instances, cloudsqlapi.InstanceSpec{
 		ConnectionString: connectionString,
 		HostEnvName:      "DB_HOST",
 		PortEnvName:      "DB_PORT",
@@ -642,8 +642,8 @@ func AddTCPInstance(p *v1alpha1.AuthProxyWorkload, connectionString string) {
 
 // AddUnixInstance adds a database instance with a unix socket connection,
 // setting UnixSocketPathEnvName to "DB_PATH".
-func AddUnixInstance(p *v1alpha1.AuthProxyWorkload, connectionString string, path string) {
-	p.Spec.Instances = append(p.Spec.Instances, v1alpha1.InstanceSpec{
+func AddUnixInstance(p *cloudsqlapi.AuthProxyWorkload, connectionString string, path string) {
+	p.Spec.Instances = append(p.Spec.Instances, cloudsqlapi.InstanceSpec{
 		ConnectionString:      connectionString,
 		UnixSocketPath:        path,
 		UnixSocketPathEnvName: "DB_PATH",
@@ -652,10 +652,10 @@ func AddUnixInstance(p *v1alpha1.AuthProxyWorkload, connectionString string, pat
 
 // NewAuthProxyWorkload creates a new AuthProxyWorkload with the
 // TypeMeta, name and namespace set.
-func NewAuthProxyWorkload(key types.NamespacedName) *v1alpha1.AuthProxyWorkload {
-	return &v1alpha1.AuthProxyWorkload{
+func NewAuthProxyWorkload(key types.NamespacedName) *cloudsqlapi.AuthProxyWorkload {
+	return &cloudsqlapi.AuthProxyWorkload{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1alpha1.GroupVersion.String(),
+			APIVersion: cloudsqlapi.GroupVersion.String(),
 			Kind:       "AuthProxyWorkload",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -666,7 +666,7 @@ func NewAuthProxyWorkload(key types.NamespacedName) *v1alpha1.AuthProxyWorkload 
 }
 
 // CreateAuthProxyWorkload creates an AuthProxyWorkload in the kubernetes cluster.
-func (cc *TestCaseClient) CreateAuthProxyWorkload(ctx context.Context, key types.NamespacedName, appLabel string, connectionString string, kind string) (*v1alpha1.AuthProxyWorkload, error) {
+func (cc *TestCaseClient) CreateAuthProxyWorkload(ctx context.Context, key types.NamespacedName, appLabel string, connectionString string, kind string) (*cloudsqlapi.AuthProxyWorkload, error) {
 	p := NewAuthProxyWorkload(key)
 	AddTCPInstance(p, connectionString)
 	cc.ConfigureSelector(p, appLabel, kind)
@@ -676,8 +676,8 @@ func (cc *TestCaseClient) CreateAuthProxyWorkload(ctx context.Context, key types
 
 // ConfigureSelector Configures the workload selector on AuthProxyWorkload to use the label selector
 // "app=${appLabel}"
-func (cc *TestCaseClient) ConfigureSelector(proxy *v1alpha1.AuthProxyWorkload, appLabel string, kind string) {
-	proxy.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
+func (cc *TestCaseClient) ConfigureSelector(proxy *cloudsqlapi.AuthProxyWorkload, appLabel string, kind string) {
+	proxy.Spec.Workload = cloudsqlapi.WorkloadSelectorSpec{
 		Kind: kind,
 		Selector: &metav1.LabelSelector{
 			MatchLabels: map[string]string{"app": appLabel},
@@ -686,8 +686,8 @@ func (cc *TestCaseClient) ConfigureSelector(proxy *v1alpha1.AuthProxyWorkload, a
 }
 
 // ConfigureResources Configures resource requests
-func (cc *TestCaseClient) ConfigureResources(proxy *v1alpha1.AuthProxyWorkload) {
-	proxy.Spec.AuthProxyContainer = &v1alpha1.AuthProxyContainerSpec{
+func (cc *TestCaseClient) ConfigureResources(proxy *cloudsqlapi.AuthProxyWorkload) {
+	proxy.Spec.AuthProxyContainer = &cloudsqlapi.AuthProxyContainerSpec{
 		Image: cc.ProxyImageURL,
 		Resources: &corev1.ResourceRequirements{
 			Requests: map[corev1.ResourceName]resource.Quantity{
@@ -697,7 +697,7 @@ func (cc *TestCaseClient) ConfigureResources(proxy *v1alpha1.AuthProxyWorkload) 
 	}
 }
 
-func (cc *TestCaseClient) Create(ctx context.Context, proxy *v1alpha1.AuthProxyWorkload) error {
+func (cc *TestCaseClient) Create(ctx context.Context, proxy *cloudsqlapi.AuthProxyWorkload) error {
 	err := cc.Client.Create(ctx, proxy)
 	if err != nil {
 		return fmt.Errorf("Unable to create entity %v", err)

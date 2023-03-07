@@ -15,7 +15,7 @@
 package controller
 
 import (
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
+	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -32,7 +32,7 @@ var setupLog = ctrl.Log.WithName("setup")
 func InitScheme(scheme *runtime.Scheme) {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(v1alpha1.AddToScheme(scheme))
+	utilruntime.Must(cloudsqlapi.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -54,7 +54,7 @@ func SetupManagers(mgr manager.Manager, userAgent string) error {
 		return err
 	}
 
-	wh := &v1alpha1.AuthProxyWorkload{}
+	wh := &cloudsqlapi.AuthProxyWorkload{}
 	err = wh.SetupWebhookWithManager(mgr)
 	if err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "AuthProxyWorkload")
