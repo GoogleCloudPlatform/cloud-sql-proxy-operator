@@ -528,9 +528,17 @@ func (cc *TestCaseClient) ExpectContainerCount(ctx context.Context, key types.Na
 // with the correct labels and ownership annotations as if it were in a live cluster.
 // This will make it easier to test and debug the behavior of our pod injection webhooks.
 func (cc *TestCaseClient) CreateDeploymentReplicaSetAndPods(ctx context.Context, d *appsv1.Deployment) (*appsv1.ReplicaSet, []*corev1.Pod, error) {
-	rs, pods, err := BuildDeploymentReplicaSetAndPods(d, cc.Client.Scheme())
+	rs, hash, err := BuildDeploymentReplicaSet(d, cc.Client.Scheme())
+	if err != nil {
+		return nil, nil, err
+	}
 
 	err = cc.Client.Create(ctx, rs)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	pods, err := BuildDeploymentReplicaSetPods(d, rs, hash, cc.Client.Scheme())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -544,10 +552,10 @@ func (cc *TestCaseClient) CreateDeploymentReplicaSetAndPods(ctx context.Context,
 	return rs, pods, nil
 }
 
-// BuildDeploymentReplicaSetAndPods mimics the behavior of the deployment controller
+// BuildDeploymentReplicaSet mimics the behavior of the deployment controller
 // built into kubernetes. It builds one ReplicaSet and DeploymentSpec.Replicas pods
 // with the correct labels and ownership annotations as if it were in a live cluster.
-func BuildDeploymentReplicaSetAndPods(d *appsv1.Deployment, scheme *runtime.Scheme) (*appsv1.ReplicaSet, []*corev1.Pod, error) {
+func BuildDeploymentReplicaSet(d *appsv1.Deployment, scheme *runtime.Scheme) (*appsv1.ReplicaSet, string, error) {
 	podTemplateHash := strconv.FormatUint(rand.Uint64(), 16)
 	rs := &appsv1.ReplicaSet{
 		TypeMeta: metav1.TypeMeta{Kind: "ReplicaSet", APIVersion: "apps/metav1"},
@@ -574,8 +582,12 @@ func BuildDeploymentReplicaSetAndPods(d *appsv1.Deployment, scheme *runtime.Sche
 	}
 	err := controllerutil.SetOwnerReference(d, rs, scheme)
 	if err != nil {
-		return nil, nil, err
+		return nil, "", err
 	}
+	return rs, podTemplateHash, nil
+}
+
+func BuildDeploymentReplicaSetPods(d *appsv1.Deployment, rs *appsv1.ReplicaSet, podTemplateHash string, scheme *runtime.Scheme) ([]*corev1.Pod, error) {
 
 	var replicas int32
 	if d.Spec.Replicas != nil {
@@ -600,14 +612,14 @@ func BuildDeploymentReplicaSetAndPods(d *appsv1.Deployment, scheme *runtime.Sche
 			},
 			Spec: d.Spec.Template.Spec,
 		}
-		err = controllerutil.SetOwnerReference(rs, p, scheme)
+		err := controllerutil.SetOwnerReference(rs, p, scheme)
 		if err != nil {
-			return rs, nil, err
+			return nil, err
 		}
 
 		pods = append(pods, p)
 	}
-	return rs, pods, nil
+	return pods, nil
 }
 
 // BuildAuthProxyWorkload creates an AuthProxyWorkload object with a

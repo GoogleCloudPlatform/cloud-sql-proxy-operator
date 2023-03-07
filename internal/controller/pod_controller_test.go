@@ -106,7 +106,11 @@ func TestPodWebhookWithDeploymentOwners(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			rs, pods, err := testhelpers.BuildDeploymentReplicaSetAndPods(tc.d, scheme)
+			rs, hash, err := testhelpers.BuildDeploymentReplicaSet(tc.d, scheme)
+			if err != nil {
+				t.Fatal(err)
+			}
+			pods, err := testhelpers.BuildDeploymentReplicaSetPods(tc.d, rs, hash, scheme)
 			if err != nil {
 				t.Fatal(err)
 			}
