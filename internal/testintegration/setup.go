@@ -28,14 +28,16 @@ import (
 
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/controller"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
 	"github.com/go-logr/logr"
 	"go.uber.org/zap/zapcore"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
+	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 const kubeVersion = "1.24.1"
@@ -51,6 +53,9 @@ var (
 
 	// Client is the kubernetes client.
 	Client client.Client
+
+	// RestartManager is the controller-runtime manager for the operator
+	RestartManager func(string) error
 )
 
 // TestContext returns a background context that includes appropriate logging configuration.
@@ -129,6 +134,23 @@ func EnvTestSetup() (func(), error) {
 		return teardownFunc, fmt.Errorf("unable to start kuberenetes envtest %v", err)
 	}
 
+	mgrCancelFunc, err := startManager(ctx, cfg, s, workload.DefaultProxyImage)
+	if err != nil {
+		return teardownFunc, fmt.Errorf("unable to start kuberenetes envtest %v", err)
+	}
+
+	RestartManager = func(defaultProxyImage string) error {
+		mgrCancelFunc()
+		mgrCancelFunc, err = startManager(ctx, cfg, s, defaultProxyImage)
+		return err
+	}
+
+	return teardownFunc, nil
+}
+
+func startManager(ctx context.Context, cfg *rest.Config, s *runtime.Scheme, proxyImage string) (context.CancelFunc, error) {
+	ctx, managerCancelFunc := context.WithCancel(ctx)
+
 	// start webhook server using Manager
 	o := &testEnv.WebhookInstallOptions
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
@@ -140,12 +162,12 @@ func EnvTestSetup() (func(), error) {
 		MetricsBindAddress: "0",
 	})
 	if err != nil {
-		return teardownFunc, fmt.Errorf("unable to start kuberenetes envtest %v", err)
+		return managerCancelFunc, fmt.Errorf("unable to start kuberenetes envtest %v", err)
 	}
 
-	err = controller.SetupManagers(mgr, "cloud-sql-proxy-operator/dev")
+	err = controller.SetupManagers(mgr, "cloud-sql-proxy-operator/dev", proxyImage)
 	if err != nil {
-		return teardownFunc, fmt.Errorf("unable to start kuberenetes envtest %v", err)
+		return managerCancelFunc, fmt.Errorf("unable to start kuberenetes envtest %v", err)
 	}
 
 	go func() {
@@ -177,5 +199,5 @@ func EnvTestSetup() (func(), error) {
 
 	Log.Info("Setup complete. Webhook server started.")
 
-	return teardownFunc, nil
+	return managerCancelFunc, nil
 }

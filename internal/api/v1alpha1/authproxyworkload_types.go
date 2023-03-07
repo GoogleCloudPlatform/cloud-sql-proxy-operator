@@ -357,11 +357,6 @@ type AuthProxyWorkloadStatus struct {
 	// WorkloadStatus presents the observed status of individual workloads that match
 	// this AuthProxyWorkload resource.
 	WorkloadStatus []*WorkloadStatus `json:"WorkloadStatus,omitempty"`
-
-	// DefaultProxyImage This field holds default proxy image last deployed on
-	// proxy containers for this workload. This field is empty when the customer
-	// explicitly sets the proxy image in AuthProxyContainerSpec.Image.
-	DefaultProxyImage string `json:"deployedProxyImage,omitempty"`
 }
 
 // WorkloadStatus presents the status for how this AuthProxyWorkload resource

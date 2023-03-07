@@ -36,6 +36,9 @@ import (
 // package and documented here so that they appear in the godoc. These also
 // need to be documented in the CRD
 const (
+	// DefaultProxyImage is the latest version of the proxy as of the release
+	// of this operator. This is managed as a dependency. We update this constant
+	// when the Cloud SQL Auth Proxy releases a new version.
 	DefaultProxyImage = "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.1.1"
 
 	// DefaultFirstPort is the first port number chose for an instance listener by the
@@ -53,30 +56,41 @@ const (
 
 var l = logf.Log.WithName("internal.workload")
 
-// PodAnnotation returns the annotation (key, value) that should be added to
-// pods that are configured with this AuthProxyWorkload resource. This takes
-// into account whether the AuthProxyWorkload exists or was recently deleted.
-func PodAnnotation(r *cloudsqlapi.AuthProxyWorkload) (string, string) {
+func PodAnnotation(r *cloudsqlapi.AuthProxyWorkload, defaultProxyImage string) (string, string) {
+	img := defaultProxyImage
+	if r.Spec.AuthProxyContainer != nil && r.Spec.AuthProxyContainer.Image != "" {
+		img = ""
+	}
 	k := fmt.Sprintf("%s/%s", cloudsqlapi.AnnotationPrefix, r.Name)
-	v := fmt.Sprintf("%d", r.Generation)
+	v := fmt.Sprintf("%d,%s", r.Generation, img)
 	// if r was deleted, use a different value
 	if !r.GetDeletionTimestamp().IsZero() {
-		v = fmt.Sprintf("%d-deleted-%s", r.Generation, r.GetDeletionTimestamp().Format(time.RFC3339))
+		v = fmt.Sprintf("%d-deleted-%s,%s", r.Generation, r.GetDeletionTimestamp().Format(time.RFC3339), img)
 	}
 
 	return k, v
+}
+
+// PodAnnotation returns the annotation (key, value) that should be added to
+// pods that are configured with this AuthProxyWorkload resource. This takes
+// into account whether the AuthProxyWorkload exists or was recently deleted.
+func (u *Updater) PodAnnotation(r *cloudsqlapi.AuthProxyWorkload) (string, string) {
+	return PodAnnotation(r, u.defaultProxyImage)
 }
 
 // Updater holds global state used while reconciling workloads.
 type Updater struct {
 	// userAgent is the userAgent of the operator
 	userAgent string
+
+	// defaultProxyImage is the current default proxy image for the operator
+	defaultProxyImage string
 }
 
 // NewUpdater creates a new instance of Updater with a supplier
 // that loads the default proxy impage from the public docker registry
-func NewUpdater(userAgent string) *Updater {
-	return &Updater{userAgent: userAgent}
+func NewUpdater(userAgent string, defaultProxyImage string) *Updater {
+	return &Updater{userAgent: userAgent, defaultProxyImage: defaultProxyImage}
 }
 
 // ConfigError is an error with extra details about why an AuthProxyWorkload
@@ -466,7 +480,7 @@ func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWo
 		containers = append(containers, newContainer)
 
 		// Add pod annotation for each instance
-		k, v := PodAnnotation(inst)
+		k, v := s.updater.PodAnnotation(inst)
 		ann[k] = v
 	}
 
@@ -845,7 +859,7 @@ func (s *updateState) addError(errorCode, description string, p *cloudsqlapi.Aut
 }
 
 func (s *updateState) defaultProxyImage() string {
-	return DefaultProxyImage
+	return s.updater.defaultProxyImage
 }
 
 func (s *updateState) usePort(configValue *int32, defaultValue int32, p *cloudsqlapi.AuthProxyWorkload) int32 {

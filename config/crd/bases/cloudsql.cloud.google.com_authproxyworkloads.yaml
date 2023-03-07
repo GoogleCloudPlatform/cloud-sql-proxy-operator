@@ -1155,9 +1155,6 @@ spec:
                       - type
                     type: object
                   type: array
-                deployedProxyImage:
-                  description: DefaultProxyImage This field holds default proxy image last deployed on proxy containers for this workload. This field is empty when the customer explicitly sets the proxy image in AuthProxyContainerSpec.Image.
-                  type: string
               type: object
           type: object
       served: true

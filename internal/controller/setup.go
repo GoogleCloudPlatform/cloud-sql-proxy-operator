@@ -38,8 +38,8 @@ func InitScheme(scheme *runtime.Scheme) {
 
 // SetupManagers was moved out of ../main.go to here so that it can be invoked
 // from the testintegration tests AND from the actual operator.
-func SetupManagers(mgr manager.Manager, userAgent string) error {
-	u := workload.NewUpdater(userAgent)
+func SetupManagers(mgr manager.Manager, userAgent, defaultProxyImage string) error {
+	u := workload.NewUpdater(userAgent, defaultProxyImage)
 
 	setupLog.Info("Configuring reconcilers...")
 	var err error
@@ -69,6 +69,12 @@ func SetupManagers(mgr manager.Manager, userAgent string) error {
 	err = RegisterPodWebhook(mgr, u)
 	if err != nil {
 		setupLog.Error(err, "unable to create workload admission webhook controller")
+		return err
+	}
+
+	err = mgr.Add(&upgradeDefaultProxyOnStartup{c: mgr.GetClient()})
+	if err != nil {
+		setupLog.Error(err, "unable to start task to check all AuthProxyWorkloads on startup")
 		return err
 	}
 
