@@ -27,7 +27,7 @@ spec:
     singular: authproxyworkload
   scope: Namespaced
   versions:
-    - name: v1alpha1
+    - name: v1
       schema:
         openAPIV3Schema:
           description: AuthProxyWorkload declares how a Cloud SQL Proxy container should be applied to a matching set of workloads, and shows the status of those proxy containers.

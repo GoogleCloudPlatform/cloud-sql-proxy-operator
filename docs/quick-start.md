@@ -49,7 +49,7 @@ gcloud sql instances describe quickstart-instance --format='value(connectionName
 Create a new file named `authproxyworkload.yaml` containing the following:
 
 ```yaml
-apiVersion: cloudsql.cloud.google.com/v1alpha1
+apiVersion: cloudsql.cloud.google.com/v1
 kind: AuthProxyWorkload
 metadata:
   name: authproxyworkload-sample

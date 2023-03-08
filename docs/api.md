@@ -1,13 +1,13 @@
 # API Reference
 
 ## Packages
-- [cloudsql.cloud.google.com/v1alpha1](#cloudsqlcloudgooglecomv1alpha1)
+- [cloudsql.cloud.google.com/v1](#cloudsqlcloudgooglecomv1)
 
 
-## cloudsql.cloud.google.com/v1alpha1
+## cloudsql.cloud.google.com/v1
 
-Package v1alpha1 contains the API Schema definitions for the
-the custom resource AuthProxyWorkload version v1alpha1.
+Package v1 contains the API Schema definitions for the
+the custom resource AuthProxyWorkload version v1.
 
 
 ### Resource Types
@@ -64,7 +64,7 @@ AuthProxyWorkload declares how a Cloud SQL Proxy container should be applied to 
 
 | Field | Description |
 | --- | --- |
-| `apiVersion` _string_ | `cloudsql.cloud.google.com/v1alpha1`
+| `apiVersion` _string_ | `cloudsql.cloud.google.com/v1`
 | `kind` _string_ | `AuthProxyWorkload`
 | `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |
 | `spec` _[AuthProxyWorkloadSpec](#authproxyworkloadspec)_ |  |

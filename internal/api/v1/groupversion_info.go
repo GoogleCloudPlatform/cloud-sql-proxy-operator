@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package v1alpha1 contains the API Schema definitions for the
-// the custom resource AuthProxyWorkload version v1alpha1.
+// Package v1 contains the API Schema definitions for the
+// the custom resource AuthProxyWorkload version v1.
 //
 // +kubebuilder:object:generate=true
 // +groupName=cloudsql.cloud.google.com
-package v1alpha1
+package v1
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -26,7 +26,7 @@ import (
 
 var (
 	// GroupVersion is group version used to register these objects
-	GroupVersion = schema.GroupVersion{Group: "cloudsql.cloud.google.com", Version: "v1alpha1"}
+	GroupVersion = schema.GroupVersion{Group: "cloudsql.cloud.google.com", Version: "v1"}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
 	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}

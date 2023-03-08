@@ -45,7 +45,7 @@ spec:
     singular: authproxyworkload
   scope: Namespaced
   versions:
-    - name: v1alpha1
+    - name: v1
       schema:
         openAPIV3Schema:
           description: AuthProxyWorkload declares how a Cloud SQL Proxy container should be applied to a matching set of workloads, and shows the status of those proxy containers.
@@ -1387,7 +1387,7 @@ data:
     # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     # See the License for the specific language governing permissions and
     # limitations under the License.
-    apiVersion: controller-runtime.sigs.k8s.io/v1alpha1
+    apiVersion: controller-runtime.sigs.k8s.io/v1
     kind: ControllerManagerConfig
     health:
       healthProbeBindAddress: :8081
@@ -1600,14 +1600,14 @@ webhooks:
       service:
         name: cloud-sql-proxy-operator-webhook-service
         namespace: cloud-sql-proxy-operator-system
-        path: /mutate-cloudsql-cloud-google-com-v1alpha1-authproxyworkload
+        path: /mutate-cloudsql-cloud-google-com-v1-authproxyworkload
     failurePolicy: Fail
     name: mauthproxyworkload.kb.io
     rules:
       - apiGroups:
           - cloudsql.cloud.google.com
         apiVersions:
-          - v1alpha1
+          - v1
         operations:
           - CREATE
           - UPDATE
@@ -1628,14 +1628,14 @@ webhooks:
       service:
         name: cloud-sql-proxy-operator-webhook-service
         namespace: cloud-sql-proxy-operator-system
-        path: /validate-cloudsql-cloud-google-com-v1alpha1-authproxyworkload
+        path: /validate-cloudsql-cloud-google-com-v1-authproxyworkload
     failurePolicy: Fail
     name: vauthproxyworkload.kb.io
     rules:
       - apiGroups:
           - cloudsql.cloud.google.com
         apiVersions:
-          - v1alpha1
+          - v1
         operations:
           - CREATE
           - UPDATE

@@ -26,8 +26,8 @@ mv .bin/tmp/* .
 
 Then, to create the CRD for Workload
 ```
-.bin/kubebuilder create api --group cloudsql --version v1alpha1 --kind AuthProxyWorkload --controller --resource --force
-.bin/kubebuilder create webhook --group cloudsql --version v1alpha1 --kind AuthProxyWorkload --defaulting --programmatic-validation
+.bin/kubebuilder create api --group cloudsql --version v1 --kind AuthProxyWorkload --controller --resource --force
+.bin/kubebuilder create webhook --group cloudsql --version v1 --kind AuthProxyWorkload --defaulting --programmatic-validation
 ```
 
 
