@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -73,7 +74,7 @@ func TestReconcileDeleted(t *testing.T) {
 	addFinalizers(p)
 	addPodWorkload(p)
 
-	cb, err := clientBuilder()
+	cb, _, err := clientBuilder()
 	if err != nil {
 		t.Error(err) // shouldn't ever happen
 	}
@@ -308,7 +309,7 @@ func TestReconcileDeleteUpdatesWorkload(t *testing.T) {
 	}
 
 	// Build a client with the resource and deployment
-	cb, err := clientBuilder()
+	cb, _, err := clientBuilder()
 	if err != nil {
 		t.Error(err) // shouldn't ever happen
 	}
@@ -361,7 +362,7 @@ func TestReconcileDeleteUpdatesWorkload(t *testing.T) {
 }
 
 func runReconcileTestcase(p *v1alpha1.AuthProxyWorkload, clientObjects []client.Object, wantRequeue bool, wantStatus metav1.ConditionStatus, wantReason string) (client.WithWatch, context.Context, error) {
-	cb, err := clientBuilder()
+	cb, _, err := clientBuilder()
 	if err != nil {
 		return nil, nil, err // shouldn't ever happen
 	}
@@ -400,20 +401,20 @@ func runReconcileTestcase(p *v1alpha1.AuthProxyWorkload, clientObjects []client.
 	return c, ctx, nil
 }
 
-func clientBuilder() (*fake.ClientBuilder, error) {
+func clientBuilder() (*fake.ClientBuilder, *runtime.Scheme, error) {
 	scheme, err := v1alpha1.SchemeBuilder.Build()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	err = corev1.AddToScheme(scheme)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	err = appsv1.AddToScheme(scheme)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return fake.NewClientBuilder().WithScheme(scheme), nil
+	return fake.NewClientBuilder().WithScheme(scheme), scheme, nil
 
 }
 

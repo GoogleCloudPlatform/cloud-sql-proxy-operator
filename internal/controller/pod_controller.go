@@ -49,69 +49,25 @@ func (a *PodAdmissionWebhook) InjectDecoder(d *admission.Decoder) error {
 // the proxy sidecars on all workloads to match the AuthProxyWorkload config.
 func (a *PodAdmissionWebhook) Handle(ctx context.Context, req admission.Request) admission.Response {
 	l := logf.FromContext(ctx)
-	wl := &workload.PodWorkload{
-		Pod: &corev1.Pod{},
-	}
-	err := a.decoder.Decode(req, wl.Object())
+	p := corev1.Pod{}
+	err := a.decoder.Decode(req, &p)
 	if err != nil {
 		l.Info("/mutate-pod request can't be processed",
 			"kind", req.Kind.Kind, "ns", req.Namespace, "name", req.Name)
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
 
-	var (
-		instList    = &cloudsqlapi.AuthProxyWorkloadList{}
-		proxies     []*cloudsqlapi.AuthProxyWorkload
-		wlConfigErr error
-	)
-
-	// List all the AuthProxyWorkloads in the same namespace.
-	// To avoid privilege escalation, the operator requires that the AuthProxyWorkload
-	// may only affect pods in the same namespace.
-	err = a.Client.List(ctx, instList, client.InNamespace(wl.Object().GetNamespace()))
+	updatedPod, err := a.handleCreatePodRequest(ctx, p)
 	if err != nil {
-		l.Error(err, "Unable to list CloudSqlClient resources in webhook",
-			"kind", req.Kind.Kind, "ns", req.Namespace, "name", req.Name)
-		return admission.Errored(http.StatusInternalServerError,
-			fmt.Errorf("unable to list CloudSqlClient resources"))
+		return admission.Errored(http.StatusInternalServerError, err)
 	}
 
-	// List the owners of this pod.
-	owners, err := a.listOwners(ctx, wl.Object())
-	if err != nil {
-		return admission.Errored(http.StatusInternalServerError,
-			fmt.Errorf("there is an AuthProxyWorkloadConfiguration error reconciling this workload %v", err))
-	}
-
-	// Find matching AuthProxyWorkloads for this pod
-	proxies = a.updater.FindMatchingAuthProxyWorkloads(instList, wl, owners)
-	if len(proxies) == 0 {
-		return admission.PatchResponseFromRaw(req.Object.Raw, req.Object.Raw)
-	}
-
-	// Configure the pod, adding containers for each of the proxies
-	wlConfigErr = a.updater.ConfigureWorkload(wl, proxies)
-
-	if wlConfigErr != nil {
-		l.Error(wlConfigErr, "Unable to reconcile workload result in webhook: "+wlConfigErr.Error(),
-			"kind", req.Kind.Kind, "ns", req.Namespace, "name", req.Name)
-		return admission.Errored(http.StatusInternalServerError,
-			fmt.Errorf("there is an AuthProxyWorkloadConfiguration error reconciling this workload %v", wlConfigErr))
-	}
-
-	// Log some information about the pod update
-	l.Info(fmt.Sprintf("Workload operation %s on kind %s named %s/%s required an update",
-		req.Operation, req.Kind, req.Namespace, req.Name))
-	for _, inst := range proxies {
-		l.Info(fmt.Sprintf("inst %v %v/%v updated at instance resource version %v",
-			wl.Object().GetObjectKind().GroupVersionKind().String(),
-			wl.Object().GetNamespace(), wl.Object().GetName(),
-			inst.GetResourceVersion()))
+	if updatedPod == nil {
+		return admission.Allowed("no changes to pod")
 	}
 
 	// Marshal the updated Pod and prepare to send a response
-	result := wl.Object()
-	marshaledRes, err := json.Marshal(result)
+	marshaledRes, err := json.Marshal(updatedPod)
 	if err != nil {
 		l.Error(err, "Unable to marshal workload result in webhook",
 			"kind", req.Kind.Kind, "ns", req.Namespace, "name", req.Name)
@@ -120,6 +76,51 @@ func (a *PodAdmissionWebhook) Handle(ctx context.Context, req admission.Request)
 	}
 
 	return admission.PatchResponseFromRaw(req.Object.Raw, marshaledRes)
+}
+
+// handleCreatePodRequest Finds relevant AuthProxyWorkload resources and updates the pod
+// with matching resources, returning a non-nil pod when the pod was updated.
+func (a *PodAdmissionWebhook) handleCreatePodRequest(ctx context.Context, p corev1.Pod) (*corev1.Pod, error) {
+	var (
+		instList    = &cloudsqlapi.AuthProxyWorkloadList{}
+		proxies     []*cloudsqlapi.AuthProxyWorkload
+		wlConfigErr error
+		l           = logf.FromContext(ctx)
+		wl          = &workload.PodWorkload{Pod: &p}
+	)
+
+	// List all the AuthProxyWorkloads in the same namespace.
+	// To avoid privilege escalation, the operator requires that the AuthProxyWorkload
+	// may only affect pods in the same namespace.
+	err := a.Client.List(ctx, instList, client.InNamespace(wl.Object().GetNamespace()))
+	if err != nil {
+		l.Error(err, "Unable to list CloudSqlClient resources in webhook",
+			"kind", wl.Pod.Kind, "ns", wl.Pod.Namespace, "name", wl.Pod.Name)
+		return nil, fmt.Errorf("unable to list AuthProxyWorkloads, %v", err)
+	}
+
+	// List the owners of this pod.
+	owners, err := a.listOwners(ctx, wl.Object())
+	if err != nil {
+		return nil, fmt.Errorf("there is an AuthProxyWorkloadConfiguration error reconciling this workload %v", err)
+	}
+
+	// Find matching AuthProxyWorkloads for this pod
+	proxies = a.updater.FindMatchingAuthProxyWorkloads(instList, wl, owners)
+	if len(proxies) == 0 {
+		return nil, nil // no change
+	}
+
+	// Configure the pod, adding containers for each of the proxies
+	wlConfigErr = a.updater.ConfigureWorkload(wl, proxies)
+
+	if wlConfigErr != nil {
+		l.Error(wlConfigErr, "Unable to reconcile workload result in webhook: "+wlConfigErr.Error(),
+			"kind", wl.Pod.Kind, "ns", wl.Pod.Namespace, "name", wl.Pod.Name)
+		return nil, fmt.Errorf("there is an AuthProxyWorkloadConfiguration error reconciling this workload %v", wlConfigErr)
+	}
+
+	return wl.Pod, nil // updated
 }
 
 // listOwners returns the list of this object's owners and its extended owners.
@@ -134,13 +135,13 @@ func (a *PodAdmissionWebhook) listOwners(ctx context.Context, object client.Obje
 
 		wl, err := workload.WorkloadForKind(r.Kind)
 		if err != nil {
-			owner = &metav1.PartialObjectMetadata{
-				TypeMeta: metav1.TypeMeta{Kind: r.Kind, APIVersion: r.APIVersion},
-			}
-		} else {
-			owners = append(owners, wl)
-			owner = wl.Object()
+			// If the operator doesn't recognize the owner's Kind, then ignore
+			// that owner.
+			continue
 		}
+
+		owners = append(owners, wl)
+		owner = wl.Object()
 
 		err = a.Client.Get(ctx, key, owner)
 		if err != nil {
