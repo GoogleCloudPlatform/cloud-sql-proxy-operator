@@ -179,7 +179,17 @@ type AuthProxyContainerSpec struct {
 	SQLAdminAPIEndpoint string `json:"sqlAdminAPIEndpoint,omitempty"`
 
 	// Image is the URL to the proxy image. Optional, by default the operator
-	// will use the latest known compatible proxy image.
+	// will use the latest Cloud SQL Auth Proxy version as of the release of the
+	// operator.
+	//
+	// The operator ensures that all workloads configured with the default proxy
+	// image are upgraded automatically to use to the latest released proxy image.
+	//
+	// When the customer upgrades the operator, the operator upgrades all
+	// workloads using the default proxy image to the latest proxy image. The
+	// change to the proxy container image is applied in accordance with
+	// the RolloutStrategy.
+	//
 	//+kubebuilder:validation:Optional
 	Image string `json:"image,omitempty"`
 
@@ -337,7 +347,6 @@ type InstanceSpec struct {
 // AuthProxyWorkloadStatus presents the observed state of AuthProxyWorkload using
 // standard Kubernetes Conditions.
 type AuthProxyWorkloadStatus struct {
-
 	// Conditions show the overall status of the AuthProxyWorkload resource on all
 	// matching workloads.
 	//

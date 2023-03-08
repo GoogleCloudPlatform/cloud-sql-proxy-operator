@@ -48,7 +48,9 @@ _Appears in:_
 | `maxConnections` _integer_ | MaxConnections limits the number of connections. Default value is no limit. This sets the proxy container's CLI argument `--max-connections` |
 | `maxSigtermDelay` _integer_ | MaxSigtermDelay is the maximum number of seconds to wait for connections to close after receiving a TERM signal. This sets the proxy container's CLI argument `--max-sigterm-delay` and configures `terminationGracePeriodSeconds` on the workload's PodSpec. |
 | `sqlAdminAPIEndpoint` _string_ | SQLAdminAPIEndpoint is a debugging parameter that when specified will change the Google Cloud api endpoint used by the proxy. |
-| `image` _string_ | Image is the URL to the proxy image. Optional, by default the operator will use the latest known compatible proxy image. |
+| `image` _string_ | Image is the URL to the proxy image. Optional, by default the operator will use the latest Cloud SQL Auth Proxy version as of the release of the operator. 
+ The operator ensures that all workloads configured with the default proxy image are upgraded automatically to use to the latest released proxy image. 
+ When the customer upgrades the operator, the operator upgrades all workloads using the default proxy image to the latest proxy image. The change to the proxy container image is applied in accordance with the RolloutStrategy. |
 | `rolloutStrategy` _string_ | RolloutStrategy indicates the strategy to use when rolling out changes to the workloads affected by the results. When this is set to `Workload`, changes to this resource will be automatically applied to a running Deployment, StatefulSet, DaemonSet, or ReplicaSet in accordance with the Strategy set on that workload. When this is set to `None`, the operator will take no action to roll out changes to affected workloads. `Workload` will be used by default if no value is set. See: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
 
 

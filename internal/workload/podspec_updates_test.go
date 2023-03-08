@@ -139,7 +139,7 @@ func TestUpdatePodWorkload(t *testing.T) {
 		wantContainerName       = "csql-default-" + wantsName
 		wantsInstanceName       = "project:server:db"
 		wantsInstanceArg        = fmt.Sprintf("%s?port=%d", wantsInstanceName, wantsPort)
-		u                       = workload.NewUpdater("cloud-sql-proxy-operator/dev")
+		u                       = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
 	)
 	var err error
 
@@ -194,7 +194,7 @@ func TestUpdateWorkloadFixedPort(t *testing.T) {
 			"DB_HOST": "127.0.0.1",
 			"DB_PORT": strconv.Itoa(int(wantsPort)),
 		}
-		u = workload.NewUpdater("cloud-sql-proxy-operator/dev")
+		u = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
 	)
 
 	// Create a pod
@@ -262,7 +262,7 @@ func TestWorkloadNoPortSet(t *testing.T) {
 			"DB_PORT": strconv.Itoa(int(wantsPort)),
 		}
 	)
-	u := workload.NewUpdater("cloud-sql-proxy-operator/dev")
+	u := workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
 
 	// Create a pod
 	wl := podWorkload()
@@ -320,7 +320,7 @@ func TestContainerImageChanged(t *testing.T) {
 	var (
 		wantsInstanceName = "project:server:db"
 		wantImage         = "custom-image:latest"
-		u                 = workload.NewUpdater("cloud-sql-proxy-operator/dev")
+		u                 = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
 	)
 
 	// Create a pod
@@ -362,7 +362,7 @@ func TestContainerImageEmpty(t *testing.T) {
 	var (
 		wantsInstanceName = "project:server:db"
 		wantImage         = workload.DefaultProxyImage
-		u                 = workload.NewUpdater("cloud-sql-proxy-operator/dev")
+		u                 = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
 	)
 	// Create a AuthProxyWorkload that matches the deployment
 
@@ -421,7 +421,7 @@ func TestContainerReplaced(t *testing.T) {
 		wantContainer     = &corev1.Container{
 			Name: "sample", Image: "debian:latest", Command: []string{"/bin/bash"},
 		}
-		u = workload.NewUpdater("cloud-sql-proxy-operator/dev")
+		u = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
 	)
 
 	// Create a pod
@@ -475,7 +475,7 @@ func TestResourcesFromSpec(t *testing.T) {
 			},
 		}
 
-		u = workload.NewUpdater("cloud-sql-proxy-operator/dev")
+		u = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
 	)
 
 	// Create a pod
@@ -725,7 +725,7 @@ func TestProxyCLIArgs(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			u := workload.NewUpdater("cloud-sql-proxy-operator/dev")
+			u := workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
 
 			// Create a pod
 			wl := &workload.PodWorkload{Pod: &corev1.Pod{
@@ -857,11 +857,11 @@ func TestPodTemplateAnnotations(t *testing.T) {
 		now = metav1.Now()
 
 		wantAnnotations = map[string]string{
-			"cloudsql.cloud.google.com/instance1": "1",
-			"cloudsql.cloud.google.com/instance2": "2",
+			"cloudsql.cloud.google.com/instance1": "1," + workload.DefaultProxyImage,
+			"cloudsql.cloud.google.com/instance2": "2," + workload.DefaultProxyImage,
 		}
 
-		u = workload.NewUpdater("cloud-sql-proxy-operator/dev")
+		u = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
 	)
 
 	// Create a pod
@@ -908,17 +908,17 @@ func TestPodAnnotation(t *testing.T) {
 			name:  "instance1",
 			r:     server,
 			wantK: "cloudsql.cloud.google.com/instance1",
-			wantV: "1",
+			wantV: fmt.Sprintf("1,%s", workload.DefaultProxyImage),
 		}, {
 			name:  "instance2",
 			r:     deletedServer,
 			wantK: "cloudsql.cloud.google.com/instance2",
-			wantV: fmt.Sprintf("2-deleted-%s", now.Format(time.RFC3339)),
+			wantV: fmt.Sprintf("2-deleted-%s,%s", now.Format(time.RFC3339), workload.DefaultProxyImage),
 		},
 	}
 
 	for _, tc := range testcases {
-		gotK, gotV := workload.PodAnnotation(tc.r)
+		gotK, gotV := workload.PodAnnotation(tc.r, workload.DefaultProxyImage)
 		if tc.wantK != gotK {
 			t.Errorf("got %v, want %v for key", gotK, tc.wantK)
 		}
@@ -942,7 +942,7 @@ func TestWorkloadUnixVolume(t *testing.T) {
 		wantWorkloadEnv = map[string]string{
 			"DB_SOCKET_PATH": wantsUnixSocketPath,
 		}
-		u = workload.NewUpdater("authproxyworkload/dev")
+		u = workload.NewUpdater("authproxyworkload/dev", workload.DefaultProxyImage)
 	)
 
 	// Create a pod

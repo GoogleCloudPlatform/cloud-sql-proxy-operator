@@ -20,6 +20,8 @@ import (
 	"runtime"
 
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/controller"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -87,7 +89,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = controller.SetupManagers(mgr, userAgent)
+	err = controller.SetupManagers(mgr, userAgent, workload.DefaultProxyImage)
 	if err != nil {
 		setupLog.Error(err, "unable to set up the controllers")
 		os.Exit(1)

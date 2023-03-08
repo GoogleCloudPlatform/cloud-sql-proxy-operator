@@ -280,7 +280,7 @@ func (r *AuthProxyWorkloadReconciler) needsAnnotationUpdate(wl workload.Workload
 		return false
 	}
 
-	k, v := workload.PodAnnotation(resource)
+	k, v := r.updater.PodAnnotation(resource)
 	// Check if the correct annotation exists
 	an := wl.PodTemplateAnnotations()
 	if an != nil && an[k] == v {
@@ -304,7 +304,7 @@ func (r *AuthProxyWorkloadReconciler) updateAnnotation(wl workload.Workload, res
 		return
 	}
 
-	k, v := workload.PodAnnotation(resource)
+	k, v := r.updater.PodAnnotation(resource)
 
 	// add the annotation if needed...
 	an := wl.PodTemplateAnnotations()

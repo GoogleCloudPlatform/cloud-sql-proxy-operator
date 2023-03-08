@@ -79,7 +79,7 @@ func TestReconcileDeleted(t *testing.T) {
 		t.Error(err) // shouldn't ever happen
 	}
 	c := cb.WithObjects(p).Build()
-	r, req, ctx := reconciler(p, c)
+	r, req, ctx := reconciler(p, c, workload.DefaultProxyImage)
 
 	c.Delete(ctx, p)
 	if err != nil {
@@ -262,7 +262,7 @@ func TestReconcileState33(t *testing.T) {
 	addSelectorWorkload(p, "Deployment", labelK, labelV)
 
 	// mimic a pod that was updated by the webhook
-	reqName := cloudsqlapi.AnnotationPrefix + "/" + p.Name
+	reqName, reqVal := workload.PodAnnotation(p, workload.DefaultProxyImage)
 	pod := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "thing",
@@ -270,7 +270,7 @@ func TestReconcileState33(t *testing.T) {
 			Labels:    map[string]string{labelK: labelV},
 		},
 		Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{
-			ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{reqName: "1"}},
+			ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{reqName: reqVal}},
 		}},
 	}
 
@@ -294,7 +294,7 @@ func TestReconcileDeleteUpdatesWorkload(t *testing.T) {
 	addFinalizers(resource)
 	addSelectorWorkload(resource, "Deployment", labelK, labelV)
 
-	k, v := workload.PodAnnotation(resource)
+	k, v := workload.PodAnnotation(resource, workload.DefaultProxyImage)
 
 	// mimic a deployment that was updated by the webhook
 	deployment := &appsv1.Deployment{
@@ -314,7 +314,7 @@ func TestReconcileDeleteUpdatesWorkload(t *testing.T) {
 		t.Error(err) // shouldn't ever happen
 	}
 	c := cb.WithObjects(resource, deployment).Build()
-	r, req, ctx := reconciler(resource, c)
+	r, req, ctx := reconciler(resource, c, workload.DefaultProxyImage)
 
 	// Delete the resource
 	c.Delete(ctx, resource)
@@ -361,6 +361,73 @@ func TestReconcileDeleteUpdatesWorkload(t *testing.T) {
 
 }
 
+func TestWorkloadUpdatedAfterDefaultProxyImageChanged(t *testing.T) {
+	const (
+		labelK = "app"
+		labelV = "things"
+	)
+	resource := testhelpers.BuildAuthProxyWorkload(types.NamespacedName{
+		Namespace: "default",
+		Name:      "test",
+	}, "project:region:db")
+	resource.Generation = 1
+	addFinalizers(resource)
+	addSelectorWorkload(resource, "Deployment", labelK, labelV)
+
+	// Deployment annotation should be updated to this after reconcile:
+	_, wantV := workload.PodAnnotation(resource, "gcr.io/cloud-sql-connectors/cloud-sql-proxy:999.9.9")
+
+	// mimic a deployment that was updated by the webhook
+	// annotate the deployment with the default image
+	k, v := workload.PodAnnotation(resource, "gcr.io/cloud-sql-connectors/cloud-sql-proxy:1.1.1")
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "thing",
+			Namespace: "default",
+			Labels:    map[string]string{labelK: labelV},
+		},
+		Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{k: v}},
+		}},
+	}
+
+	// Build a client with the resource and deployment
+	cb, _, err := clientBuilder()
+	if err != nil {
+		t.Error(err) // shouldn't ever happen
+	}
+	c := cb.WithObjects(resource, deployment).Build()
+
+	// Create a reconciler with the default proxy image at a different version
+	r, req, ctx := reconciler(resource, c, "gcr.io/cloud-sql-connectors/cloud-sql-proxy:999.9.9")
+
+	// Run Reconcile on the resource
+	res, err := r.Reconcile(ctx, req)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if !res.Requeue {
+		t.Errorf("got %v, want %v for requeue", res.Requeue, true)
+	}
+
+	// Fetch the deployment and make sure the annotations show the
+	// deleted resource.
+	d := &appsv1.Deployment{}
+	err = c.Get(ctx, types.NamespacedName{
+		Namespace: deployment.GetNamespace(),
+		Name:      deployment.GetName(),
+	}, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := d.Spec.Template.ObjectMeta.Annotations[k]; got != wantV {
+		t.Fatalf("got %v, wants annotation value %v", got, wantV)
+	}
+
+}
+
 func runReconcileTestcase(p *cloudsqlapi.AuthProxyWorkload, clientObjects []client.Object, wantRequeue bool, wantStatus metav1.ConditionStatus, wantReason string) (client.WithWatch, context.Context, error) {
 	cb, _, err := clientBuilder()
 	if err != nil {
@@ -369,7 +436,7 @@ func runReconcileTestcase(p *cloudsqlapi.AuthProxyWorkload, clientObjects []clie
 
 	c := cb.WithObjects(clientObjects...).Build()
 
-	r, req, ctx := reconciler(p, c)
+	r, req, ctx := reconciler(p, c, workload.DefaultProxyImage)
 	res, err := r.Reconcile(ctx, req)
 	if err != nil {
 		return nil, nil, err
@@ -418,12 +485,12 @@ func clientBuilder() (*fake.ClientBuilder, *runtime.Scheme, error) {
 
 }
 
-func reconciler(p *cloudsqlapi.AuthProxyWorkload, cb client.Client) (*AuthProxyWorkloadReconciler, ctrl.Request, context.Context) {
+func reconciler(p *cloudsqlapi.AuthProxyWorkload, cb client.Client, defaultProxyImage string) (*AuthProxyWorkloadReconciler, ctrl.Request, context.Context) {
 	ctx := log.IntoContext(context.Background(), logger)
 	r := &AuthProxyWorkloadReconciler{
 		Client:          cb,
 		recentlyDeleted: &recentlyDeletedCache{},
-		updater:         workload.NewUpdater("cloud-sql-proxy-operator/dev"),
+		updater:         workload.NewUpdater("cloud-sql-proxy-operator/dev", defaultProxyImage),
 	}
 	req := ctrl.Request{
 		NamespacedName: types.NamespacedName{

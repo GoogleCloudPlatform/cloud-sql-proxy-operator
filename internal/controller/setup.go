@@ -38,8 +38,8 @@ func InitScheme(scheme *runtime.Scheme) {
 
 // SetupManagers was moved out of ../main.go to here so that it can be invoked
 // from the testintegration tests AND from the actual operator.
-func SetupManagers(mgr manager.Manager, userAgent string) error {
-	u := workload.NewUpdater(userAgent)
+func SetupManagers(mgr manager.Manager, userAgent, defaultProxyImage string) error {
+	u := workload.NewUpdater(userAgent, defaultProxyImage)
 
 	setupLog.Info("Configuring reconcilers...")
 	var err error

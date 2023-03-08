@@ -28,6 +28,7 @@ import (
 
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/controller"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
+	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
 	"github.com/go-logr/logr"
 	"go.uber.org/zap/zapcore"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -143,7 +144,7 @@ func EnvTestSetup() (func(), error) {
 		return teardownFunc, fmt.Errorf("unable to start kuberenetes envtest %v", err)
 	}
 
-	err = controller.SetupManagers(mgr, "cloud-sql-proxy-operator/dev")
+	err = controller.SetupManagers(mgr, "cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
 	if err != nil {
 		return teardownFunc, fmt.Errorf("unable to start kuberenetes envtest %v", err)
 	}
