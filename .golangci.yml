@@ -17,9 +17,15 @@ linters:
   enable:
     - goimports
     - revive
+    - importas
 issues:
   exclude-use-default: false
 linters-settings:
+  importas:
+    no-unaliased: true
+    alias:
+    - pkg: "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
+      alias: "cloudsqlapi"
   revive:
     rules:
       - name: blank-imports
