@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
+	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -39,15 +39,15 @@ func podWorkload() *workload.PodWorkload {
 	}}
 }
 
-func simpleAuthProxy(name, connectionString string) *v1alpha1.AuthProxyWorkload {
-	return authProxyWorkload(name, []v1alpha1.InstanceSpec{{
+func simpleAuthProxy(name, connectionString string) *cloudsqlapi.AuthProxyWorkload {
+	return authProxyWorkload(name, []cloudsqlapi.InstanceSpec{{
 		ConnectionString: connectionString,
 	}})
 }
 
-func authProxyWorkload(name string, instances []v1alpha1.InstanceSpec) *v1alpha1.AuthProxyWorkload {
-	return authProxyWorkloadFromSpec(name, v1alpha1.AuthProxyWorkloadSpec{
-		Workload: v1alpha1.WorkloadSelectorSpec{
+func authProxyWorkload(name string, instances []cloudsqlapi.InstanceSpec) *cloudsqlapi.AuthProxyWorkload {
+	return authProxyWorkloadFromSpec(name, cloudsqlapi.AuthProxyWorkloadSpec{
+		Workload: cloudsqlapi.WorkloadSelectorSpec{
 			Kind: "Deployment",
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"app": "hello"},
@@ -56,13 +56,13 @@ func authProxyWorkload(name string, instances []v1alpha1.InstanceSpec) *v1alpha1
 		Instances: instances,
 	})
 }
-func authProxyWorkloadFromSpec(name string, spec v1alpha1.AuthProxyWorkloadSpec) *v1alpha1.AuthProxyWorkload {
-	proxy := &v1alpha1.AuthProxyWorkload{
-		TypeMeta:   metav1.TypeMeta{Kind: "AuthProxyWorkload", APIVersion: v1alpha1.GroupVersion.String()},
+func authProxyWorkloadFromSpec(name string, spec cloudsqlapi.AuthProxyWorkloadSpec) *cloudsqlapi.AuthProxyWorkload {
+	proxy := &cloudsqlapi.AuthProxyWorkload{
+		TypeMeta:   metav1.TypeMeta{Kind: "AuthProxyWorkload", APIVersion: cloudsqlapi.GroupVersion.String()},
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default", Generation: 1},
 		Spec:       spec,
 	}
-	proxy.Spec.Workload = v1alpha1.WorkloadSelectorSpec{
+	proxy.Spec.Workload = cloudsqlapi.WorkloadSelectorSpec{
 		Kind: "Deployment",
 		Selector: &metav1.LabelSelector{
 			MatchLabels:      map[string]string{"app": "hello"},
@@ -122,8 +122,8 @@ func logPodSpec(t *testing.T, wl *workload.PodWorkload) {
 	t.Logf("PodSpec: %s", string(podSpecYaml))
 }
 
-func configureProxies(u *workload.Updater, wl *workload.PodWorkload, proxies []*v1alpha1.AuthProxyWorkload) error {
-	l := &v1alpha1.AuthProxyWorkloadList{Items: make([]v1alpha1.AuthProxyWorkload, len(proxies))}
+func configureProxies(u *workload.Updater, wl *workload.PodWorkload, proxies []*cloudsqlapi.AuthProxyWorkload) error {
+	l := &cloudsqlapi.AuthProxyWorkloadList{Items: make([]cloudsqlapi.AuthProxyWorkload, len(proxies))}
 	for i := 0; i < len(proxies); i++ {
 		l.Items[i] = *proxies[i]
 	}
@@ -157,7 +157,7 @@ func TestUpdatePodWorkload(t *testing.T) {
 	proxy.Spec.Instances[0].Port = ptr(wantsPort)
 
 	// Update the container with new markWorkloadNeedsUpdate
-	err = configureProxies(u, wl, []*v1alpha1.AuthProxyWorkload{proxy})
+	err = configureProxies(u, wl, []*cloudsqlapi.AuthProxyWorkload{proxy})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,8 +203,8 @@ func TestUpdateWorkloadFixedPort(t *testing.T) {
 		[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
 
 	// Create a AuthProxyWorkload that matches the deployment
-	csqls := []*v1alpha1.AuthProxyWorkload{
-		authProxyWorkload("instance1", []v1alpha1.InstanceSpec{{
+	csqls := []*cloudsqlapi.AuthProxyWorkload{
+		authProxyWorkload("instance1", []cloudsqlapi.InstanceSpec{{
 			ConnectionString: wantsInstanceName,
 			Port:             &wantsPort,
 			PortEnvName:      "DB_PORT",
@@ -270,8 +270,8 @@ func TestWorkloadNoPortSet(t *testing.T) {
 		[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
 
 	// Create a AuthProxyWorkload that matches the deployment
-	csqls := []*v1alpha1.AuthProxyWorkload{
-		authProxyWorkload("instance1", []v1alpha1.InstanceSpec{{
+	csqls := []*cloudsqlapi.AuthProxyWorkload{
+		authProxyWorkload("instance1", []cloudsqlapi.InstanceSpec{{
 			ConnectionString: wantsInstanceName,
 			PortEnvName:      "DB_PORT",
 			HostEnvName:      "DB_HOST",
@@ -329,10 +329,10 @@ func TestContainerImageChanged(t *testing.T) {
 		[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
 
 	// Create a AuthProxyWorkload that matches the deployment
-	csqls := []*v1alpha1.AuthProxyWorkload{
+	csqls := []*cloudsqlapi.AuthProxyWorkload{
 		simpleAuthProxy("instance1", wantsInstanceName),
 	}
-	csqls[0].Spec.AuthProxyContainer = &v1alpha1.AuthProxyContainerSpec{Image: wantImage}
+	csqls[0].Spec.AuthProxyContainer = &cloudsqlapi.AuthProxyContainerSpec{Image: wantImage}
 
 	// update the containers
 	err := configureProxies(u, wl, csqls)
@@ -368,7 +368,7 @@ func TestContainerImageEmpty(t *testing.T) {
 
 	// create an AuthProxyContainer that has a value, but Image is empty.
 	p1 := simpleAuthProxy("instance1", wantsInstanceName)
-	p1.Spec.AuthProxyContainer = &v1alpha1.AuthProxyContainerSpec{MaxConnections: ptr(int64(5))}
+	p1.Spec.AuthProxyContainer = &cloudsqlapi.AuthProxyContainerSpec{MaxConnections: ptr(int64(5))}
 
 	// create an AuthProxyContainer where AuthProxyContainer is nil
 	p2 := simpleAuthProxy("instance1", wantsInstanceName)
@@ -376,7 +376,7 @@ func TestContainerImageEmpty(t *testing.T) {
 
 	tests := []struct {
 		name  string
-		proxy *v1alpha1.AuthProxyWorkload
+		proxy *cloudsqlapi.AuthProxyWorkload
 	}{
 		{name: "Image is empty", proxy: p1},
 		{name: "AuthProxyContainer is nil", proxy: p2},
@@ -387,7 +387,7 @@ func TestContainerImageEmpty(t *testing.T) {
 			wl := podWorkload()
 			wl.Pod.Spec.Containers[0].Ports =
 				[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
-			csqls := []*v1alpha1.AuthProxyWorkload{test.proxy}
+			csqls := []*cloudsqlapi.AuthProxyWorkload{test.proxy}
 
 			// update the containers
 			err := configureProxies(u, wl, csqls)
@@ -430,8 +430,8 @@ func TestContainerReplaced(t *testing.T) {
 		[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
 
 	// Create a AuthProxyWorkload that matches the deployment
-	csqls := []*v1alpha1.AuthProxyWorkload{simpleAuthProxy("instance1", wantsInstanceName)}
-	csqls[0].Spec.AuthProxyContainer = &v1alpha1.AuthProxyContainerSpec{Container: wantContainer}
+	csqls := []*cloudsqlapi.AuthProxyWorkload{simpleAuthProxy("instance1", wantsInstanceName)}
+	csqls[0].Spec.AuthProxyContainer = &cloudsqlapi.AuthProxyContainerSpec{Container: wantContainer}
 
 	// update the containers
 	err := configureProxies(u, wl, csqls)
@@ -484,8 +484,8 @@ func TestResourcesFromSpec(t *testing.T) {
 		[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
 
 	// Create a AuthProxyWorkload that matches the deployment
-	csqls := []*v1alpha1.AuthProxyWorkload{simpleAuthProxy("instance1", wantsInstanceName)}
-	csqls[0].Spec.AuthProxyContainer = &v1alpha1.AuthProxyContainerSpec{Resources: wantResources}
+	csqls := []*cloudsqlapi.AuthProxyWorkload{simpleAuthProxy("instance1", wantsInstanceName)}
+	csqls[0].Spec.AuthProxyContainer = &cloudsqlapi.AuthProxyContainerSpec{Resources: wantResources}
 
 	// update the containers
 	err := configureProxies(u, wl, csqls)
@@ -519,7 +519,7 @@ func TestProxyCLIArgs(t *testing.T) {
 
 	testcases := []struct {
 		desc                 string
-		proxySpec            v1alpha1.AuthProxyWorkloadSpec
+		proxySpec            cloudsqlapi.AuthProxyWorkloadSpec
 		wantProxyArgContains []string
 		wantErrorCodes       []string
 		wantWorkloadEnv      map[string]string
@@ -527,8 +527,8 @@ func TestProxyCLIArgs(t *testing.T) {
 	}{
 		{
 			desc: "default cli config",
-			proxySpec: v1alpha1.AuthProxyWorkloadSpec{
-				Instances: []v1alpha1.InstanceSpec{{
+			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
+				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "hello:world:db",
 					Port:             &wantPort,
 					PortEnvName:      "DB_PORT",
@@ -544,8 +544,8 @@ func TestProxyCLIArgs(t *testing.T) {
 		},
 		{
 			desc: "port explicitly set",
-			proxySpec: v1alpha1.AuthProxyWorkloadSpec{
-				Instances: []v1alpha1.InstanceSpec{{
+			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
+				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "hello:world:db",
 					Port:             &wantPort,
 					PortEnvName:      "DB_PORT",
@@ -555,8 +555,8 @@ func TestProxyCLIArgs(t *testing.T) {
 		},
 		{
 			desc: "port implicitly set and increments",
-			proxySpec: v1alpha1.AuthProxyWorkloadSpec{
-				Instances: []v1alpha1.InstanceSpec{{
+			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
+				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "hello:world:one",
 					PortEnvName:      "DB_PORT",
 				},
@@ -571,8 +571,8 @@ func TestProxyCLIArgs(t *testing.T) {
 		},
 		{
 			desc: "env name conflict causes error",
-			proxySpec: v1alpha1.AuthProxyWorkloadSpec{
-				Instances: []v1alpha1.InstanceSpec{{
+			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
+				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "hello:world:one",
 					PortEnvName:      "DB_PORT",
 				},
@@ -584,12 +584,12 @@ func TestProxyCLIArgs(t *testing.T) {
 			wantProxyArgContains: []string{
 				fmt.Sprintf("hello:world:one?port=%d", workload.DefaultFirstPort),
 				fmt.Sprintf("hello:world:two?port=%d", workload.DefaultFirstPort+1)},
-			wantErrorCodes: []string{v1alpha1.ErrorCodeEnvConflict},
+			wantErrorCodes: []string{cloudsqlapi.ErrorCodeEnvConflict},
 		},
 		{
 			desc: "auto-iam-authn set",
-			proxySpec: v1alpha1.AuthProxyWorkloadSpec{
-				Instances: []v1alpha1.InstanceSpec{{
+			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
+				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "hello:world:one",
 					PortEnvName:      "DB_PORT",
 					AutoIAMAuthN:     &wantTrue,
@@ -606,8 +606,8 @@ func TestProxyCLIArgs(t *testing.T) {
 		},
 		{
 			desc: "private-ip set",
-			proxySpec: v1alpha1.AuthProxyWorkloadSpec{
-				Instances: []v1alpha1.InstanceSpec{{
+			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
+				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "hello:world:one",
 					PortEnvName:      "DB_PORT",
 					PrivateIP:        &wantTrue,
@@ -624,10 +624,10 @@ func TestProxyCLIArgs(t *testing.T) {
 		},
 		{
 			desc: "global flags",
-			proxySpec: v1alpha1.AuthProxyWorkloadSpec{
-				AuthProxyContainer: &v1alpha1.AuthProxyContainerSpec{
+			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
+				AuthProxyContainer: &cloudsqlapi.AuthProxyContainerSpec{
 					SQLAdminAPIEndpoint: "https://example.com",
-					Telemetry: &v1alpha1.TelemetrySpec{
+					Telemetry: &cloudsqlapi.TelemetrySpec{
 						TelemetryPrefix:     ptr("telprefix"),
 						TelemetryProject:    ptr("telproject"),
 						TelemetrySampleRate: ptr(200),
@@ -638,14 +638,14 @@ func TestProxyCLIArgs(t *testing.T) {
 						PrometheusNamespace: ptr("hello"),
 						QuotaProject:        ptr("qp"),
 					},
-					AdminServer: &v1alpha1.AdminServerSpec{
+					AdminServer: &cloudsqlapi.AdminServerSpec{
 						EnableAPIs: []string{"Debug", "QuitQuitQuit"},
 						Port:       int32(9091),
 					},
 					MaxConnections:  ptr(int64(10)),
 					MaxSigtermDelay: ptr(int64(20)),
 				},
-				Instances: []v1alpha1.InstanceSpec{{
+				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "hello:world:one",
 					Port:             ptr(int32(5000)),
 				}},
@@ -674,9 +674,9 @@ func TestProxyCLIArgs(t *testing.T) {
 		},
 		{
 			desc: "No admin port enabled when AdminServerSpec is nil",
-			proxySpec: v1alpha1.AuthProxyWorkloadSpec{
-				AuthProxyContainer: &v1alpha1.AuthProxyContainerSpec{},
-				Instances: []v1alpha1.InstanceSpec{{
+			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
+				AuthProxyContainer: &cloudsqlapi.AuthProxyContainerSpec{},
+				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "hello:world:one",
 					Port:             ptr(int32(5000)),
 				}},
@@ -691,8 +691,8 @@ func TestProxyCLIArgs(t *testing.T) {
 		},
 		{
 			desc: "port conflict with other instance causes error",
-			proxySpec: v1alpha1.AuthProxyWorkloadSpec{
-				Instances: []v1alpha1.InstanceSpec{{
+			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
+				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "hello:world:one",
 					PortEnvName:      "DB_PORT_1",
 					Port:             ptr(int32(8081)),
@@ -706,12 +706,12 @@ func TestProxyCLIArgs(t *testing.T) {
 			wantProxyArgContains: []string{
 				fmt.Sprintf("hello:world:one?port=%d", 8081),
 				fmt.Sprintf("hello:world:two?port=%d", 8081)},
-			wantErrorCodes: []string{v1alpha1.ErrorCodePortConflict},
+			wantErrorCodes: []string{cloudsqlapi.ErrorCodePortConflict},
 		},
 		{
 			desc: "port conflict with workload container",
-			proxySpec: v1alpha1.AuthProxyWorkloadSpec{
-				Instances: []v1alpha1.InstanceSpec{{
+			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
+				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "hello:world:one",
 					PortEnvName:      "DB_PORT_1",
 					Port:             ptr(int32(8080)),
@@ -719,7 +719,7 @@ func TestProxyCLIArgs(t *testing.T) {
 			},
 			wantProxyArgContains: []string{
 				fmt.Sprintf("hello:world:one?port=%d", 8080)},
-			wantErrorCodes: []string{v1alpha1.ErrorCodePortConflict},
+			wantErrorCodes: []string{cloudsqlapi.ErrorCodePortConflict},
 		},
 	}
 
@@ -738,7 +738,7 @@ func TestProxyCLIArgs(t *testing.T) {
 			}}
 
 			// Create a AuthProxyWorkload that matches the deployment
-			csqls := []*v1alpha1.AuthProxyWorkload{authProxyWorkloadFromSpec("instance1", tc.proxySpec)}
+			csqls := []*cloudsqlapi.AuthProxyWorkload{authProxyWorkloadFromSpec("instance1", tc.proxySpec)}
 
 			// ensure valid
 			err := csqls[0].ValidateCreate()
@@ -870,7 +870,7 @@ func TestPodTemplateAnnotations(t *testing.T) {
 		[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
 
 	// Create a AuthProxyWorkload that matches the deployment
-	csqls := []*v1alpha1.AuthProxyWorkload{
+	csqls := []*cloudsqlapi.AuthProxyWorkload{
 		simpleAuthProxy("instance1", "project:server:db"),
 		simpleAuthProxy("instance2", "project:server2:db2"),
 		simpleAuthProxy("instance3", "project:server3:db3")}
@@ -895,12 +895,12 @@ func TestPodTemplateAnnotations(t *testing.T) {
 
 func TestPodAnnotation(t *testing.T) {
 	now := metav1.Now()
-	server := &v1alpha1.AuthProxyWorkload{ObjectMeta: metav1.ObjectMeta{Name: "instance1", Generation: 1}}
-	deletedServer := &v1alpha1.AuthProxyWorkload{ObjectMeta: metav1.ObjectMeta{Name: "instance2", Generation: 2, DeletionTimestamp: &now}}
+	server := &cloudsqlapi.AuthProxyWorkload{ObjectMeta: metav1.ObjectMeta{Name: "instance1", Generation: 1}}
+	deletedServer := &cloudsqlapi.AuthProxyWorkload{ObjectMeta: metav1.ObjectMeta{Name: "instance2", Generation: 2, DeletionTimestamp: &now}}
 
 	var testcases = []struct {
 		name  string
-		r     *v1alpha1.AuthProxyWorkload
+		r     *cloudsqlapi.AuthProxyWorkload
 		wantK string
 		wantV string
 	}{
@@ -951,8 +951,8 @@ func TestWorkloadUnixVolume(t *testing.T) {
 		[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
 
 	// Create a AuthProxyWorkload that matches the deployment
-	csqls := []*v1alpha1.AuthProxyWorkload{
-		authProxyWorkload("instance1", []v1alpha1.InstanceSpec{{
+	csqls := []*cloudsqlapi.AuthProxyWorkload{
+		authProxyWorkload("instance1", []cloudsqlapi.InstanceSpec{{
 			ConnectionString:      wantsInstanceName,
 			UnixSocketPath:        wantsUnixSocketPath,
 			UnixSocketPathEnvName: "DB_SOCKET_PATH",
