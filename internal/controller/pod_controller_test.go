@@ -151,7 +151,7 @@ func podWebhookController(cb client.Client) (*PodAdmissionWebhook, context.Conte
 	r := &PodAdmissionWebhook{
 		Client:  cb,
 		decoder: d,
-		updater: workload.NewUpdater("cloud-sql-proxy-operator/dev"),
+		updater: workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage),
 	}
 
 	return r, ctx, nil
