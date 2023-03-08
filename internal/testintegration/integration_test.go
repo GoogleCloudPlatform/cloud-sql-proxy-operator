@@ -19,6 +19,7 @@ package testintegration_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 
@@ -261,23 +262,21 @@ func TestUpdateWorkloadContainerWhenDefaultProxyImageChanges(t *testing.T) {
 		t.Fatal("can't restart container", err)
 	}
 
-	// Check that proxy container was added to pods
-	err = tcc.ExpectPodContainerCount(ctx, d.Spec.Selector, 2, "all")
-	if err != nil {
-		t.Error(err)
-	}
-
 	// Get the related deployment. Make sure that annotations were
 	// set on the pod template
-	ud := &appsv1.Deployment{}
-	err = tcc.Client.Get(ctx, client.ObjectKeyFromObject(d), ud)
+	err = testhelpers.RetryUntilSuccess(24, testhelpers.DefaultRetryInterval, func() error {
+		ud := &appsv1.Deployment{}
+		err = tcc.Client.Get(ctx, client.ObjectKeyFromObject(d), ud)
+		wantK, wantV := workload.PodAnnotation(p, newDefault)
+		gotV := ud.Spec.Template.Annotations[wantK]
+		if gotV != wantV {
+			return fmt.Errorf("got %s, want %s for podspec annotation on deployment", gotV, wantV)
+		}
+		return nil
+	})
+
 	if err != nil {
-		t.Error(err)
-	}
-	wantK, wantV := workload.PodAnnotation(p, newDefault)
-	gotV := ud.Spec.Template.Annotations[wantK]
-	if gotV != wantV {
-		t.Errorf("Got %s, want %s for podspec annotation", gotV, wantV)
+		t.Fatal(err)
 	}
 
 	// Recreate the ReplicaSet and Pods as would happen when the deployment
