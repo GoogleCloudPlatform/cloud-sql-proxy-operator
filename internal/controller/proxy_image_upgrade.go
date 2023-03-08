@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
+	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -36,12 +36,16 @@ type upgradeDefaultProxyOnStartup struct {
 // Start lists all the AuthProxyWorkload resources and triggers the update on
 // the resources with a default proxy image.
 func (c *upgradeDefaultProxyOnStartup) Start(ctx context.Context) error {
-	l := &v1alpha1.AuthProxyWorkloadList{}
+	l := &cloudsqlapi.AuthProxyWorkloadList{}
+
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 		default:
+			// c.c.List() fills l with a paginated list of AuthProxyWorkloads.
+			// The token in l.Continue field is used get the next page of the list.
+			// the for loop exits when l.Continue is blank, meaning no more pages.
 			err := c.c.List(ctx, l, client.Continue(l.Continue))
 			if err != nil {
 				return fmt.Errorf("can't list AuthProxyWorkload on startup, %v", err)

@@ -193,6 +193,9 @@ func TestModifiesExistingDeployment(t *testing.T) {
 	}
 }
 
+// TestUpdateWorkloadContainerWhenDefaultProxyImageChanges is the test that
+// demonstrates that when the operator's default image changes, it will
+// automatically update the proxy container image on existing deployments.
 func TestUpdateWorkloadContainerWhenDefaultProxyImageChanges(t *testing.T) {
 	ctx := testintegration.TestContext()
 	tcc := newTestCaseClient("modifynew")
