@@ -72,6 +72,14 @@ func SetupManagers(mgr manager.Manager, userAgent, defaultProxyImage string) err
 		return err
 	}
 
+	// Add the runnable task that will upgrade the proxy image on workloads with
+	// default container image when  the operator first starts.
+	err = mgr.Add(&upgradeDefaultProxyOnStartup{c: mgr.GetClient()})
+	if err != nil {
+		setupLog.Error(err, "unable to start task to check all AuthProxyWorkloads on startup")
+		return err
+	}
+
 	setupLog.Info("Configuring reconcilers complete.")
 	return nil
 }
