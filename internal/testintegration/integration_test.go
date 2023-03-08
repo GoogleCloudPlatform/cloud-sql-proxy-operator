@@ -257,6 +257,12 @@ func TestUpdateWorkloadContainerWhenDefaultProxyImageChanges(t *testing.T) {
 	if err != nil {
 		t.Fatal("can't restart container", err)
 	}
+	
+	// Check that proxy container was added to pods
+	err = tcc.ExpectPodContainerCount(ctx, d.Spec.Selector, 2, "all")
+	if err != nil {
+		t.Error(err)
+	}
 
 	// Get the related deployment. Make sure that annotations were
 	// set on the pod template
