@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
+	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"

@@ -19,7 +19,7 @@ import (
 	"hash/fnv"
 	"strings"
 
-	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1alpha1"
+	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1"
 )
 
 // ContainerPrefix is the name prefix used on containers added to PodSpecs

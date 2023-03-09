@@ -23,14 +23,14 @@ webhooks:
       service:
         name: webhook-service
         namespace: system
-        path: /mutate-cloudsql-cloud-google-com-v1alpha1-authproxyworkload
+        path: /mutate-cloudsql-cloud-google-com-v1-authproxyworkload
     failurePolicy: Fail
     name: mauthproxyworkload.kb.io
     rules:
       - apiGroups:
           - cloudsql.cloud.google.com
         apiVersions:
-          - v1alpha1
+          - v1
         operations:
           - CREATE
           - UPDATE
@@ -50,14 +50,14 @@ webhooks:
       service:
         name: webhook-service
         namespace: system
-        path: /validate-cloudsql-cloud-google-com-v1alpha1-authproxyworkload
+        path: /validate-cloudsql-cloud-google-com-v1-authproxyworkload
     failurePolicy: Fail
     name: vauthproxyworkload.kb.io
     rules:
       - apiGroups:
           - cloudsql.cloud.google.com
         apiVersions:
-          - v1alpha1
+          - v1
         operations:
           - CREATE
           - UPDATE

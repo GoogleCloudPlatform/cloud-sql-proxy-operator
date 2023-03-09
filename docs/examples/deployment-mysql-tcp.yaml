@@ -20,7 +20,7 @@
 # Create an AuthProxyWorkload to hold the configuration for your
 # Cloud SQL Proxy containers.
 
-apiVersion: cloudsql.cloud.google.com/v1alpha1
+apiVersion: cloudsql.cloud.google.com/v1
 kind: AuthProxyWorkload
 metadata:
   name: authproxyworkload-sample
