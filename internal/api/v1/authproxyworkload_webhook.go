@@ -112,10 +112,19 @@ func validateContainer(spec *AuthProxyContainerSpec, f *field.Path) field.ErrorL
 	}
 
 	var allErrs field.ErrorList
-	if spec.AdminServer != nil && len(spec.AdminServer.EnableAPIs) == 0 {
-		allErrs = append(allErrs, field.Invalid(
-			f.Child("adminServer", "enableAPIs"), nil,
-			"enableAPIs must have at least one valid element: Debug or QuitQuitQuit"))
+	if spec.AdminServer != nil {
+		if len(spec.AdminServer.EnableAPIs) == 0 {
+			allErrs = append(allErrs, field.Invalid(
+				f.Child("adminServer", "enableAPIs"), nil,
+				"enableAPIs must have at least one valid element: Debug or QuitQuitQuit"))
+		}
+		for i, v := range spec.AdminServer.EnableAPIs {
+			if v != "Debug" && v != "QuitQuitQuit" {
+				allErrs = append(allErrs, field.Invalid(
+					f.Child("adminServer", "enableAPIs", fmt.Sprintf("%d", i)), v,
+					"enableAPIs may contain the values \"Debug\" or \"QuitQuitQuit\""))
+			}
+		}
 	}
 	if spec.AdminServer != nil {
 		errors := apivalidation.IsValidPortNum(int(spec.AdminServer.Port))
@@ -251,7 +260,7 @@ func validateInstances(spec *[]InstanceSpec, f *field.Path) field.ErrorList {
 		return errs
 	}
 	for i, inst := range *spec {
-		ff := f.Child(fmt.Sprintf("[%d]", i))
+		ff := f.Child(fmt.Sprintf("%d", i))
 		if inst.Port != nil {
 			for _, s := range apivalidation.IsValidPortNum(int(*inst.Port)) {
 				errs = append(errs, field.Invalid(ff.Child("port"), inst.Port, s))
