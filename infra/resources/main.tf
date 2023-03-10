@@ -82,7 +82,7 @@ locals {
       }
       alloydb = {
         instance     = local.alloydb_instance_uri
-        dbName       = local.alloydb_instance_id
+        dbName       = local.alloydb_db_name
         rootUser     = "postgres"
         rootPassword = random_id.db_password.hex
       }

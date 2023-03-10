@@ -598,12 +598,11 @@ func TestPrivateAlloyDBConnection(t *testing.T) {
 	}
 
 	t.Log("Creating AuthProxyWorkload")
-	b := true
 	p := testhelpers.NewAuthProxyWorkload(key)
+	//testhelpers.AddUnixInstance(p, tp.ConnectionString, "/var/db/test")
 	testhelpers.AddAlloyDBUnixInstance(p, tp.ConnectionString, "/var/db/test")
 	tp.ConfigureSelector(p, appLabel, kind)
 	tp.ConfigureResources(p)
-	p.Spec.AlloyDBInstances[0].PrivateIP = &b
 
 	err = tp.Create(ctx, p)
 	if err != nil {

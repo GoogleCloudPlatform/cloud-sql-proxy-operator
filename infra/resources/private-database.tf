@@ -94,7 +94,14 @@ resource "google_alloydb_cluster" "private_alloydb" {
 
 
 locals {
-  alloydb_instance_id  = "db"
+  # Since it's an empty postgres instance, the only db name is "postgres"
+  alloydb_db_name = "postgres"
+
+  # The instance name created by hand is "db" See bug below.
+  alloydb_instance_id = "db"
+
+  # The instance URI formatted in accordance with documentation here:
+  # https://cloud.google.com/alloydb/docs/auth-proxy/connect
   alloydb_instance_uri = "${data.google_project.project.id}/locations/${var.gcloud_region}/clusters/${google_alloydb_cluster.private_alloydb.cluster_id}/instances/${local.alloydb_instance_id}"
 }
 

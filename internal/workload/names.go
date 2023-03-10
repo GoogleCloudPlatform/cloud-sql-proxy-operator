@@ -40,6 +40,7 @@ func ContainerName(r *cloudsqlapi.AuthProxyWorkload, proxyType string) string {
 // name and the Cloud SQL instance name.
 func VolumeName(r *cloudsqlapi.AuthProxyWorkload, inst *cloudsqlapi.InstanceSpec, mountType string) string {
 	connName := strings.ReplaceAll(strings.ToLower(inst.ConnectionString), ":", "-")
+	connName = strings.ReplaceAll(connName, "/", "-")
 	return SafePrefixedName(ContainerPrefix, r.GetName()+"-"+mountType+"-"+connName)
 }
 

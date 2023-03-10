@@ -254,6 +254,7 @@ type managedVolume struct {
 type proxyInstanceID struct {
 	AuthProxyWorkload types.NamespacedName `json:"authProxyWorkload"`
 	ConnectionString  string               `json:"connectionString"`
+	Type              string               `json:"type"`
 }
 
 // updateState holds internal state while a particular workload being configured
@@ -268,10 +269,9 @@ type updateState struct {
 // workloadMods holds all modifications to this workload done by the operator so
 // so that it can be undone later.
 type workloadMods struct {
-	DBInstances  []*proxyInstanceID `json:"dbInstances"`
-	EnvVars      []*managedEnvVar   `json:"envVars"`
-	VolumeMounts []*managedVolume   `json:"volumeMounts"`
-	Ports        []*managedPort     `json:"ports"`
+	EnvVars      []*managedEnvVar `json:"envVars"`
+	VolumeMounts []*managedVolume `json:"volumeMounts"`
+	Ports        []*managedPort   `json:"ports"`
 }
 
 func (s *updateState) addWorkloadPort(p int32) {
@@ -420,30 +420,10 @@ func isEnvVarConflict(oldEnv *managedEnvVar, v managedEnvVar) bool {
 	return oldEnv.OperatorManagedValue.Value != v.OperatorManagedValue.Value
 }
 
-func (s *updateState) initState(pl []*cloudsqlapi.AuthProxyWorkload) {
-	// Reset the mods.DBInstances to the list of pl being
-	// applied right now.
-	s.mods.DBInstances = make([]*proxyInstanceID, 0, len(pl))
-	for _, wl := range pl {
-		for _, instance := range wl.Spec.Instances {
-			s.mods.DBInstances = append(s.mods.DBInstances,
-				&proxyInstanceID{
-					AuthProxyWorkload: types.NamespacedName{
-						Namespace: wl.Namespace,
-						Name:      wl.Name,
-					},
-					ConnectionString: instance.ConnectionString,
-				})
-		}
-	}
-
-}
-
 // update Reconciles the state of a workload, applying the matching DBInstances
 // and removing any out-of-date configuration related to deleted DBInstances
 func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWorkload) error {
 
-	s.initState(matches)
 	podSpec := wl.PodSpec()
 	containers := podSpec.Containers
 
