@@ -30,6 +30,7 @@ provider "google" {
 # Enable gcloud project APIs
 locals {
   project_services = toset([
+    "alloydb.googleapis.com",
     "compute.googleapis.com",
     "container.googleapis.com",
     "artifactregistry.googleapis.com",
