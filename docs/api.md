@@ -83,7 +83,9 @@ _Appears in:_
 | --- | --- |
 | `workloadSelector` _[WorkloadSelectorSpec](#workloadselectorspec)_ | Workload selects the workload where the proxy container will be added. |
 | `instances` _[InstanceSpec](#instancespec) array_ | Instances describes the Cloud SQL instances to configure on the proxy container. |
+| `alloyDbInstances` _[InstanceSpec](#instancespec) array_ | AlloyDBInstances describes the Cloud SQL instances to configure on the proxy container. |
 | `authProxyContainer` _[AuthProxyContainerSpec](#authproxycontainerspec)_ | AuthProxyContainer describes the resources and config for the Auth Proxy container. |
+| `alloyDbProxyContainer` _[AuthProxyContainerSpec](#authproxycontainerspec)_ | AlloyDBProxyContainer describes the resources and config for the AlloyDB Proxy container. |
 
 
 #### InstanceSpec
@@ -101,7 +103,7 @@ _Appears in:_
 
 | Field | Description |
 | --- | --- |
-| `connectionString` _string_ | ConnectionString is the connection string for the Cloud SQL Instance in the format `project_id:region:instance_name` |
+| `connectionString` _string_ | ConnectionString is the connection string for the Cloud SQL Instance in the format `project_id:region:instance_name` TODO Fix pattern: kubebuilder:validation:Pattern:="^(([^:]+(:[^:]+)?):([^:]+):([^:]+))|(projects/([a-z0-9]|-)+/locations/([a-z0-9]|-)+/clusters/([a-z0-9]|-)+/instances/([a-z0-9]|-)+)$" |
 | `port` _integer_ | Port (optional) sets the tcp port for this instance. If not set, a value will be automatically assigned by the operator and set as an environment variable on all containers in the workload named according to PortEnvName. The operator will choose a port so that it does not conflict with other ports on the workload. |
 | `autoIAMAuthN` _boolean_ | AutoIAMAuthN (optional) Enables IAM Authentication for this instance. Default value is false. |
 | `privateIP` _boolean_ | PrivateIP (optional) Enable connection to the Cloud SQL instance's private ip for this instance. Default value is false. |

@@ -650,6 +650,16 @@ func AddUnixInstance(p *cloudsqlapi.AuthProxyWorkload, connectionString string, 
 	})
 }
 
+// AddAlloyDBUnixInstance adds a database instance with a unix socket connection,
+// setting UnixSocketPathEnvName to "DB_PATH".
+func AddAlloyDBUnixInstance(p *cloudsqlapi.AuthProxyWorkload, connectionString string, path string) {
+	p.Spec.AlloyDBInstances = append(p.Spec.AlloyDBInstances, cloudsqlapi.InstanceSpec{
+		ConnectionString:      connectionString,
+		UnixSocketPath:        path,
+		UnixSocketPathEnvName: "DB_PATH",
+	})
+}
+
 // NewAuthProxyWorkload creates a new AuthProxyWorkload with the
 // TypeMeta, name and namespace set.
 func NewAuthProxyWorkload(key types.NamespacedName) *cloudsqlapi.AuthProxyWorkload {

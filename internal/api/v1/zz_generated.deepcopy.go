@@ -160,8 +160,20 @@ func (in *AuthProxyWorkloadSpec) DeepCopyInto(out *AuthProxyWorkloadSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.AlloyDBInstances != nil {
+		in, out := &in.AlloyDBInstances, &out.AlloyDBInstances
+		*out = make([]InstanceSpec, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.AuthProxyContainer != nil {
 		in, out := &in.AuthProxyContainer, &out.AuthProxyContainer
+		*out = new(AuthProxyContainerSpec)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.AlloyDBProxyContainer != nil {
+		in, out := &in.AlloyDBProxyContainer, &out.AlloyDBProxyContainer
 		*out = new(AuthProxyContainerSpec)
 		(*in).DeepCopyInto(*out)
 	}
