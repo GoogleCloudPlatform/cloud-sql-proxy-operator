@@ -76,6 +76,14 @@ resource "google_project_iam_binding" "cloud_sql_client" {
   ]
 }
 
+resource "google_project_iam_binding" "alloy_db_client" {
+  project = var.project_id
+  role    = "roles/alloydb.client"
+  members = [
+    "serviceAccount:${google_service_account.node_pool.email}"
+  ]
+}
+
 ##
 # This is how you do an output file containing terraform data for use by
 # a subsequent script.

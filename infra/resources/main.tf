@@ -81,8 +81,8 @@ locals {
         rootPassword = random_id.db_password.hex
       }
       alloydb = {
-        instance     = google_alloydb_cluster.private_alloydb.cluster_id
-        dbName       = google_alloydb_instance.private_alloydb.instance_id
+        instance     = local.alloydb_instance_uri
+        dbName       = local.alloydb_instance_id
         rootUser     = "postgres"
         rootPassword = random_id.db_password.hex
       }
