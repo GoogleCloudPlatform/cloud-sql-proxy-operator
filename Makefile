@@ -54,7 +54,7 @@ SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
 ## The version to use for the cert-manager operator
-CERT_MANAGER_VERSION=v1.9.1
+CERT_MANAGER_VERSION=v1.11.0# renovate datasource=github-tags depName=cert-manager/cert-manager
 
 ##@ General
 
@@ -337,31 +337,8 @@ e2e_cluster_destroy: e2e_project terraform # Destroy the infrastructure for e2e 
 
 .PHONY: e2e_cert_manager_deploy
 e2e_cert_manager_deploy: e2e_project helm # Deploy the certificate manager
-	helm repo add jetstack https://charts.jetstack.io --kubeconfig=$(KUBECONFIG_E2E)
-	helm repo add jetstack https://charts.jetstack.io --kubeconfig=$(PRIVATE_KUBECONFIG_E2E)
-
-	helm repo update --kubeconfig=$(KUBECONFIG_E2E)
-	helm repo update --kubeconfig=$(PRIVATE_KUBECONFIG_E2E)
-
-	helm get all -n cert-manager cert-manager --kubeconfig=$(KUBECONFIG_E2E)  || \
-		helm --kubeconfig=$(KUBECONFIG_E2E) install \
-			cert-manager jetstack/cert-manager \
-			--kubeconfig=$(KUBECONFIG_E2E) \
-			--namespace cert-manager \
-			--version "$(CERT_MANAGER_VERSION)" \
-			--create-namespace \
-			--set global.leaderElection.namespace=cert-manager \
-			--set installCRDs=true
-	helm get all -n cert-manager cert-manager --kubeconfig=$(PRIVATE_KUBECONFIG_E2E)  || \
-		helm --kubeconfig=$(PRIVATE_KUBECONFIG_E2E) install \
-			cert-manager jetstack/cert-manager \
-			--kubeconfig=$(PRIVATE_KUBECONFIG_E2E) \
-			--namespace cert-manager \
-			--version "$(CERT_MANAGER_VERSION)" \
-			--create-namespace \
-			--set global.leaderElection.namespace=cert-manager \
-			--set installCRDs=true
-
+	KUBECONFIG=$(KUBECONFIG_E2E) CERT_MANAGER_VERSION=$(CERT_MANAGER_VERSION) tools/helm-install-certmanager.sh
+	KUBECONFIG=$(PRIVATE_KUBECONFIG_E2E) CERT_MANAGER_VERSION=$(CERT_MANAGER_VERSION) tools/helm-install-certmanager.sh
 
 .PHONY: e2e_install_crd
 e2e_install_crd: generate e2e_project kustomize kubectl $(E2E_WORK_DIR) # Install CRDs into the GKE cluster
