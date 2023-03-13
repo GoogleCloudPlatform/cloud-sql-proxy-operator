@@ -231,7 +231,6 @@ type AdminServerSpec struct {
 	// - "QuitQuitQuit" will enable pprof debugging by setting the `--quitquitquit`
 	//   cli flag.
 	//+kubebuilder:validation:MinItems:=1
-	//+kubebuilder:validation:Enum=Debug;QuitQuitQuit
 	EnableAPIs []string `json:"enableAPIs,omitempty"`
 }
 

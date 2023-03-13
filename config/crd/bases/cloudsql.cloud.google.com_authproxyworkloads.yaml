@@ -84,9 +84,6 @@ spec:
                       properties:
                         enableAPIs:
                           description: 'EnableAPIs specifies the list of admin APIs to enable. At least one API must be enabled. Possible values: - "Debug" will enable pprof debugging by setting the `--debug` cli flag. - "QuitQuitQuit" will enable pprof debugging by setting the `--quitquitquit` cli flag.'
-                          enum:
-                            - Debug
-                            - QuitQuitQuit
                           items:
                             type: string
                           minItems: 1
@@ -996,9 +993,6 @@ spec:
                       properties:
                         enableAPIs:
                           description: 'EnableAPIs specifies the list of admin APIs to enable. At least one API must be enabled. Possible values: - "Debug" will enable pprof debugging by setting the `--debug` cli flag. - "QuitQuitQuit" will enable pprof debugging by setting the `--quitquitquit` cli flag.'
-                          enum:
-                            - Debug
-                            - QuitQuitQuit
                           items:
                             type: string
                           minItems: 1
