@@ -728,6 +728,56 @@ func TestProxyCLIArgs(t *testing.T) {
 			},
 		},
 		{
+			desc: "global flags for alloydb",
+			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
+				AlloyDBProxyContainer: &cloudsqlapi.AuthProxyContainerSpec{
+					SQLAdminAPIEndpoint: "https://example.com",
+					Telemetry: &cloudsqlapi.TelemetrySpec{
+						TelemetryPrefix:     ptr("telprefix"),
+						TelemetryProject:    ptr("telproject"),
+						TelemetrySampleRate: ptr(200),
+						HTTPPort:            ptr(int32(9092)),
+						DisableTraces:       &wantTrue,
+						DisableMetrics:      &wantTrue,
+						Prometheus:          &wantTrue,
+						PrometheusNamespace: ptr("hello"),
+						QuotaProject:        ptr("qp"),
+					},
+					AdminServer: &cloudsqlapi.AdminServerSpec{
+						EnableAPIs: []string{"Debug", "QuitQuitQuit"},
+						Port:       int32(9091),
+					},
+					MaxConnections:  ptr(int64(10)),
+					MaxSigtermDelay: ptr(int64(20)),
+				},
+				AlloyDBInstances: []cloudsqlapi.InstanceSpec{{
+					ConnectionString: "projects/p/locations/l/clusters/c/instances/i",
+					Port:             ptr(int32(5000)),
+				}},
+			},
+			wantProxyArgContains: []string{
+				fmt.Sprintf("projects/p/locations/l/clusters/c/instances/i?port=%d", 5000),
+			},
+			wantWorkloadEnv: map[string]string{
+				"ALLOYDB_PROXY_SQLADMIN_API_ENDPOINT": "https://example.com",
+				"ALLOYDB_PROXY_TELEMETRY_SAMPLE_RATE": "200",
+				"ALLOYDB_PROXY_PROMETHEUS_NAMESPACE":  "hello",
+				"ALLOYDB_PROXY_TELEMETRY_PROJECT":     "telproject",
+				"ALLOYDB_PROXY_TELEMETRY_PREFIX":      "telprefix",
+				"ALLOYDB_PROXY_HTTP_PORT":             "9092",
+				"ALLOYDB_PROXY_ADMIN_PORT":            "9091",
+				"ALLOYDB_PROXY_DEBUG":                 "true",
+				"ALLOYDB_PROXY_QUITQUITQUIT":          "true",
+				"ALLOYDB_PROXY_HEALTH_CHECK":          "true",
+				"ALLOYDB_PROXY_DISABLE_TRACES":        "true",
+				"ALLOYDB_PROXY_DISABLE_METRICS":       "true",
+				"ALLOYDB_PROXY_PROMETHEUS":            "true",
+				"ALLOYDB_PROXY_QUOTA_PROJECT":         "qp",
+				"ALLOYDB_PROXY_MAX_CONNECTIONS":       "10",
+				"ALLOYDB_PROXY_MAX_SIGTERM_DELAY":     "20",
+			},
+		},
+		{
 			desc: "No admin port enabled when AdminServerSpec is nil",
 			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
 				AuthProxyContainer: &cloudsqlapi.AuthProxyContainerSpec{},
@@ -815,7 +865,11 @@ func TestProxyCLIArgs(t *testing.T) {
 			}
 
 			// test that the instancename matches the new expected instance name.
-			csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-%s-cloudsql", csqls[0].GetName()))
+			proxyType := "cloudsql"
+			if csqls[0].Spec.AlloyDBProxyContainer != nil {
+				proxyType = "alloydb"
+			}
+			csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-%s-%s", csqls[0].GetName(), proxyType))
 			if err != nil {
 				t.Fatal(err)
 			}

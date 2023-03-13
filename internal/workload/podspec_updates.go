@@ -658,28 +658,28 @@ func (s *updateContainerState) applyContainerSpec() {
 	}
 	s.c.Resources = defaultContainerResources
 
-	if s.p.Spec.AuthProxyContainer == nil {
+	if s.cs == nil {
 		return
 	}
 
-	if s.p.Spec.AuthProxyContainer.Image != "" {
-		s.c.Image = s.p.Spec.AuthProxyContainer.Image
+	if s.cs.Image != "" {
+		s.c.Image = s.cs.Image
 	}
 
-	if s.p.Spec.AuthProxyContainer.Resources != nil {
-		s.c.Resources = *s.p.Spec.AuthProxyContainer.Resources.DeepCopy()
+	if s.cs.Resources != nil {
+		s.c.Resources = *s.cs.Resources.DeepCopy()
 	}
 
-	if s.p.Spec.AuthProxyContainer.SQLAdminAPIEndpoint != "" {
-		s.addProxyContainerEnvVar("SQLADMIN_API_ENDPOINT", s.p.Spec.AuthProxyContainer.SQLAdminAPIEndpoint)
+	if s.cs.SQLAdminAPIEndpoint != "" {
+		s.addProxyContainerEnvVar("SQLADMIN_API_ENDPOINT", s.cs.SQLAdminAPIEndpoint)
 	}
-	if s.p.Spec.AuthProxyContainer.MaxConnections != nil &&
-		*s.p.Spec.AuthProxyContainer.MaxConnections != 0 {
-		s.addProxyContainerEnvVar("MAX_CONNECTIONS", fmt.Sprintf("%d", *s.p.Spec.AuthProxyContainer.MaxConnections))
+	if s.cs.MaxConnections != nil &&
+		*s.cs.MaxConnections != 0 {
+		s.addProxyContainerEnvVar("MAX_CONNECTIONS", fmt.Sprintf("%d", *s.cs.MaxConnections))
 	}
-	if s.p.Spec.AuthProxyContainer.MaxSigtermDelay != nil &&
-		*s.p.Spec.AuthProxyContainer.MaxSigtermDelay != 0 {
-		s.addProxyContainerEnvVar("MAX_SIGTERM_DELAY", fmt.Sprintf("%d", *s.p.Spec.AuthProxyContainer.MaxSigtermDelay))
+	if s.cs.MaxSigtermDelay != nil &&
+		*s.cs.MaxSigtermDelay != 0 {
+		s.addProxyContainerEnvVar("MAX_SIGTERM_DELAY", fmt.Sprintf("%d", *s.cs.MaxSigtermDelay))
 	}
 
 	return
@@ -790,7 +790,7 @@ func (s *updateContainerState) addHealthCheck() {
 
 func (s *updateContainerState) addAdminServer() {
 
-	if s.p.Spec.AuthProxyContainer == nil || s.p.Spec.AuthProxyContainer.AdminServer == nil {
+	if s.cs == nil || s.cs.AdminServer == nil {
 		return
 	}
 
