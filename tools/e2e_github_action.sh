@@ -25,6 +25,7 @@ function trigger_build() {
     set +x
     echo
     echo "View build logs in Google Cloud Console: "
+    build_id=$(cat build-id.txt)
     gcloud builds describe "$build_id" \
         --project "$project" \
         --billing-project "$project" \
