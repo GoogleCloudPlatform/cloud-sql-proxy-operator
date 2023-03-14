@@ -14,64 +14,18 @@
 # limitations under the License.
 
 
-function trigger_build() {
-    set -x
-    # Use --billing-project flag until WIF project enables the cloud build API
-    gcloud builds triggers run e2e-test-pr-manual \
-      --sha "$commitsha" \
-      --billing-project "$project" \
-      --project="$project" \
-      --format="value(metadata.build.id)" > build-id.txt
-    set +x
-    echo
-    echo "View build logs in Google Cloud Console: "
-    build_id=$(cat build-id.txt)
-    gcloud builds describe "$build_id" \
-        --project "$project" \
-        --billing-project "$project" \
-        --format="value(logUrl)"
-}
-
-function wait_for_build() {
-    build_id=$(cat build-id.txt)
-    echo "Build ID: $build_id"
-    echo
-    echo "This Github Action will now poll for build completion..."
-    echo
-
-    # Wait for build to finish
-    while true ; do
-      gcloud builds describe "$build_id" \
-        --project "$project" \
-        --billing-project "$project" \
-        --format="value(status)" > status.txt
-
-      s=$(cat status.txt)
-
-      echo "Build Status $(date '+%Y-%m-%dT%H:%M:%S%z') $s"
-
-      if [[ $s == "QUEUED" || $s == "WORKING" ]] ; then
-        sleep 30
-      elif [[ $s == "SUCCESS" ]] ; then
-        exit 0
-      elif [[ $s == "CANCELLED" ]] ; then
-        echo "The Cloud Build job was canceled."
-        exit 1
-      else
-        echo "Build failed"
-        exit 1
-      fi
-    done
-}
-
-case $1 in
-trigger_build)
-  trigger_build
-  ;;
-wait_for_build)
-  wait_for_build
-  ;;
-*)
-  echo "Bad command: [trigger_build|wait_for_build]"
-  exit 1
-esac
+set -x
+# Use --billing-project flag until WIF project enables the cloud build API
+gcloud builds triggers run e2e-test-pr \
+  --sha "$commitsha" \
+  --billing-project "$project" \
+  --project="$project" \
+  --format="value(metadata.build.id)" > build-id.txt
+set +x
+echo
+echo "View build logs in Google Cloud Console: "
+build_id=$(cat build-id.txt)
+gcloud builds describe "$build_id" \
+    --project "$project" \
+    --billing-project "$project" \
+    --format="value(logUrl)"

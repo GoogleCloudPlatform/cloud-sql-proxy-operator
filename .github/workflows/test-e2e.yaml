@@ -71,13 +71,7 @@ jobs:
         uses: 'google-github-actions/setup-gcloud@v1'
       - id: 'rune2e'
         name: 'Start E2E test using Cloud Build'
-        run: "tools/e2e_github_action.sh trigger_build"
-        env:
-          commitsha: "${{ github.event.pull_request.head.sha }}"
-          project: "${{secrets.GOOGLE_CLOUD_PROJECT}}"
-      - id: 'waite2e'
-        name: 'Wait for E2E test on Cloud Build to complete'
-        run: "tools/e2e_github_action.sh wait_for_build"
+        run: "tools/e2e_github_action.sh"
         env:
           commitsha: "${{ github.event.pull_request.head.sha }}"
           project: "${{secrets.GOOGLE_CLOUD_PROJECT}}"
