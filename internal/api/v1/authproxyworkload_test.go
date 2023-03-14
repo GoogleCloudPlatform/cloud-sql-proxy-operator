@@ -255,6 +255,16 @@ func TestAuthProxyWorkload_ValidateCreate_AuthProxyContainerSpec(t *testing.T) {
 			},
 			wantValid: false,
 		},
+		{
+			desc: "Invalid, EnableAPIs is has a bad value",
+			spec: cloudsqlapi.AuthProxyContainerSpec{
+				AdminServer: &cloudsqlapi.AdminServerSpec{
+					EnableAPIs: []string{"Nope", "Debug"},
+					Port:       wantPort,
+				},
+			},
+			wantValid: false,
+		},
 	}
 
 	for _, tc := range data {
