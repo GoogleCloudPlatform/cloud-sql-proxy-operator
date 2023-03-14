@@ -25,7 +25,6 @@
 #
 name: test-e2e
 on:
-  pull_request:
   pull_request_target:
     types: [labeled]
 jobs:
