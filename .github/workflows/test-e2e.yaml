@@ -23,7 +23,7 @@
 # We don't want e2e build log to be printed in this Github Action's log
 # because it may contain secrets.
 #
-name: test-e2e
+name: e2e-test-trigger
 on:
   pull_request:
   pull_request_target:
@@ -31,7 +31,7 @@ on:
 jobs:
   build:
     if: "${{ github.event.action != 'labeled' || github.event.label.name == 'e2e: run' }}"
-    name: E2E test on Google Cloud
+    name: Trigger E2E test build in Google Cloud Build
     runs-on: ubuntu-latest
     permissions:
       contents: 'read'
