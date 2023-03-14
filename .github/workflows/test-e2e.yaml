@@ -53,6 +53,11 @@ jobs:
             } catch (e) {
               console.log('Failed to remove label. Another job may have already removed it!');
             }
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
       - id: 'auth'
         name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@v1.0.0'
@@ -64,11 +69,6 @@ jobs:
           create_credentials_file: true
       - name: 'Set up Cloud SDK'
         uses: 'google-github-actions/setup-gcloud@v1'
-      - name: Checkout code
-        uses: actions/checkout@v3
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
       - id: 'rune2e'
         name: 'Start E2E test using Cloud Build'
         run: "tools/e2e_github_action.sh trigger_build"
