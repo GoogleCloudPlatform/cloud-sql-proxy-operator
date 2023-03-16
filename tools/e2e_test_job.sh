@@ -20,6 +20,8 @@
 echo "TIME: $(date) Begin Script"
 set -euxo
 
+mkdir -p bin
+
 echo "Using installed gcloud"
 gcloud version
 gcloud components install --quiet gke-gcloud-auth-plugin
@@ -65,12 +67,14 @@ else
   test_exit_code=1
 fi
 
-# Upload full e2e log to the storage bucket
-gcloud storage cp bin/e2e_test.log "gs://$TFSTATE_STORAGE_BUCKET/github-action-log/run-$GITHUB_RUN_ID.log"
-echo "Uploaded full e2e log to <storage-bucket>/github-action-logs/run-$GITHUB_RUN_ID.log"
+if test -f bin/e2e_test.log ; then
+  # Upload full e2e log to the storage bucket
+  gcloud storage cp bin/e2e_test.log "gs://$TFSTATE_STORAGE_BUCKET/github-action-log/run-$GITHUB_RUN_ID.log"
+  echo "Uploaded full e2e log to <storage-bucket>/github-action-logs/run-$GITHUB_RUN_ID.log"
 
-# Print go test results to stdout, ignore error
-egrep '(---)|(github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/tests)' bin/e2e_test.log || true
+  # Print go test results to stdout, ignore error
+  egrep '(---)|(github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/tests)' bin/e2e_test.log || true
+fi
 
 echo "TIME: $(date) Done"
 exit $test_exit_code
