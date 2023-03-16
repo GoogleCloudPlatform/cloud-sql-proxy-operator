@@ -19,14 +19,14 @@ terraform {
     google = {
       source                = "hashicorp/google"
       version               = "4.56.0"
-      user_project_override = true
-      billing_project       = var.project_id
     }
   }
 }
 
 
 provider "google" {
+  user_project_override = true
+  billing_project       = var.project_id
 }
 
 # Enable gcloud project APIs

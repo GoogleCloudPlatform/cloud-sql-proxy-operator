@@ -20,28 +20,8 @@
 echo "TIME: $(date) Begin Script"
 set -euxo
 
-if ! which zip ; then
-  echo "TIME: $(date) Install GCC"
-  # Install GCC and other essential build tools
-  apt-get update
-  apt-get install -y zip unzip build-essential
-fi
-
-# Install and configure GCloud CLI
-mkdir -p bin
-if ! which gcloud ; then
-  echo "TIME: $(date) Install GCloud CLI"
-  curl -L -o bin/gcloud-cli.tar.gz https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-413.0.0-linux-x86_64.tar.gz
-  ( cd bin && tar -zxf gcloud-cli.tar.gz )
-  ./bin/google-cloud-sdk/bin/gcloud config set project "$E2E_PROJECT_ID"
-  ./bin/google-cloud-sdk/bin/gcloud config set compute/zone "us-central1"
-  export PATH=$PATH:$PWD/bin/google-cloud-sdk/bin
-  which gcloud
-else
-  echo "Using installed gcloud"
-  gcloud version
-fi
-
+echo "Using installed gcloud"
+gcloud version
 gcloud components install --quiet gke-gcloud-auth-plugin
 
 # Install helm
@@ -56,17 +36,8 @@ else
   helm version
 fi
 
-# Install go1.20
-if ! ( which go && go version | grep 'go1.20' )  ; then
-  echo "TIME: $(date) Install Go"
-  curl -L -o bin/go.tar.gz https://go.dev/dl/go1.20.linux-amd64.tar.gz
-  rm -rf /usr/local/go && tar -C /usr/local -xzf bin/go.tar.gz
-  export PATH=$PATH:/usr/local/go/bin
-  go version
-else
-  echo "Using installed go"
-  go version
-fi
+echo "Using installed go"
+go version
 
 # Set the e2e test project id and other params from
 # the Cloud Build environment
