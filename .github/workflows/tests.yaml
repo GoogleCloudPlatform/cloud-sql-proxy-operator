@@ -56,7 +56,7 @@ jobs:
         run: make test
   e2e:
     needs: unit
-    if: "${{ github.event.action != 'labeled' || github.event.label.name == 'tests: run' }}"
+    if: "${{ github.event.action == 'labeled' && github.event.label.name == 'tests: run' }}"
     name: e2e tests
     runs-on: ubuntu-latest
     permissions:
