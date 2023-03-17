@@ -20,16 +20,24 @@ terraform {
       source  = "hashicorp/google"
       version = "4.56.0"
     }
+    google-beta = {
+      source  = "hashicorp/google-beta"
+      version = "4.56.0"
+    }
   }
 }
 
 
 provider "google" {
+  user_project_override = true
+  billing_project       = var.project_id
 }
 
 provider "google-beta" {
-  region = "us-central1"
-  zone   = "us-central1-a"
+  region                = "us-central1"
+  zone                  = "us-central1-a"
+  user_project_override = true
+  billing_project       = var.project_id
 }
 
 # Enable gcloud project APIs
