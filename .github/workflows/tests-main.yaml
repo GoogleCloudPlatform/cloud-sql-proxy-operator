@@ -15,10 +15,10 @@
 name: tests-main
 on: # at 5:10 UTC every day and on each push to main
   schedule:
-  - cron: "10 5 * * *"
+    - cron: "10 5 * * *"
   push:
     branches:
-    - 'main'
+      - 'main'
 jobs:
   unit:
     name: unit tests
@@ -30,9 +30,6 @@ jobs:
           go-version: '1.20'
       - name: Checkout code
         uses: actions/checkout@v3
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
       - name: Set up build.env with phony secrets.
         run: cp build.sample.env build.env
       - name: Verify no changes from code generation. If this check has failed, run `make generate` and commit the changes.
@@ -48,9 +45,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
       - id: 'auth'
         name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@v1.0.0'
