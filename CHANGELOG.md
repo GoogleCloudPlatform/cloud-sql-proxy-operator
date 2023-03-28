@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.4.0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v0.3.0...v0.4.0) (2023-03-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* Move to v1 for the AuthProxyWorkload api version. ([#258](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/258))
+
+### Features
+
+* Add configuration for the admin api port and debug. ([#213](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/213)) ([0ddd681](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/0ddd681407f2c2e2e8a6932e90ffda92ddc298c6))
+* Automatically update default images on operator startup. ([#254](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/254)) ([2453be6](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/2453be626a30eef930ca136c941b6a3cbb9cbe99)), closes [#87](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/87)
+* Configure --disable-metrics and --disable-telemetry flags. ([#222](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/222)) ([5be6c3b](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/5be6c3b5a15f0bba773b9f007d855581d84284b8))
+* Configure --quota-project flag on the proxy. ([#225](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/225)) ([c3b4f1b](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/c3b4f1bac3b958c40cc9af2816a017c75c8eb006)), closes [#45](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/45)
+* Configure Google Cloud Telemetry flags on the proxy. ([#223](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/223)) ([76b0f39](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/76b0f39b4b9a677446fd3a3948e345bfaad1c432))
+* Configure prometheus flags on the proxy. ([#224](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/224)) ([a055d3b](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/a055d3b79de5ac54ecf2af82b2bbdebcb1551307))
+* Move to v1 for the AuthProxyWorkload api version. ([#258](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/258)) ([7b65d5c](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/7b65d5cbb6ca3279d0dd71c95b439104a1e5b8ca))
+* Updating the RolloutStrategy field is not allowed. ([#212](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/212)) ([f31b637](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/f31b637373b073357431aec0d1b4176507e9a00c))
+* Validate instance fields ([#221](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/221)) ([d516cc2](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/d516cc2661b3854a69e267daafe68f4c1c3b73ad)), closes [#36](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/36)
+* When the operator's default proxy image changes, workload containers should be updated. ([#253](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/253)) ([220c855](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/220c8555d42fbc4f82e029ce1edd46c7a92648af))
+
+
+### Bug Fixes
+
+* Only process owner references for known kinds of owners. ([#245](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/245)) ([12be1dc](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/12be1dc2d6bf40f987200dfdec761e7b121b00c1)), closes [#244](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/244)
+* Repair a bad merge of tool versions in the Makefile. ([#249](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/249)) ([f2ba903](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/f2ba903f91956ed4b2b923c7adcb846ca9162a26))
+* Validate the AdminServer.EnableAPIs[] field properly. ([#263](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/263)) ([115ac32](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/115ac329a10cf445ccf59c89e965db6c92ce5831))
+
+
+### Miscellaneous Chores
+
+* Prepare release 0.4.0 ([2e6a6ad](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/2e6a6adcd92dce926e4ccaa1f15d2386b5b30721))
+
 ## [0.3.0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v0.2.0...v0.3.0) (2023-02-21)
 
 
