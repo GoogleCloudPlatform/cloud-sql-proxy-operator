@@ -1465,7 +1465,7 @@ spec:
             - --leader-elect
           command:
             - /manager
-          image: gcr.io/cloud-sql-connectors/cloud-sql-operator/cloud-sql-proxy-operator:0.4.0-dev
+          image: gcr.io/cloud-sql-connectors/cloud-sql-operator/cloud-sql-proxy-operator:0.4.0
           livenessProbe:
             httpGet:
               path: /healthz
