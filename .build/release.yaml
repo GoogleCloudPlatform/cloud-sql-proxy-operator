@@ -16,6 +16,12 @@
 # Run this from your dev environment:
 #  gcloud builds submit --project=cloud-sql-connectors --config=.build/release.yaml --substitutions=_TEST_BUILD_ID=0000-dirty-$(date "+%s")
 steps:
+  - name: 'golang:1.20'
+    entrypoint: bash
+    args:
+      - '-c'
+      - 'go run github.com/google/go-licenses@v1.6.0 save --save_path ThirdPartyLicenses .'
+    id: 'download-licenses'
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: bash
     args:
