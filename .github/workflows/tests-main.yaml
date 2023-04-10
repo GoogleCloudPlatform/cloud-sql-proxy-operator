@@ -1,5 +1,5 @@
 # Copyright 2023 Google LLC
-#
+
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -32,7 +32,7 @@ jobs:
           go-version: '1.20'
       - name: Set up build.env with phony secrets.
         run: cp build.sample.env build.env
-      - name: Verify no changes from code generation. If this check has failed, run `make generate` and commit the changes.
+      - name: Verify no changes from code generation.
         run: "make generate \nif ! git diff --exit-code --quiet ; then \n  echo\n  echo\n  git diff --stat \"HEAD\"\n  echo\n  echo\n  echo 'ERROR: Lint tools caused changes to the working dir. '\n  exit 1\nfi\n"
       - name: make test
         run: make test
