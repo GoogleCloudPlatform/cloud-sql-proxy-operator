@@ -590,7 +590,7 @@ spec:
                           description: 'Compute Resources required by this container. Cannot be updated. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                           properties:
                             claims:
-                              description: "Claims lists the names of resources, defined in spec.resourceClaims, that are used by this container. \n This is an alpha field and requires enabling the DynamicResourceAllocation feature gate. \n This field is immutable."
+                              description: "Claims lists the names of resources, defined in spec.resourceClaims, that are used by this container. \n This is an alpha field and requires enabling the DynamicResourceAllocation feature gate. \n This field is immutable. It can only be set for containers."
                               items:
                                 description: ResourceClaim references one entry in PodSpec.ResourceClaims.
                                 properties:
@@ -894,7 +894,7 @@ spec:
                       description: Resources specifies the resources required for the proxy pod.
                       properties:
                         claims:
-                          description: "Claims lists the names of resources, defined in spec.resourceClaims, that are used by this container. \n This is an alpha field and requires enabling the DynamicResourceAllocation feature gate. \n This field is immutable."
+                          description: "Claims lists the names of resources, defined in spec.resourceClaims, that are used by this container. \n This is an alpha field and requires enabling the DynamicResourceAllocation feature gate. \n This field is immutable. It can only be set for containers."
                           items:
                             description: ResourceClaim references one entry in PodSpec.ResourceClaims.
                             properties:
@@ -1465,7 +1465,7 @@ spec:
             - --leader-elect
           command:
             - /manager
-          image: gcr.io/cloud-sql-connectors/cloud-sql-operator/cloud-sql-proxy-operator:0.4.0-dev
+          image: gcr.io/cloud-sql-connectors/cloud-sql-operator/cloud-sql-proxy-operator:0.4.0
           livenessProbe:
             httpGet:
               path: /healthz

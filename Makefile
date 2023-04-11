@@ -125,7 +125,7 @@ go_fmt: # Automatically formats go files
 	go run golang.org/x/tools/cmd/goimports@latest -w .
 
 yaml_fmt: # Automatically formats all yaml files
-	go run github.com/UltiRequiem/yamlfmt@latest -w $(shell find . -iname '*.yaml' -or -iname '*.yml' | grep -v -e '^./bin/')
+	go run github.com/UltiRequiem/yamlfmt@latest -w $(shell find . -iname '*.yaml' -or -iname '*.yml' | grep -v -e '^./bin/' | grep -v -e '^./.github/workflows/')
 
 .PHONY: add_copyright_header
 add_copyright_header: # Add the copyright header
@@ -436,8 +436,8 @@ CRD_REF_DOCS ?= $(LOCALBIN)/crd-ref-docs
 # Important note: avoid adding spaces in the macro declarations as any
 # additional whitespace will break the renovate regex rules.
 
-KUBECTL_VERSION=v1.26.2# renovate datasource=github-tags depName=kubernetes/kubernetes
-TERRAFORM_VERSION=v1.4.2# renovate datasource=github-tags depName=hashicorp/terraform
+KUBECTL_VERSION=v1.26.3# renovate datasource=github-tags depName=kubernetes/kubernetes
+TERRAFORM_VERSION=v1.4.4# renovate datasource=github-tags depName=hashicorp/terraform
 
 CONTROLLER_TOOLS_VERSION=v0.11.3# renovate datasource=go depName=sigs.k8s.io/controller-tools
 CRD_REF_DOCS_VERSION=v0.0.8# renovate datasource=go depName=github.com/elastic/crd-ref-docs
