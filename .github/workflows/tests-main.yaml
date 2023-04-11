@@ -19,8 +19,7 @@ on: # at 5:10 UTC every day and on each push to main
   push:
     branches:
       - 'main'
-permissions:
-  contents: read
+permissions: read-all
 jobs:
   unit:
     name: unit tests
