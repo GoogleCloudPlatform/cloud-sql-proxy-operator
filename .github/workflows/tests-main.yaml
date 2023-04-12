@@ -69,7 +69,7 @@ jobs:
         name: 'Run E2E Tests'
         run: "./tools/e2e_test_job.sh"
         env:
-          ENVIRONMENT_NAME: "ci-daily"
+          ENVIRONMENT_NAME: "ci-branch-main"
           NODEPOOL_SERVICEACCOUNT_EMAIL: "${{secrets.NODEPOOL_SERVICEACCOUNT_EMAIL}}"
           WORKLOAD_ID_SERVICEACCOUNT_EMAIL: "${{secrets.WORKLOAD_ID_SERVICEACCOUNT_EMAIL}}"
           TFSTATE_STORAGE_BUCKET: "${{secrets.TFSTATE_STORAGE_BUCKET}}"
