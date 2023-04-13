@@ -50,17 +50,6 @@
   color: ffffc7
   description: Desirable enhancement or fix. May not be included in next release.
 
-- name: 'v1'
-  color: d93f0b
-  description: Functionality for v1 of the proxy.
-
-- name: automerge
-  color: 00ff00
-  description: Merge the pull request once unit tests and other checks pass.
-- name: 'automerge: exact'
-  color: 8dd517
-  description: Summon MOG for automerging, but approvals need to be against the latest
-    commit
 - name: do not merge
   color: d93f0b
   description: Indicates a pull request not ready for merge, due to either quality
@@ -89,7 +78,3 @@
 - name: 'flakybot: issue'
   color: a9f9f7
   description: An issue filed by the Flaky Bot. Should not be added manually.
-
-- name: 'k8s'
-  color: 1D76DB
-  description: Kubernetes related issue or functionality.
