@@ -169,7 +169,9 @@ var defaultContainerResources = corev1.ResourceRequirements{
 // updates the workload's containers. This does not save the updated workload.
 func (u *Updater) FindMatchingAuthProxyWorkloads(pl *cloudsqlapi.AuthProxyWorkloadList, wl *PodWorkload, owners []Workload) []*cloudsqlapi.AuthProxyWorkload {
 
-	// if a wl has an owner, then ignore it.
+	// starting with this pod, traverse the pod and its owners, and
+	// fill wls with a list of workload resources that match an AuthProxyWorkload
+	// in the pl.
 	wls := u.filterMatchingInstances(pl, wl.Object())
 	for _, owner := range owners {
 		wls = append(wls, u.filterMatchingInstances(pl, owner.Object())...)
