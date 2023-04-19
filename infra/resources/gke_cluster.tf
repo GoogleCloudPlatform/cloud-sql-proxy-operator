@@ -49,7 +49,7 @@ resource "google_container_node_pool" "primary_preemptible_nodes" {
   name               = "operator-test-nodes-${var.environment_name}"
   cluster            = google_container_cluster.primary.id
   initial_node_count = var.workers_count
-  version            = data.google_container_engine_versions.supported.latest_node_version
+  version            = data.google_container_engine_versions.supported.latest_master_version
   location           = var.gcloud_zone
 
   autoscaling {
