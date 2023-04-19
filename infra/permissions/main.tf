@@ -82,13 +82,6 @@ resource "google_project_iam_binding" "cloud_sql_client" {
     "serviceAccount:${google_service_account.node_pool.email}"
   ]
 }
-resource "google_project_iam_binding" "service_usage_consumer" {
-  project = var.project_id
-  role    = "roles/serviceusage.serviceUsageConsumer"
-  members = [
-    "serviceAccount:${google_service_account.node_pool.email}"
-  ]
-}
 
 ##
 # This is how you do an output file containing terraform data for use by
