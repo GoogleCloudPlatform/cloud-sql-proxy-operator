@@ -27,16 +27,21 @@ terraform {
 provider "google" {
   user_project_override = true
   billing_project       = var.project_id
+  project               = var.project_id
+  region                = var.gcloud_region
+  zone                  = var.gcloud_zone
 }
 
 # Enable gcloud project APIs
 locals {
   project_services = toset([
+    "artifactregistry.googleapis.com",
+    "cloudresourcemanager.googleapis.com",
     "compute.googleapis.com",
     "container.googleapis.com",
-    "artifactregistry.googleapis.com",
     "deploymentmanager.googleapis.com",
     "dns.googleapis.com",
+    "iam.googleapis.com",
     "logging.googleapis.com",
     "monitoring.googleapis.com",
     "oslogin.googleapis.com",
@@ -48,7 +53,8 @@ locals {
     "servicenetworking.googleapis.com",
     "sql-component.googleapis.com",
     "sqladmin.googleapis.com",
-  "storage-api.googleapis.com"])
+    "storage-api.googleapis.com"
+  ])
 }
 
 resource "google_project_service" "project" {
