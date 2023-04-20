@@ -741,21 +741,18 @@ func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1
 			Port: intstr.IntOrString{IntVal: port},
 			Path: "/startup",
 		}},
-		PeriodSeconds: 30,
-	}
-	c.ReadinessProbe = &corev1.Probe{
-		ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{
-			Port: intstr.IntOrString{IntVal: port},
-			Path: "/readiness",
-		}},
-		PeriodSeconds: 30,
+		PeriodSeconds:    1,
+		FailureThreshold: 60,
+		TimeoutSeconds:   10,
 	}
 	c.LivenessProbe = &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{
 			Port: intstr.IntOrString{IntVal: port},
 			Path: "/liveness",
 		}},
-		PeriodSeconds: 30,
+		PeriodSeconds:    10,
+		FailureThreshold: 3,
+		TimeoutSeconds:   10,
 	}
 	// Add a port that is associated with the proxy, but not a specific db instance
 	s.addProxyPort(port, p)
