@@ -482,7 +482,7 @@ func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWo
 		inst := matches[i]
 
 		newContainer := corev1.Container{}
-		s.updateContainer(inst, wl, &newContainer)
+		s.updateContainer(inst, &newContainer)
 		containers = append(containers, newContainer)
 
 		// Add pod annotation for each instance
@@ -515,9 +515,7 @@ func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWo
 }
 
 // updateContainer Creates or updates the proxy container in the workload's PodSpec
-func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, wl Workload, c *corev1.Container) {
-	l.Info("Updating wl {{wl}}, no update needed.", "name", client.ObjectKeyFromObject(wl.Object()))
-
+func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, c *corev1.Container) {
 	// if the c was fully overridden, just use that c.
 	if p.Spec.AuthProxyContainer != nil && p.Spec.AuthProxyContainer.Container != nil {
 		p.Spec.AuthProxyContainer.Container.DeepCopyInto(c)
@@ -629,8 +627,19 @@ func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, wl Workl
 // applyContainerSpec applies settings from cloudsqlapi.AuthProxyContainerSpec
 // to the container
 func (s *updateState) applyContainerSpec(p *cloudsqlapi.AuthProxyWorkload, c *corev1.Container) {
+	t := true
+	var f bool
 	c.Image = s.defaultProxyImage()
 	c.Resources = defaultContainerResources
+	c.SecurityContext = &corev1.SecurityContext{
+		// The default Cloud SQL Auth Proxy image runs as the
+		// "nonroot" user and group (uid: 65532) by default.
+		RunAsNonRoot: &t,
+		// Use a read-only filesystem
+		ReadOnlyRootFilesystem: &t,
+		// Do not allow privilege escalation
+		AllowPrivilegeEscalation: &f,
+	}
 
 	if p.Spec.AuthProxyContainer == nil {
 		return
