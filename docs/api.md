@@ -27,7 +27,7 @@ _Appears in:_
 | Field | Description |
 | --- | --- |
 | `port` _integer_ | Port the port for the proxy's localhost-only admin server. This sets the proxy container's CLI argument `--admin-port` |
-| `enableAPIs` _string array_ | EnableAPIs specifies the list of admin APIs to enable. At least one API must be enabled. Possible values: - "Debug" will enable pprof debugging by setting the `--debug` cli flag. - "QuitQuitQuit" will enable pprof debugging by setting the `--quitquitquit` cli flag. |
+| `enableAPIs` _string array_ | EnableAPIs specifies the list of admin APIs to enable. At least one API must be enabled. Possible values: - "Debug" will enable pprof debugging by setting the `--debug` cli flag. - "QuitQuitQuit" will enable pprof debugging by setting the `--quitquitquit`   cli flag. |
 
 
 #### AuthProxyContainerSpec
@@ -92,9 +92,9 @@ _Appears in:_
 
 InstanceSpec describes the configuration for how the proxy should expose a Cloud SQL database instance to a workload. 
  In the minimum recommended configuration, the operator will choose a non-conflicting TCP port and set environment variables MY_DB_SERVER_PORT MY_DB_SERVER_HOST with the value of the TCP port and hostname. The application can read these values to connect to the database through the proxy. For example: 
- `{ "connectionString":"my-project:us-central1:my-db-server", "portEnvName":"MY_DB_SERVER_PORT" "hostEnvName":"MY_DB_SERVER_HOST" }` 
+ 	`{ 			   "connectionString":"my-project:us-central1:my-db-server", 			   "portEnvName":"MY_DB_SERVER_PORT" 			   "hostEnvName":"MY_DB_SERVER_HOST" 	}` 
  If you want to assign a specific port number for a database, set the `port` field. For example: 
- `{ "connectionString":"my-project:us-central1:my-db-server", "port":5000 }`
+ 	`{ "connectionString":"my-project:us-central1:my-db-server", "port":5000 }`
 
 _Appears in:_
 - [AuthProxyWorkloadSpec](#authproxyworkloadspec)
@@ -149,22 +149,5 @@ _Appears in:_
 | `name` _string_ | Name specifies the name of the resource to select. |
 
 
-#### WorkloadStatus
-
-
-
-WorkloadStatus presents the status for how this AuthProxyWorkload resource was applied to a specific workload.
-
-_Appears in:_
-- [AuthProxyWorkloadStatus](#authproxyworkloadstatus)
-
-| Field | Description |
-| --- | --- |
-| `kind` _string_ | Kind Version Namespace Name identify the specific workload. |
-| `version` _string_ |  |
-| `namespace` _string_ |  |
-| `name` _string_ |  |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#condition-v1-meta) array_ | Conditions show the status of the AuthProxyWorkload resource on this matching workload. 
- The "UpToDate" condition indicates that the proxy was successfully applied to all matching workloads. See ConditionUpToDate. |
 
 
