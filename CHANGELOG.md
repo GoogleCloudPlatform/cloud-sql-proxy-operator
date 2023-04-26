@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.5.0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v0.4.0...v0.5.0) (2023-04-26)
+
+
+### Features
+
+* Improve security posture of proxy containers. ([#322](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/322)) ([dc8911e](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/dc8911e3a0db5e32bc4c611ddbdcb875dbcc51e3))
+* Make proxy container healthchecks more resilient. ([#321](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/321)) ([548a922](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/548a9222d54b6c85dd45dc5983beebac5e7f08ef))
+
+
+### Bug Fixes
+
+* The e2e k8s node pool version should match the master version ([#319](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/319)) ([fbfa004](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/fbfa00444da0f310f52c61ed4665a5153bebe2c4))
+
+
+### Miscellaneous Chores
+
+* Prepare release 0.5.0 ([#327](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/327)) ([5aeb27b](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/5aeb27b100ca186bf74c4952a9252718cd43b60b))
+
 ## [0.4.0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v0.3.0...v0.4.0) (2023-03-28)
 
 
