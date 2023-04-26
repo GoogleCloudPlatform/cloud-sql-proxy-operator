@@ -66,8 +66,11 @@ function run_tf() {
   arr=("$@")
 
   tf_dir="$DATA_DIR/$subproject"
-
-  "$TERRAFORM" -chdir="$tf_dir" init
+  if [[ -d "$tf_dir/.terraform" ]] ; then
+    "$TERRAFORM" -chdir="$tf_dir" init -upgrade
+  else
+    "$TERRAFORM" -chdir="$tf_dir" init
+  fi
 
   "$TERRAFORM"  -chdir="$tf_dir" apply -parallelism=5 -auto-approve \
     -var "gcloud_bin=$(which gcloud)" -var "output_json_path=$output_json" "${arr[@]}"
