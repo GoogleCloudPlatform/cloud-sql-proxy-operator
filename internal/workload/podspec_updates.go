@@ -39,7 +39,7 @@ const (
 	// DefaultProxyImage is the latest version of the proxy as of the release
 	// of this operator. This is managed as a dependency. We update this constant
 	// when the Cloud SQL Auth Proxy releases a new version.
-	DefaultProxyImage = "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.1.2"
+	DefaultProxyImage = "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.2.0"
 
 	// DefaultFirstPort is the first port number chose for an instance listener by the
 	// proxy.
@@ -169,7 +169,9 @@ var defaultContainerResources = corev1.ResourceRequirements{
 // updates the workload's containers. This does not save the updated workload.
 func (u *Updater) FindMatchingAuthProxyWorkloads(pl *cloudsqlapi.AuthProxyWorkloadList, wl *PodWorkload, owners []Workload) []*cloudsqlapi.AuthProxyWorkload {
 
-	// if a wl has an owner, then ignore it.
+	// starting with this pod, traverse the pod and its owners, and
+	// fill wls with a list of workload resources that match an AuthProxyWorkload
+	// in the pl.
 	wls := u.filterMatchingInstances(pl, wl.Object())
 	for _, owner := range owners {
 		wls = append(wls, u.filterMatchingInstances(pl, owner.Object())...)
@@ -480,7 +482,7 @@ func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWo
 		inst := matches[i]
 
 		newContainer := corev1.Container{}
-		s.updateContainer(inst, wl, &newContainer)
+		s.updateContainer(inst, &newContainer)
 		containers = append(containers, newContainer)
 
 		// Add pod annotation for each instance
@@ -513,9 +515,7 @@ func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWo
 }
 
 // updateContainer Creates or updates the proxy container in the workload's PodSpec
-func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, wl Workload, c *corev1.Container) {
-	l.Info("Updating wl {{wl}}, no update needed.", "name", client.ObjectKeyFromObject(wl.Object()))
-
+func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, c *corev1.Container) {
 	// if the c was fully overridden, just use that c.
 	if p.Spec.AuthProxyContainer != nil && p.Spec.AuthProxyContainer.Container != nil {
 		p.Spec.AuthProxyContainer.Container.DeepCopyInto(c)
@@ -627,8 +627,19 @@ func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, wl Workl
 // applyContainerSpec applies settings from cloudsqlapi.AuthProxyContainerSpec
 // to the container
 func (s *updateState) applyContainerSpec(p *cloudsqlapi.AuthProxyWorkload, c *corev1.Container) {
+	t := true
+	var f bool
 	c.Image = s.defaultProxyImage()
 	c.Resources = defaultContainerResources
+	c.SecurityContext = &corev1.SecurityContext{
+		// The default Cloud SQL Auth Proxy image runs as the
+		// "nonroot" user and group (uid: 65532) by default.
+		RunAsNonRoot: &t,
+		// Use a read-only filesystem
+		ReadOnlyRootFilesystem: &t,
+		// Do not allow privilege escalation
+		AllowPrivilegeEscalation: &f,
+	}
 
 	if p.Spec.AuthProxyContainer == nil {
 		return
@@ -739,21 +750,18 @@ func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1
 			Port: intstr.IntOrString{IntVal: port},
 			Path: "/startup",
 		}},
-		PeriodSeconds: 30,
-	}
-	c.ReadinessProbe = &corev1.Probe{
-		ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{
-			Port: intstr.IntOrString{IntVal: port},
-			Path: "/readiness",
-		}},
-		PeriodSeconds: 30,
+		PeriodSeconds:    1,
+		FailureThreshold: 60,
+		TimeoutSeconds:   10,
 	}
 	c.LivenessProbe = &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{
 			Port: intstr.IntOrString{IntVal: port},
 			Path: "/liveness",
 		}},
-		PeriodSeconds: 30,
+		PeriodSeconds:    10,
+		FailureThreshold: 3,
+		TimeoutSeconds:   10,
 	}
 	// Add a port that is associated with the proxy, but not a specific db instance
 	s.addProxyPort(port, p)
