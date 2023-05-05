@@ -222,8 +222,8 @@ install_crd: kustomize kubectl # Install CRDs into the K8s cluster using the kub
 deploy_operator: kustomize kubectl # Deploy controller to the K8s cluster using the kubectl default behavior
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
 	$(KUSTOMIZE) build config/default | $(KUBECTL) apply -f -
-	$(E2E_KUBECTL) rollout status deployment -n cloud-sql-proxy-operator-system cloud-sql-proxy-operator-controller-manager --timeout=90s
-	$(E2E_PRIVATE_KUBECTL) rollout status deployment -n cloud-sql-proxy-operator-system cloud-sql-proxy-operator-controller-manager --timeout=90s
+	$(E2E_KUBECTL) rollout status deployment -n cloud-sql-proxy-operator-system cloud-sql-proxy-operator-controller-manager --timeout=3m
+	$(E2E_PRIVATE_KUBECTL) rollout status deployment -n cloud-sql-proxy-operator-system cloud-sql-proxy-operator-controller-manager --timeout=3m
 
 ##
 # Update installer
