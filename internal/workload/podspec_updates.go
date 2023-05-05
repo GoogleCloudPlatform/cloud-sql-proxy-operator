@@ -203,14 +203,53 @@ func (u *Updater) filterMatchingInstances(pl *cloudsqlapi.AuthProxyWorkloadList,
 			}
 
 			matchingAuthProxyWorkloads = append(matchingAuthProxyWorkloads, p)
-			// need to update wl
-			l.Info("Found matching wl",
-				"wl", wl.GetNamespace()+"/"+wl.GetName(),
-				"wlSelector", p.Spec.Workload,
-				"AuthProxyWorkload", p.Namespace+"/"+p.Name)
 		}
 	}
 	return matchingAuthProxyWorkloads
+}
+
+// CheckWorkloadContainers determines if a pod is configured incorrectly and
+// therefore needs to be deleted. Pods must be (1) missing one or more proxy
+// sidecar containers and (2) have a terminated container.
+func (u *Updater) CheckWorkloadContainers(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWorkload) error {
+
+	// Find the names of all AuthProxyWorkload resources that should have a
+	// container on this pod, but there is no container.
+	var missing []string
+	for _, p := range matches {
+		wantName := ContainerName(p)
+		var found bool
+		for _, c := range wl.PodSpec().Containers {
+			if c.Name == wantName {
+				found = true
+			}
+		}
+		if !found {
+			missing = append(missing, p.Name)
+			break
+		}
+	}
+
+	// If no containers are missing, then there is no error, return nil.
+	if len(missing) == 0 {
+		return nil
+	}
+
+	missingSidecars := strings.Join(missing, ", ")
+
+	// Some proxy containers are missing. Are the remaining pod containers failing?
+	for _, cs := range wl.Pod.Status.ContainerStatuses {
+		if cs.State.Terminated != nil && cs.State.Terminated.Reason == "Error" {
+			return fmt.Errorf("pod is in an error state and missing sidecar containers %v", missingSidecars)
+		}
+		if cs.State.Waiting != nil && cs.State.Waiting.Reason == "CrashLoopBackoff" {
+			return fmt.Errorf("pod is in a CrashLoopBackoff state and missing sidecar containers %v", missingSidecars)
+		}
+	}
+
+	// Pod's other containers are not in an error state. Operator should not
+	// interrupt running containers.
+	return nil
 }
 
 // ConfigureWorkload applies the proxy containers from all of the

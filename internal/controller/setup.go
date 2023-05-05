@@ -71,6 +71,11 @@ func SetupManagers(mgr manager.Manager, userAgent, defaultProxyImage string) err
 		setupLog.Error(err, "unable to create workload admission webhook controller")
 		return err
 	}
+	err = registerPodInformer(mgr, u)
+	if err != nil {
+		setupLog.Error(err, "unable to create pod informer")
+		return err
+	}
 
 	// Add the runnable task that will upgrade the proxy image on workloads with
 	// default container image when  the operator first starts.
@@ -93,4 +98,16 @@ func RegisterPodWebhook(mgr ctrl.Manager, u *workload.Updater) error {
 		}})
 
 	return nil
+}
+
+// registerPodInformer sets up the informer so that the operator is
+// notified on all changes to all pod resources.
+func registerPodInformer(mgr ctrl.Manager, u *workload.Updater) error {
+	h := &PodEventHandler{
+		u:   u,
+		l:   ctrl.Log.WithName("pod-informer"),
+		mgr: mgr,
+	}
+
+	return mgr.Add(h)
 }
