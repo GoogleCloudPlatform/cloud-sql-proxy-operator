@@ -1016,3 +1016,110 @@ func TestWorkloadUnixVolume(t *testing.T) {
 	}
 
 }
+
+func TestUpdater_CheckWorkloadContainers(t *testing.T) {
+	var (
+		wantsInstanceName = "project:server:db"
+		u                 = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
+	)
+
+	// Create a AuthProxyWorkloads to match the pods
+	p1 := simpleAuthProxy("instance1", wantsInstanceName)
+	p2 := simpleAuthProxy("instance2", wantsInstanceName)
+	csqls := []*cloudsqlapi.AuthProxyWorkload{p1, p2}
+
+	// Pod configuration says it is running, and has all proxy containers
+	wlCfgRunning := podWorkload()
+	err := configureProxies(u, wlCfgRunning, csqls)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wlCfgRunning.Pod.Status.ContainerStatuses = []corev1.ContainerStatus{{
+		Name:  wlCfgRunning.Pod.Spec.Containers[0].Name,
+		State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{StartedAt: metav1.Now()}},
+	}}
+
+	// Pod configuration says it is in error, and has all proxy containers
+	wlCfgError := podWorkload()
+	err = configureProxies(u, wlCfgError, csqls)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wlCfgError.Pod.Status.ContainerStatuses = []corev1.ContainerStatus{{
+		Name:  wlCfgError.Pod.Spec.Containers[0].Name,
+		State: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{Reason: "Error", ExitCode: 2}},
+	}}
+
+	// Pod configuration says it is waiting, and has all proxy containers
+	wlCfgWait := podWorkload()
+	err = configureProxies(u, wlCfgWait, csqls)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wlCfgWait.Pod.Status.ContainerStatuses = []corev1.ContainerStatus{{
+		Name:  wlCfgWait.Pod.Spec.Containers[0].Name,
+		State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: "CrashLoopBackoff"}},
+	}}
+
+	// Pod configuration says it is running and is missing its proxy containers
+	wlCfgMissingRunning := podWorkload()
+	wlCfgMissingRunning.Pod.Status.ContainerStatuses = []corev1.ContainerStatus{{
+		Name:  wlCfgMissingRunning.Pod.Spec.Containers[0].Name,
+		State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{StartedAt: metav1.Now()}},
+	}}
+
+	// Pod configuration says it is in error and is missing its proxy containers
+	wlCfgMissingError := podWorkload()
+	wlCfgMissingError.Pod.Status.ContainerStatuses = []corev1.ContainerStatus{{
+		Name:  wlCfgMissingError.Pod.Spec.Containers[0].Name,
+		State: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{Reason: "Error", ExitCode: 2}},
+	}}
+
+	// Pod configuration says it is waiting is missing its proxy containers
+	wlCfgMissingWait := podWorkload()
+	wlCfgMissingWait.Pod.Status.ContainerStatuses = []corev1.ContainerStatus{{
+		Name:  wlCfgMissingWait.Pod.Spec.Containers[0].Name,
+		State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: "CrashLoopBackoff"}},
+	}}
+
+	// Pod configuration says it is in error and is missing one of the 2 sidecar
+	// containers.
+	wlCfgOutOfDateError := podWorkload()
+	// Only configure 1 of the 2 expected AuthProxyWorkload sidecar containers
+	err = configureProxies(u, wlCfgWait, []*cloudsqlapi.AuthProxyWorkload{p1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wlCfgOutOfDateError.Pod.Status.ContainerStatuses = []corev1.ContainerStatus{{
+		Name:  wlCfgOutOfDateError.Pod.Spec.Containers[0].Name,
+		State: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{Reason: "Error", ExitCode: 2}},
+	}}
+
+	tests := []struct {
+		name    string
+		wl      *workload.PodWorkload
+		wantErr bool
+	}{
+		{name: "Workload Configured, state running", wl: wlCfgRunning},
+		{name: "Workload Configured, state terminated", wl: wlCfgError},
+		{name: "Workload Configured, state waiting", wl: wlCfgWait},
+		{name: "Config missing, state running", wl: wlCfgMissingRunning},
+		{name: "Config missing, state terminated", wl: wlCfgMissingError, wantErr: true},
+		{name: "Config missing, state waiting", wl: wlCfgMissingWait, wantErr: true},
+		{name: "One container missing, state error", wl: wlCfgOutOfDateError, wantErr: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// update the containers
+			err := u.CheckWorkloadContainers(test.wl, csqls)
+
+			if test.wantErr && err == nil {
+				t.Fatal("want not nil, got nil. err")
+			}
+			if !test.wantErr && err != nil {
+				t.Fatalf("want nil, got %v. err", err)
+			}
+
+		})
+	}
+}

@@ -95,6 +95,10 @@ func (a *PodAdmissionWebhook) handleCreatePodRequest(ctx context.Context, p core
 		return nil, err
 	}
 
+	if len(proxies) == 0 {
+		return nil, nil
+	}
+
 	// Configure the pod, adding containers for each of the proxies
 	wlConfigErr := a.updater.ConfigureWorkload(wl, proxies)
 
@@ -107,6 +111,8 @@ func (a *PodAdmissionWebhook) handleCreatePodRequest(ctx context.Context, p core
 	return wl.Pod, nil // updated
 }
 
+// findMatchingProxies lists all AuthProxyWorkloads that are related to this pod
+// or its owners.
 func findMatchingProxies(ctx context.Context, c client.Client, u *workload.Updater, wl *workload.PodWorkload) ([]*cloudsqlapi.AuthProxyWorkload, error) {
 	var (
 		instList = &cloudsqlapi.AuthProxyWorkloadList{}
@@ -174,7 +180,7 @@ func listOwners(ctx context.Context, c client.Client, object client.Object) ([]w
 			return nil, err
 		}
 
-		// recursively call for the owners of the owner, and append those.
+		// Recursively call for the owners of the owner, and append those.
 		// So that we reach Pod --> ReplicaSet --> Deployment
 		ownerOwners, err := listOwners(ctx, c, owner)
 		if err != nil {
@@ -186,6 +192,10 @@ func listOwners(ctx context.Context, c client.Client, object client.Object) ([]w
 	return owners, nil
 }
 
+// PodEventHandler receives pod changed events for all pods in the K8s cluster
+// to ensure that any pods that should have proxy sidecars are configured
+// correctly. If a pod is not configured correctly, and is not running, then
+// the operator will delete the pod.
 type PodEventHandler struct {
 	ctx context.Context
 	u   *workload.Updater
@@ -195,7 +205,7 @@ type PodEventHandler struct {
 
 // NeedLeaderElection implements manager.LeaderElectionRunnable so that
 // the PodEventHandler only runs on the leader, not on other redundant
-// pods.
+// operator pods.
 func (h *PodEventHandler) NeedLeaderElection() bool {
 	return true
 }
@@ -226,7 +236,7 @@ func (h *PodEventHandler) Start(ctx context.Context) error {
 func (h *PodEventHandler) OnAdd(obj interface{}) {
 	pod, ok := obj.(*corev1.Pod)
 	if !ok {
-		return
+		return // this should never happen
 	}
 	h.handlePodChanged(pod)
 }
@@ -235,44 +245,45 @@ func (h *PodEventHandler) OnAdd(obj interface{}) {
 func (h *PodEventHandler) OnUpdate(_, newObj interface{}) {
 	newPod, ok := newObj.(*corev1.Pod)
 	if !ok {
-		return
+		return // this should never happen
 	}
 	h.handlePodChanged(newPod)
 }
 
-// OnUpdate is called by the informer when a Pod is deleted.
-func (h *PodEventHandler) OnDelete(obj interface{}) {
-	pod, ok := obj.(*corev1.Pod)
-	if !ok {
-		return
-	}
-	h.l.Info("Update pod: %v", "pod", pod)
+// OnDelete is called by the informer when a Pod is deleted.
+func (h *PodEventHandler) OnDelete(_ interface{}) {
 }
 
 // handlePodChanged Deletes pods that meet the following criteria:
 // 1. The pod is in Error or CrashLoopBackoff state.
-// 2. The pod should have one or more proxy sidecar containers.
-// 3. The pod is missing one or more proxy sidecar containers.
+// 2. The pod matches one or more AuthProxyWorkload resources.
+// 3. The pod is missing one or more proxy sidecar containers for the resources.
 func (h *PodEventHandler) handlePodChanged(pod *corev1.Pod) {
+	// Pod is already deleted, ignore this change event.
+	if !pod.ObjectMeta.DeletionTimestamp.IsZero() {
+		return
+	}
+
 	wl := &workload.PodWorkload{Pod: pod}
 	c := h.mgr.GetClient()
 
+	// Find all proxies that match this pod
 	proxies, err := findMatchingProxies(h.ctx, c, h.u, wl)
 	if err != nil {
 		h.l.Error(err, "Unable to find proxies when pod changed")
 		return
 	}
 
-	// There are no proxies, nothing more to do.
+	// There are no proxies, ignore this event.
 	if len(proxies) == 0 {
 		return
 	}
 
-	// Configure the pod, adding containers for each of the proxies
+	// Check if this pod is in error and missing proxy containers
 	wlConfigErr := h.u.CheckWorkloadContainers(wl, proxies)
 
-	// If the pod has a config error, and the pod is not deleted, delete it.
-	if wlConfigErr != nil && pod.ObjectMeta.DeletionTimestamp.IsZero() {
+	// If this pod is in error, delete it. Simply logging an error is sufficient.
+	if wlConfigErr != nil {
 		h.l.Info("Pod configured incorrectly. Deleting.", "Namespace", pod.Namespace, "Name", pod.Name, "Status", pod.Status)
 		err = c.Delete(h.ctx, pod)
 		if err != nil && !apierrors.IsNotFound(err) {
