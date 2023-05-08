@@ -77,6 +77,7 @@ func (a *PodAdmissionWebhook) Handle(ctx context.Context, req admission.Request)
 		return admission.Errored(http.StatusInternalServerError,
 			fmt.Errorf("unable to marshal workload result"))
 	}
+	l.Info("updated pod", "Kind", req.RequestKind, "Operation", req.Operation, "Name", req.Name, "Namespace", req.Namespace)
 
 	return admission.PatchResponseFromRaw(req.Object.Raw, marshaledRes)
 }
@@ -195,6 +196,7 @@ func listOwners(ctx context.Context, c client.Client, object client.Object) ([]w
 // the operator will delete the pod.
 type PodEventHandler struct {
 	ctx context.Context
+	c   client.Client
 	u   *workload.Updater
 	l   logr.Logger
 	mgr manager.Manager
@@ -211,7 +213,7 @@ func (h *PodEventHandler) NeedLeaderElection() bool {
 // pod change events on the operator's leader instance.
 func (h *PodEventHandler) Start(ctx context.Context) error {
 	h.ctx = ctx
-
+	h.c = h.mgr.GetClient()
 	i, err := h.mgr.GetCache().GetInformerForKind(ctx, schema.GroupVersionKind{
 		Group:   "",
 		Version: "v1",
@@ -262,10 +264,9 @@ func (h *PodEventHandler) handlePodChanged(pod *corev1.Pod) {
 	}
 
 	wl := &workload.PodWorkload{Pod: pod}
-	c := h.mgr.GetClient()
 
 	// Find all proxies that match this pod
-	proxies, err := findMatchingProxies(h.ctx, c, h.u, wl)
+	proxies, err := findMatchingProxies(h.ctx, h.c, h.u, wl)
 	if err != nil {
 		h.l.Error(err, "Unable to find proxies when pod changed")
 		return
@@ -282,7 +283,7 @@ func (h *PodEventHandler) handlePodChanged(pod *corev1.Pod) {
 	// If this pod is in error, delete it. Simply logging an error is sufficient.
 	if wlConfigErr != nil {
 		h.l.Info("Pod configured incorrectly. Deleting.", "Namespace", pod.Namespace, "Name", pod.Name, "Status", pod.Status)
-		err = c.Delete(h.ctx, pod)
+		err = h.c.Delete(h.ctx, pod)
 		if err != nil && !apierrors.IsNotFound(err) {
 			h.l.Error(err, "Unable to delete pod.", "Namespace", pod.Namespace, "Name", pod.Name)
 		}
