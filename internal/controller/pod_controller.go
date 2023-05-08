@@ -59,7 +59,6 @@ func (a *PodAdmissionWebhook) Handle(ctx context.Context, req admission.Request)
 			"kind", req.Kind.Kind, "ns", req.Namespace, "name", req.Name)
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
-	l.Info("received mutate pod request: ", "Kind", req.RequestKind, "Operation", req.Operation, "Name", req.Name, "Namespace", req.Namespace, "AdmissionRequest", req.AdmissionRequest)
 
 	updatedPod, err := a.handleCreatePodRequest(ctx, p)
 	if err != nil {
@@ -67,7 +66,6 @@ func (a *PodAdmissionWebhook) Handle(ctx context.Context, req admission.Request)
 	}
 
 	if updatedPod == nil {
-		l.Info("no changes", "Kind", req.RequestKind, "Operation", req.Operation, "Name", req.Name, "Namespace", req.Namespace)
 		return admission.Allowed("no changes to pod")
 	}
 
@@ -79,7 +77,6 @@ func (a *PodAdmissionWebhook) Handle(ctx context.Context, req admission.Request)
 		return admission.Errored(http.StatusInternalServerError,
 			fmt.Errorf("unable to marshal workload result"))
 	}
-	l.Info("updated pod", "Kind", req.RequestKind, "Operation", req.Operation, "Name", req.Name, "Namespace", req.Namespace)
 
 	return admission.PatchResponseFromRaw(req.Object.Raw, marshaledRes)
 }
