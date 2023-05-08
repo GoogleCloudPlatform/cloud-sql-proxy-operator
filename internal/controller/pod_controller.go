@@ -190,31 +190,32 @@ func listOwners(ctx context.Context, c client.Client, object client.Object) ([]w
 	return owners, nil
 }
 
-// PodEventHandler receives pod changed events for all pods in the K8s cluster
-// to ensure that any pods that should have proxy sidecars are configured
-// correctly. If a pod is not configured correctly, and is not running, then
-// the operator will delete the pod.
-type PodEventHandler struct {
-	ctx context.Context
-	c   client.Client
+// PodEventHandlerRunner starts a PodEventHandler when the manager
+// begins, ensuring that it only runs on the leader operator pod.
+type PodEventHandlerRunner struct {
+	mgr manager.Manager
 	u   *workload.Updater
 	l   logr.Logger
-	mgr manager.Manager
 }
 
 // NeedLeaderElection implements manager.LeaderElectionRunnable so that
 // the PodEventHandler only runs on the leader, not on other redundant
 // operator pods.
-func (h *PodEventHandler) NeedLeaderElection() bool {
+func (r *PodEventHandlerRunner) NeedLeaderElection() bool {
 	return true
 }
 
 // Start implements manager.Runnable which will start the informer receiving
 // pod change events on the operator's leader instance.
-func (h *PodEventHandler) Start(ctx context.Context) error {
-	h.ctx = ctx
-	h.c = h.mgr.GetClient()
-	i, err := h.mgr.GetCache().GetInformerForKind(ctx, schema.GroupVersionKind{
+func (r *PodEventHandlerRunner) Start(ctx context.Context) error {
+	h := &PodEventHandler{
+		ctx: ctx,
+		c:   r.mgr.GetClient(),
+		u:   r.u,
+		l:   r.l,
+	}
+
+	i, err := r.mgr.GetCache().GetInformerForKind(ctx, schema.GroupVersionKind{
 		Group:   "",
 		Version: "v1",
 		Kind:    "Pod",
@@ -229,6 +230,17 @@ func (h *PodEventHandler) Start(ctx context.Context) error {
 	}
 	return nil
 
+}
+
+// PodEventHandler receives pod changed events for all pods in the K8s cluster
+// to ensure that any pods that should have proxy sidecars are configured
+// correctly. If a pod is not configured correctly, and is not running, then
+// the operator will delete the pod.
+type PodEventHandler struct {
+	ctx context.Context
+	c   client.Client
+	u   *workload.Updater
+	l   logr.Logger
 }
 
 // OnAdd is called by the informer when a Pod is added.
