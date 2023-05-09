@@ -77,7 +77,7 @@ func (a *PodAdmissionWebhook) Handle(ctx context.Context, req admission.Request)
 		return admission.Errored(http.StatusInternalServerError,
 			fmt.Errorf("unable to marshal workload result"))
 	}
-	l.Info("updated pod", "Kind", req.RequestKind, "Operation", req.Operation, "Name", req.Name, "Namespace", req.Namespace)
+	l.Info("updated proxy on pod", "Operation", req.Operation, "Namespace", req.Namespace, "Name", req.Name)
 
 	return admission.PatchResponseFromRaw(req.Object.Raw, marshaledRes)
 }
@@ -190,30 +190,45 @@ func listOwners(ctx context.Context, c client.Client, object client.Object) ([]w
 	return owners, nil
 }
 
-// PodEventHandlerRunner starts a PodEventHandler when the manager
+// podEventHandlerRunner starts a podEventHandler when the manager
 // begins, ensuring that it only runs on the leader operator pod.
-type PodEventHandlerRunner struct {
+type podEventHandlerRunner struct {
 	mgr manager.Manager
 	u   *workload.Updater
 	l   logr.Logger
 }
 
+// newPodEventHandlerRunner creates a new runner which will instantiate a
+// PodEventHandler during controller-runtime manager startup.
+func newPodEventHandlerRunner(mgr manager.Manager, u *workload.Updater, l logr.Logger) *podEventHandlerRunner {
+	return &podEventHandlerRunner{
+		mgr: mgr,
+		u:   u,
+		l:   l,
+	}
+}
+
+// newPodEventHandler creates a new PodEventHandler which implements
+func newPodEventHandler(ctx context.Context, c client.Client, u *workload.Updater, l logr.Logger) *podEventHandler {
+	return &podEventHandler{
+		ctx: ctx,
+		c:   c,
+		u:   u,
+		l:   l,
+	}
+}
+
 // NeedLeaderElection implements manager.LeaderElectionRunnable so that
-// the PodEventHandler only runs on the leader, not on other redundant
+// the podEventHandler only runs on the leader, not on other redundant
 // operator pods.
-func (r *PodEventHandlerRunner) NeedLeaderElection() bool {
+func (r *podEventHandlerRunner) NeedLeaderElection() bool {
 	return true
 }
 
 // Start implements manager.Runnable which will start the informer receiving
 // pod change events on the operator's leader instance.
-func (r *PodEventHandlerRunner) Start(ctx context.Context) error {
-	h := &PodEventHandler{
-		ctx: ctx,
-		c:   r.mgr.GetClient(),
-		u:   r.u,
-		l:   r.l,
-	}
+func (r *podEventHandlerRunner) Start(ctx context.Context) error {
+	h := newPodEventHandler(ctx, r.mgr.GetClient(), r.u, r.l)
 
 	i, err := r.mgr.GetCache().GetInformerForKind(ctx, schema.GroupVersionKind{
 		Group:   "",
@@ -232,19 +247,20 @@ func (r *PodEventHandlerRunner) Start(ctx context.Context) error {
 
 }
 
-// PodEventHandler receives pod changed events for all pods in the K8s cluster
+// podEventHandler receives pod changed events for all pods in the K8s cluster
 // to ensure that any pods that should have proxy sidecars are configured
 // correctly. If a pod is not configured correctly, and is not running, then
 // the operator will delete the pod.
-type PodEventHandler struct {
+type podEventHandler struct {
 	ctx context.Context
 	c   client.Client
 	u   *workload.Updater
 	l   logr.Logger
 }
 
-// OnAdd is called by the informer when a Pod is added.
-func (h *PodEventHandler) OnAdd(obj interface{}) {
+// OnAdd implements cache.ResourceEventHandler, gets called by the cache
+// informer when a Pod is added to the k8s cluster.
+func (h *podEventHandler) OnAdd(obj interface{}) {
 	pod, ok := obj.(*corev1.Pod)
 	if !ok {
 		return // this should never happen
@@ -252,8 +268,9 @@ func (h *PodEventHandler) OnAdd(obj interface{}) {
 	h.handlePodChanged(pod)
 }
 
-// OnUpdate is called by the informer when a Pod is updated.
-func (h *PodEventHandler) OnUpdate(_, newObj interface{}) {
+// OnUpdate implements cache.ResourceEventHandler, gets called by the cache
+// informer when a Pod is updated.
+func (h *podEventHandler) OnUpdate(_, newObj interface{}) {
 	newPod, ok := newObj.(*corev1.Pod)
 	if !ok {
 		return // this should never happen
@@ -261,15 +278,16 @@ func (h *PodEventHandler) OnUpdate(_, newObj interface{}) {
 	h.handlePodChanged(newPod)
 }
 
-// OnDelete is called by the informer when a Pod is deleted.
-func (h *PodEventHandler) OnDelete(_ interface{}) {
+// OnDelete  implements cache.ResourceEventHandler, gets called by the cache
+// informer when a Pod is deleted.
+func (h *podEventHandler) OnDelete(_ interface{}) {
 }
 
 // handlePodChanged Deletes pods that meet the following criteria:
 // 1. The pod is in Error or CrashLoopBackoff state.
 // 2. The pod matches one or more AuthProxyWorkload resources.
 // 3. The pod is missing one or more proxy sidecar containers for the resources.
-func (h *PodEventHandler) handlePodChanged(pod *corev1.Pod) {
+func (h *podEventHandler) handlePodChanged(pod *corev1.Pod) {
 	// Pod is already deleted, ignore this change event.
 	if !pod.ObjectMeta.DeletionTimestamp.IsZero() {
 		return
@@ -294,10 +312,12 @@ func (h *PodEventHandler) handlePodChanged(pod *corev1.Pod) {
 
 	// If this pod is in error, delete it. Simply logging an error is sufficient.
 	if wlConfigErr != nil {
-		h.l.Info("Pod configured incorrectly. Deleting.", "Namespace", pod.Namespace, "Name", pod.Name, "Status", pod.Status)
+		h.l.Info("Pod configured incorrectly. Deleting.",
+			"Namespace", pod.Namespace, "Name", pod.Name, "Status", pod.Status)
 		err = h.c.Delete(h.ctx, pod)
 		if err != nil && !apierrors.IsNotFound(err) {
-			h.l.Error(err, "Unable to delete pod.", "Namespace", pod.Namespace, "Name", pod.Name)
+			h.l.Error(err, "Unable to delete pod.",
+				"Namespace", pod.Namespace, "Name", pod.Name)
 		}
 	}
 

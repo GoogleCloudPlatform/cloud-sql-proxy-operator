@@ -103,11 +103,6 @@ func RegisterPodWebhook(mgr ctrl.Manager, u *workload.Updater) error {
 // registerPodInformer sets up the informer so that the operator is
 // notified on all changes to all pod resources.
 func registerPodInformer(mgr ctrl.Manager, u *workload.Updater) error {
-	h := &PodEventHandlerRunner{
-		u:   u,
-		l:   ctrl.Log.WithName("pod-informer"),
-		mgr: mgr,
-	}
-
+	h := newPodEventHandlerRunner(mgr, u, ctrl.Log.WithName("pod-informer"))
 	return mgr.Add(h)
 }

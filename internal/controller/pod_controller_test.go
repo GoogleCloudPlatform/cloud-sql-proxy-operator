@@ -262,7 +262,7 @@ func TestPodEventHandler_OnUpdate(t *testing.T) {
 				cb = cb.WithObjects(p)
 			}
 			c := cb.Build()
-			h, ctx := podEventHandler(c)
+			h, ctx := podEventHandlerForTest(c)
 			if tc.setSidecarContainers {
 				h.u.ConfigureWorkload(&workload.PodWorkload{Pod: pods[0]}, []*cloudsqlapi.AuthProxyWorkload{p})
 			}
@@ -284,13 +284,12 @@ func TestPodEventHandler_OnUpdate(t *testing.T) {
 
 }
 
-func podEventHandler(c client.Client) (*PodEventHandler, context.Context) {
+func podEventHandlerForTest(c client.Client) (*podEventHandler, context.Context) {
 	ctx := log.IntoContext(context.Background(), logger)
-	r := &PodEventHandler{
-		ctx: context.Background(),
-		c:   c,
-		u:   workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage),
-		l:   logr.New(log.NullLogSink{}),
-	}
+	r := newPodEventHandler(
+		context.Background(),
+		c,
+		workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage),
+		logr.New(log.NullLogSink{}))
 	return r, ctx
 }
