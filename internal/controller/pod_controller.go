@@ -106,7 +106,7 @@ func (a *PodAdmissionWebhook) handleCreatePodRequest(ctx context.Context, p core
 		return nil, fmt.Errorf("there is an AuthProxyWorkloadConfiguration error reconciling this workload %v", wlConfigErr)
 	}
 
-	return wl.Pod, nil // updated
+	return wl.Pod, nil // updated pod
 }
 
 // findMatchingProxies lists all AuthProxyWorkloads that are related to this pod
@@ -196,7 +196,7 @@ type podDeleteController struct {
 	updater *workload.Updater
 }
 
-// newDeletePodController constructs an podDeleteController
+// newDeletePodController constructs a podDeleteController.
 func newPodDeleteController(mgr ctrl.Manager, u *workload.Updater) (*podDeleteController, error) {
 	r := &podDeleteController{
 		Client:  mgr.GetClient(),
@@ -254,10 +254,11 @@ func (r *podDeleteController) handlePodChanged(ctx context.Context, pod *corev1.
 		return nil
 	}
 
-	// Check if this pod is in error and missing proxy containers
+	// Check if this pod is in an error or waiting state and is missing
+	// proxy containers.
 	wlConfigErr := r.updater.CheckWorkloadContainers(wl, proxies)
 
-	// If this pod is in error, delete it. Simply logging an error is sufficient.
+	// If the pod is misconfigured, attempt to delete it.
 	if wlConfigErr != nil {
 		l := logf.FromContext(ctx)
 		l.Info("Pod configured incorrectly. Deleting.",
