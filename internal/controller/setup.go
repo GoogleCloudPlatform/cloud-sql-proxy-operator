@@ -36,7 +36,7 @@ func InitScheme(scheme *runtime.Scheme) {
 	//+kubebuilder:scaffold:scheme
 }
 
-// SetupManagers was moved out of ../main.go to here so that it can be invoked
+// SetupManagers was moved out of ../main.go here so that it can be invoked
 // from the testintegration tests AND from the actual operator.
 func SetupManagers(mgr manager.Manager, userAgent, defaultProxyImage string) error {
 	u := workload.NewUpdater(userAgent, defaultProxyImage)
@@ -69,6 +69,14 @@ func SetupManagers(mgr manager.Manager, userAgent, defaultProxyImage string) err
 	err = RegisterPodWebhook(mgr, u)
 	if err != nil {
 		setupLog.Error(err, "unable to create workload admission webhook controller")
+		return err
+	}
+
+	// Register the podDeleteController, which will listen for pod changes and
+	// delete misconfigured pods that in a waiting or error state.
+	_, err = newPodDeleteController(mgr, u)
+	if err != nil {
+		setupLog.Error(err, "unable to create pod informer")
 		return err
 	}
 

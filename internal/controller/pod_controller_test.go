@@ -22,8 +22,11 @@ import (
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -155,4 +158,145 @@ func podWebhookController(cb client.Client) (*PodAdmissionWebhook, context.Conte
 	}
 
 	return r, ctx, nil
+}
+
+func TestPodDeleteController(t *testing.T) {
+	// Proxy workload
+	p := testhelpers.BuildAuthProxyWorkload(types.NamespacedName{
+		Namespace: "default",
+		Name:      "test",
+	}, "project:region:db")
+	addFinalizers(p)
+	addSelectorWorkload(p, "Deployment", "app", "webapp")
+
+	// Deployment that matches the proxy
+	dMatch := testhelpers.BuildDeployment(types.NamespacedName{
+		Namespace: "default",
+		Name:      "test",
+	}, "webapp")
+	dMatch.ObjectMeta.Labels = map[string]string{"app": "webapp"}
+
+	// Deployment that does not match the proxy
+	dNoMatch := testhelpers.BuildDeployment(types.NamespacedName{
+		Namespace: "default",
+		Name:      "test",
+	}, "webapp")
+	dNoMatch.ObjectMeta.Labels = map[string]string{"app": "other"}
+
+	data := []struct {
+		name                 string
+		d                    *appsv1.Deployment
+		wantNotFound         bool
+		setPodError          bool
+		setSidecarContainers bool
+	}{
+		{
+			name:         "matching pod with error gets deleted",
+			d:            dMatch,
+			setPodError:  true,
+			wantNotFound: true,
+		},
+		{
+			name:         "matching pod with no error",
+			d:            dMatch,
+			setPodError:  false,
+			wantNotFound: false,
+		},
+		{
+			name:         "no matching workload, pod ok",
+			d:            dNoMatch,
+			setPodError:  false,
+			wantNotFound: false,
+		},
+		{
+			name:         "no matching workload, pod error",
+			d:            dNoMatch,
+			setPodError:  true,
+			wantNotFound: false,
+		},
+		{
+			name:                 "matching workload, pod error, has containers",
+			d:                    dNoMatch,
+			setPodError:          true,
+			setSidecarContainers: true,
+			wantNotFound:         false,
+		},
+		{
+			name:                 "matching workload, pod ok, has containers",
+			d:                    dNoMatch,
+			setPodError:          false,
+			setSidecarContainers: true,
+			wantNotFound:         false,
+		},
+	}
+
+	for _, tc := range data {
+		t.Run(tc.name, func(t *testing.T) {
+
+			cb, scheme, err := clientBuilder()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			rs, hash, err := testhelpers.BuildDeploymentReplicaSet(tc.d, scheme)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			pods, err := testhelpers.BuildDeploymentReplicaSetPods(tc.d, rs, hash, scheme)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tc.setPodError {
+				pods[0].Status.ContainerStatuses = []corev1.ContainerStatus{{
+					Name:  pods[0].Spec.Containers[0].Name,
+					State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: "CrashLoopBackoff"}},
+				}}
+			}
+
+			cb = cb.WithObjects(p)
+			cb = cb.WithObjects(tc.d)
+			cb = cb.WithObjects(rs)
+
+			for _, p := range pods {
+				cb = cb.WithObjects(p)
+			}
+			c := cb.Build()
+			h, ctx := podDeleteControllerForTest(c)
+			if tc.setSidecarContainers {
+				h.updater.ConfigureWorkload(&workload.PodWorkload{Pod: pods[0]}, []*cloudsqlapi.AuthProxyWorkload{p})
+			}
+
+			req := ctrl.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: pods[0].Namespace,
+					Name:      pods[0].Name,
+				},
+			}
+
+			h.Reconcile(ctx, req)
+
+			var deletedPod corev1.Pod
+			err = c.Get(ctx, client.ObjectKeyFromObject(pods[0]), &deletedPod)
+
+			if !tc.wantNotFound && errors.IsNotFound(err) {
+				t.Fatalf("want not found error, got %v", err)
+			}
+			if tc.wantNotFound && !errors.IsNotFound(err) {
+				t.Fatalf("want no error, found error, got %v", err)
+			}
+
+		})
+	}
+
+}
+
+func podDeleteControllerForTest(c client.Client) (*podDeleteController, context.Context) {
+	ctx := log.IntoContext(context.Background(), logger)
+	r := &podDeleteController{
+		Client:  c,
+		Scheme:  c.Scheme(),
+		updater: workload.NewUpdater("cloud-sql-proxy-operator/dev", "proxy:1.0"),
+	}
+	return r, ctx
 }
