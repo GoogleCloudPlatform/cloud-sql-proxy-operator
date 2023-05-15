@@ -21,12 +21,12 @@ import (
 	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
-	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -160,7 +160,7 @@ func podWebhookController(cb client.Client) (*PodAdmissionWebhook, context.Conte
 	return r, ctx, nil
 }
 
-func TestPodEventHandler_OnUpdate(t *testing.T) {
+func TestPodDeleteController(t *testing.T) {
 	// Proxy workload
 	p := testhelpers.BuildAuthProxyWorkload(types.NamespacedName{
 		Namespace: "default",
@@ -262,12 +262,19 @@ func TestPodEventHandler_OnUpdate(t *testing.T) {
 				cb = cb.WithObjects(p)
 			}
 			c := cb.Build()
-			h, ctx := podEventHandlerForTest(c)
+			h, ctx := podDeleteControllerForTest(c)
 			if tc.setSidecarContainers {
-				h.u.ConfigureWorkload(&workload.PodWorkload{Pod: pods[0]}, []*cloudsqlapi.AuthProxyWorkload{p})
+				h.updater.ConfigureWorkload(&workload.PodWorkload{Pod: pods[0]}, []*cloudsqlapi.AuthProxyWorkload{p})
 			}
 
-			h.OnAdd(pods[0])
+			req := ctrl.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: pods[0].Namespace,
+					Name:      pods[0].Name,
+				},
+			}
+
+			h.Reconcile(ctx, req)
 
 			var deletedPod corev1.Pod
 			err = c.Get(ctx, client.ObjectKeyFromObject(pods[0]), &deletedPod)
@@ -284,12 +291,12 @@ func TestPodEventHandler_OnUpdate(t *testing.T) {
 
 }
 
-func podEventHandlerForTest(c client.Client) (*podEventHandler, context.Context) {
+func podDeleteControllerForTest(c client.Client) (*podDeleteController, context.Context) {
 	ctx := log.IntoContext(context.Background(), logger)
-	r := newPodEventHandler(
-		context.Background(),
-		c,
-		workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage),
-		logr.New(log.NullLogSink{}))
+	r := &podDeleteController{
+		Client:  c,
+		Scheme:  c.Scheme(),
+		updater: workload.NewUpdater("cloud-sql-proxy-operator/dev", "proxy:1.0"),
+	}
 	return r, ctx
 }

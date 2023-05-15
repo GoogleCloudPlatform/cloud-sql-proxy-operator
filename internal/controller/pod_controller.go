@@ -19,15 +19,15 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/json"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1"
@@ -190,135 +190,83 @@ func listOwners(ctx context.Context, c client.Client, object client.Object) ([]w
 	return owners, nil
 }
 
-// podEventHandlerRunner starts a podEventHandler when the manager
-// begins, ensuring that it only runs on the leader operator pod.
-type podEventHandlerRunner struct {
-	mgr manager.Manager
-	u   *workload.Updater
-	l   logr.Logger
+type podDeleteController struct {
+	client.Client
+	Scheme  *runtime.Scheme
+	updater *workload.Updater
 }
 
-// newPodEventHandlerRunner creates a new runner which will instantiate a
-// PodEventHandler during controller-runtime manager startup.
-func newPodEventHandlerRunner(mgr manager.Manager, u *workload.Updater, l logr.Logger) *podEventHandlerRunner {
-	return &podEventHandlerRunner{
-		mgr: mgr,
-		u:   u,
-		l:   l,
+// newDeletePodController constructs an podDeleteController
+func newPodDeleteController(mgr ctrl.Manager, u *workload.Updater) (*podDeleteController, error) {
+	r := &podDeleteController{
+		Client:  mgr.GetClient(),
+		Scheme:  mgr.GetScheme(),
+		updater: u,
 	}
+	err := r.setupWithManager(mgr)
+	return r, err
 }
 
-// newPodEventHandler creates a new PodEventHandler which implements
-func newPodEventHandler(ctx context.Context, c client.Client, u *workload.Updater, l logr.Logger) *podEventHandler {
-	return &podEventHandler{
-		ctx: ctx,
-		c:   c,
-		u:   u,
-		l:   l,
-	}
+// setupWithManager adds this AuthProxyWorkload controller to the controller-runtime
+// manager.
+func (r *podDeleteController) setupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&corev1.Pod{}).
+		Complete(r)
 }
 
-// NeedLeaderElection implements manager.LeaderElectionRunnable so that
-// the podEventHandler only runs on the leader, not on other redundant
-// operator pods.
-func (r *podEventHandlerRunner) NeedLeaderElection() bool {
-	return true
-}
-
-// Start implements manager.Runnable which will start the informer receiving
-// pod change events on the operator's leader instance.
-func (r *podEventHandlerRunner) Start(ctx context.Context) error {
-	h := newPodEventHandler(ctx, r.mgr.GetClient(), r.u, r.l)
-
-	i, err := r.mgr.GetCache().GetInformerForKind(ctx, schema.GroupVersionKind{
-		Group:   "",
-		Version: "v1",
-		Kind:    "Pod",
-	})
+func (r *podDeleteController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	// Read the ReplicaSet
+	pod := &corev1.Pod{}
+	err := r.Client.Get(ctx, req.NamespacedName, pod)
 	if err != nil {
-		return fmt.Errorf("Unable to get pod informer, %v", err)
+		return reconcile.Result{}, client.IgnoreNotFound(err)
+	}
+	// Pod is already deleted, ignore this change event.
+	if !pod.ObjectMeta.DeletionTimestamp.IsZero() {
+		return reconcile.Result{}, nil
 	}
 
-	_, err = i.AddEventHandler(h)
+	err = r.handlePodChanged(ctx, pod)
 	if err != nil {
-		return fmt.Errorf("Unable to register pod event handler, %v", err)
+		return reconcile.Result{Requeue: true}, err
 	}
-	return nil
 
-}
-
-// podEventHandler receives pod changed events for all pods in the K8s cluster
-// to ensure that any pods that should have proxy sidecars are configured
-// correctly. If a pod is not configured correctly, and is not running, then
-// the operator will delete the pod.
-type podEventHandler struct {
-	ctx context.Context
-	c   client.Client
-	u   *workload.Updater
-	l   logr.Logger
-}
-
-// OnAdd implements cache.ResourceEventHandler, gets called by the cache
-// informer when a Pod is added to the k8s cluster.
-func (h *podEventHandler) OnAdd(obj interface{}) {
-	pod, ok := obj.(*corev1.Pod)
-	if !ok {
-		return // this should never happen
-	}
-	h.handlePodChanged(pod)
-}
-
-// OnUpdate implements cache.ResourceEventHandler, gets called by the cache
-// informer when a Pod is updated.
-func (h *podEventHandler) OnUpdate(_, newObj interface{}) {
-	newPod, ok := newObj.(*corev1.Pod)
-	if !ok {
-		return // this should never happen
-	}
-	h.handlePodChanged(newPod)
-}
-
-// OnDelete  implements cache.ResourceEventHandler, gets called by the cache
-// informer when a Pod is deleted.
-func (h *podEventHandler) OnDelete(_ interface{}) {
+	return reconcile.Result{}, nil
 }
 
 // handlePodChanged Deletes pods that meet the following criteria:
 // 1. The pod is in Error or CrashLoopBackoff state.
 // 2. The pod matches one or more AuthProxyWorkload resources.
 // 3. The pod is missing one or more proxy sidecar containers for the resources.
-func (h *podEventHandler) handlePodChanged(pod *corev1.Pod) {
-	// Pod is already deleted, ignore this change event.
-	if !pod.ObjectMeta.DeletionTimestamp.IsZero() {
-		return
-	}
+func (r *podDeleteController) handlePodChanged(ctx context.Context, pod *corev1.Pod) error {
 
 	wl := &workload.PodWorkload{Pod: pod}
 
 	// Find all proxies that match this pod
-	proxies, err := findMatchingProxies(h.ctx, h.c, h.u, wl)
+	proxies, err := findMatchingProxies(ctx, r.Client, r.updater, wl)
 	if err != nil {
-		h.l.Error(err, "Unable to find proxies when pod changed")
-		return
+		return fmt.Errorf("unable to find proxies when pod changed, %v", err)
 	}
 
 	// There are no proxies, ignore this event.
 	if len(proxies) == 0 {
-		return
+		return nil
 	}
 
 	// Check if this pod is in error and missing proxy containers
-	wlConfigErr := h.u.CheckWorkloadContainers(wl, proxies)
+	wlConfigErr := r.updater.CheckWorkloadContainers(wl, proxies)
 
 	// If this pod is in error, delete it. Simply logging an error is sufficient.
 	if wlConfigErr != nil {
-		h.l.Info("Pod configured incorrectly. Deleting.",
+		l := logf.FromContext(ctx)
+		l.Info("Pod configured incorrectly. Deleting.",
 			"Namespace", pod.Namespace, "Name", pod.Name, "Status", pod.Status)
-		err = h.c.Delete(h.ctx, pod)
+		err = r.Client.Delete(ctx, pod)
 		if err != nil && !apierrors.IsNotFound(err) {
-			h.l.Error(err, "Unable to delete pod.",
-				"Namespace", pod.Namespace, "Name", pod.Name)
+			return fmt.Errorf("unable to delete pod %v/%v, %v", pod.Namespace, pod.Name, err)
 		}
 	}
 
+	return nil
 }
