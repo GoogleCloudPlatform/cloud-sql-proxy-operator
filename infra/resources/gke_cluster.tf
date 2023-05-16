@@ -130,4 +130,5 @@ locals {
 resource "local_file" "kubeconfig" {
   content  = yamlencode(local.kubeconfig)
   filename = var.kubeconfig_path
+  file_permission = "0600"
 }
