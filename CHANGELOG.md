@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v0.5.0...v1.0.0) (2023-05-16)
+
+
+### Bug Fixes
+
+* delete misconfigured pods in error state. ([#338](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/338)) ([4a02aa7](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/4a02aa72bf4ace836b6c8af345302617b7f90765)), closes [#337](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/337)
+
+
+### Miscellaneous Chores
+
+* Prepare release 1.0.0 ([#353](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/353)) ([02506ff](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/02506ff275abe3d37d6f59c1c059da41a66cdfa0))
+
 ## [0.5.0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v0.4.0...v0.5.0) (2023-04-26)
 
 
