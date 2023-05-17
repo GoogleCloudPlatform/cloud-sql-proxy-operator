@@ -14,13 +14,7 @@
 
 assign_issues:
   - hessjcg
-  #   - shubha-rajan
-  #  - enocom
-  #   - jackwotherspoon
-  #  - kurtisvg
+  - enocom
 assign_prs:
-  #   - shubha-rajan
   - hessjcg
-  # - enocom
-#   - jackwotherspoon
-#  - kurtisvg
+  - enocom
