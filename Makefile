@@ -436,7 +436,7 @@ CRD_REF_DOCS ?= $(LOCALBIN)/crd-ref-docs
 # Important note: avoid adding spaces in the macro declarations as any
 # additional whitespace will break the renovate regex rules.
 
-KUBECTL_VERSION=v1.27.1# renovate datasource=github-tags depName=kubernetes/kubernetes
+KUBECTL_VERSION=v1.27.2# renovate datasource=github-tags depName=kubernetes/kubernetes
 TERRAFORM_VERSION=v1.4.6# renovate datasource=github-tags depName=hashicorp/terraform
 
 CONTROLLER_TOOLS_VERSION=v0.11.3# renovate datasource=go depName=sigs.k8s.io/controller-tools
