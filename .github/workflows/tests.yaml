@@ -85,7 +85,7 @@ jobs:
           project_id: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
           create_credentials_file: true
       - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@62d4898025f6041e16b1068643bfc5a696863587 # v1.1.0
+        uses: google-github-actions/setup-gcloud@e30db14379863a8c79331b04a9969f4c1e225e0b # v1.1.1
       - name: 'Setup Go'
         uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
         with:
