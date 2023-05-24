@@ -24,7 +24,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: cloud-sql-proxy-operator-system/cloud-sql-proxy-operator-serving-cert
-    controller-gen.kubebuilder.io/version: v0.11.3
+    controller-gen.kubebuilder.io/version: v0.12.0
   name: authproxyworkloads.cloudsql.cloud.google.com
 spec:
   conversion:
@@ -1241,7 +1241,6 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  creationTimestamp: null
   name: cloud-sql-proxy-operator-manager-role
 rules:
   - apiGroups:
