@@ -32,3 +32,6 @@ testbin/*
 # Ignore downloaded 3rd party license files
 ThirdPartyLicenses
 
+unit_sponge_log.xml
+integration_sponge_log.xml
+test_results.txt
