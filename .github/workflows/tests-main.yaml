@@ -38,7 +38,6 @@ jobs:
           service_account: ${{ secrets.SERVICE_ACCOUNT }}
           access_token_lifetime: 600s
           project_id: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
-          create_credentials_file: true
       - name: Setup Go
         uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
         with:
