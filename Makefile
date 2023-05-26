@@ -167,7 +167,7 @@ tf_lint: terraform # Run terraform fmt to ensure terraform code is consistent
 .PHONY: go_test
 go_test: ctrl_manifests envtest # Run tests (but not internal/teste2e)
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" \
-		go test ./internal/.../. -coverprofile cover.out -race
+		go test ./internal/.../. -coverprofile cover.out -race | tee test_results.txt
 
 ##
 # 3rd Party License Checks
@@ -364,7 +364,7 @@ e2e_test_run_gotest:  # Run the golang e2e tests
 		TEST_INFRA_JSON=$(LOCALBIN)/testinfra.json \
 		PROXY_IMAGE_URL=$(E2E_PROXY_URL) \
 		OPERATOR_IMAGE_URL=$(E2E_OPERATOR_URL) \
-		go test --count=1 -v -race ./tests/...
+		go test --count=1 -v -race ./tests/... | tee test_results.txt
 
 .PHONY: e2e_cleanup_test_namespaces
 e2e_cleanup_test_namespaces: e2e_project kustomize kubectl # remove e2e test namespaces named "test*"
@@ -520,4 +520,3 @@ helm:
 		(echo "Helm command line tools are not available in your path" ; \
 		 echo "Instructions on how to install https://helm.sh/docs/helm/helm_install/ " ; \
 		 exit 1)
-
