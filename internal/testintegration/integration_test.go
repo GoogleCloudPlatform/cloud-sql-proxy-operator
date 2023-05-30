@@ -32,25 +32,35 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// defaultClient holds the k8s client for the default EnvTestHarness which is
+// shared among tests that do not mess with the manager's lifecycle.
+var defaultClient client.Client
+
 func TestMain(m *testing.M) {
-	teardown, err := testintegration.EnvTestSetup()
+	// start up a shared EnvTestHarness to be reused across test cases that do not
+	// impact the lifecycle of the manager. This makes tests cases more efficient
+	// because it takes 2-3 minutes to start up a new EnvTestHarness.
+	var err error
+	mth, err := testintegration.EnvTestSetup()
 
 	if err != nil {
 		testintegration.Log.Error(err, "errors while initializing kubernetes cluster")
-		if teardown != nil {
-			teardown()
-		}
+		mth.Teardown()
 		os.Exit(1)
 	}
 
+	defaultClient = mth.Client
+
 	code := m.Run()
-	teardown()
+	mth.Teardown()
 	os.Exit(code)
 }
 
-func newTestCaseClient(name string) *testhelpers.TestCaseClient {
+// newTestCaseClient Creates a new TestCaseClient providing unique namespace and
+// other default values.
+func newTestCaseClient(name string, c client.Client) *testhelpers.TestCaseClient {
 	return &testhelpers.TestCaseClient{
-		Client:           testintegration.Client,
+		Client:           c,
 		Namespace:        testhelpers.NewNamespaceName(name),
 		ConnectionString: "region:project:inst",
 	}
@@ -58,7 +68,7 @@ func newTestCaseClient(name string) *testhelpers.TestCaseClient {
 
 func TestCreateAndDeleteResource(t *testing.T) {
 	ctx := testintegration.TestContext()
-	tcc := newTestCaseClient("create")
+	tcc := newTestCaseClient("create", defaultClient)
 	res, err := tcc.CreateResource(ctx)
 	if err != nil {
 		t.Error(err)
@@ -76,7 +86,7 @@ func TestCreateAndDeleteResource(t *testing.T) {
 
 func TestModifiesNewDeployment(t *testing.T) {
 	ctx := testintegration.TestContext()
-	tcc := newTestCaseClient("modifynew")
+	tcc := newTestCaseClient("modifynew", defaultClient)
 
 	err := tcc.CreateOrPatchNamespace(ctx)
 	if err != nil {
@@ -133,7 +143,7 @@ func TestModifiesExistingDeployment(t *testing.T) {
 		deploymentAppLabel = "existing-mod"
 	)
 	ctx := testintegration.TestContext()
-	tcc := newTestCaseClient("modifyexisting")
+	tcc := newTestCaseClient("modifyexisting", defaultClient)
 
 	err := tcc.CreateOrPatchNamespace(ctx)
 	if err != nil {
@@ -199,9 +209,14 @@ func TestModifiesExistingDeployment(t *testing.T) {
 // automatically update the proxy container image on existing deployments.
 func TestUpdateWorkloadContainerWhenDefaultProxyImageChanges(t *testing.T) {
 	ctx := testintegration.TestContext()
-	tcc := newTestCaseClient("modifynew")
+	// Use a fresh EnvTestHarness because we are messing with the operator
+	// lifecycle.
+	th, err := testintegration.EnvTestSetup()
+	defer th.Teardown()
 
-	err := tcc.CreateOrPatchNamespace(ctx)
+	tcc := newTestCaseClient("updateimage", th.Client)
+
+	err = tcc.CreateOrPatchNamespace(ctx)
 	if err != nil {
 		t.Fatalf("can't create namespace, %v", err)
 	}
@@ -215,14 +230,14 @@ func TestUpdateWorkloadContainerWhenDefaultProxyImageChanges(t *testing.T) {
 	t.Log("Creating AuthProxyWorkload")
 	p, err := tcc.CreateAuthProxyWorkload(ctx, key, deploymentAppLabel, tcc.ConnectionString, "Deployment")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 		return
 	}
 
 	t.Log("Waiting for AuthProxyWorkload operator to begin the reconcile loop")
 	_, err = tcc.GetAuthProxyWorkloadAfterReconcile(ctx, key)
 	if err != nil {
-		t.Error("unable to create AuthProxyWorkload", err)
+		t.Fatal("unable to create AuthProxyWorkload", err)
 		return
 	}
 
@@ -230,21 +245,21 @@ func TestUpdateWorkloadContainerWhenDefaultProxyImageChanges(t *testing.T) {
 	d := testhelpers.BuildDeployment(key, deploymentAppLabel)
 	err = tcc.CreateWorkload(ctx, d)
 	if err != nil {
-		t.Error("unable to create deployment", err)
+		t.Fatal("unable to create deployment", err)
 		return
 	}
 
 	t.Log("Creating deployment replicas")
 	rs, pl, err := tcc.CreateDeploymentReplicaSetAndPods(ctx, d)
 	if err != nil {
-		t.Error("unable to create pods", err)
+		t.Fatal("unable to create pods", err)
 		return
 	}
 
 	// Check that proxy container was added to pods
 	err = tcc.ExpectPodContainerCount(ctx, d.Spec.Selector, 2, "all")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	// Check that the pods have the expected default proxy image
@@ -257,7 +272,8 @@ func TestUpdateWorkloadContainerWhenDefaultProxyImageChanges(t *testing.T) {
 
 	// Restart the manager with a new default proxy image
 	const newDefault = "gcr.io/cloud-sql-connectors/cloud-sql-proxy:999.9.9"
-	err = testintegration.RestartManager(newDefault)
+	th.StopMgr()
+	err = th.StartMgr(newDefault)
 	if err != nil {
 		t.Fatal("can't restart container", err)
 	}
