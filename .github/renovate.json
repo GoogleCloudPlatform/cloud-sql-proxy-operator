@@ -20,7 +20,7 @@
       "matchUpdateTypes": [
         "major"
       ],
-      "enabled": false,
+      "enabled": false
     },
     {
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
@@ -50,7 +50,10 @@
         "DefaultProxyImage = \"(?<depName>gcr.io/cloud-sql-connectors/cloud-sql-proxy):(?<currentValue>.*?)\"\\n"
       ],
       "depNameTemplate": "{{{depName}}}",
-      "datasourceTemplate": "docker",
+      "datasourceTemplate": "docker"
     }
+  ],
+  "schedule": [
+    "before 4am on the first Tuesday of the month"
   ]
 }
