@@ -19,6 +19,8 @@ import (
 	"path"
 	"reflect"
 
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/validation"
@@ -56,42 +58,42 @@ func (r *AuthProxyWorkload) Default() {
 var _ webhook.Validator = &AuthProxyWorkload{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *AuthProxyWorkload) ValidateCreate() error {
+func (r *AuthProxyWorkload) ValidateCreate() (admission.Warnings, error) {
 	allErrs := r.validate()
 	if len(allErrs) > 0 {
-		return apierrors.NewInvalid(
+		return nil, apierrors.NewInvalid(
 			schema.GroupKind{
 				Group: GroupVersion.Group,
 				Kind:  "AuthProxyWorkload"},
 			r.Name, allErrs)
 	}
-	return nil
+	return nil, nil
 
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *AuthProxyWorkload) ValidateUpdate(old runtime.Object) error {
+func (r *AuthProxyWorkload) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	o, ok := old.(*AuthProxyWorkload)
 	if !ok {
-		return fmt.Errorf("bad request, expected old to be an AuthProxyWorkload")
+		return nil, fmt.Errorf("bad request, expected old to be an AuthProxyWorkload")
 	}
 
 	allErrs := r.validate()
 	allErrs = append(allErrs, r.validateUpdateFrom(o)...)
 	if len(allErrs) > 0 {
-		return apierrors.NewInvalid(
+		return nil, apierrors.NewInvalid(
 			schema.GroupKind{
 				Group: GroupVersion.Group,
 				Kind:  "AuthProxyWorkload"},
 			r.Name, allErrs)
 	}
-	return nil
+	return nil, nil
 
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *AuthProxyWorkload) ValidateDelete() error {
-	return nil
+func (r *AuthProxyWorkload) ValidateDelete() (admission.Warnings, error) {
+	return nil, nil
 }
 
 func (r *AuthProxyWorkload) validate() field.ErrorList {

@@ -396,7 +396,7 @@ func TestWorkloadUpdatedAfterDefaultProxyImageChanged(t *testing.T) {
 	if err != nil {
 		t.Error(err) // shouldn't ever happen
 	}
-	c := cb.WithObjects(resource, deployment).Build()
+	c := cb.WithObjects(resource, deployment).WithStatusSubresource(resource, deployment).Build()
 
 	// Create a reconciler with the default proxy image at a different version
 	r, req, ctx := reconciler(resource, c, "gcr.io/cloud-sql-connectors/cloud-sql-proxy:999.9.9")
@@ -434,7 +434,7 @@ func runReconcileTestcase(p *cloudsqlapi.AuthProxyWorkload, clientObjects []clie
 		return nil, nil, err // shouldn't ever happen
 	}
 
-	c := cb.WithObjects(clientObjects...).Build()
+	c := cb.WithObjects(clientObjects...).WithStatusSubresource(clientObjects...).Build()
 
 	r, req, ctx := reconciler(p, c, workload.DefaultProxyImage)
 	res, err := r.Reconcile(ctx, req)

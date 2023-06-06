@@ -23,6 +23,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 var setupLog = ctrl.Log.WithName("setup")
@@ -94,10 +95,12 @@ func SetupManagers(mgr manager.Manager, userAgent, defaultProxyImage string) err
 
 // RegisterPodWebhook register the webhook to mutate pods
 func RegisterPodWebhook(mgr ctrl.Manager, u *workload.Updater) error {
+
 	mgr.GetWebhookServer().Register("/mutate-pods", &webhook.Admission{
 		Handler: &PodAdmissionWebhook{
 			Client:  mgr.GetClient(),
 			updater: u,
+			decoder: admission.NewDecoder(mgr.GetScheme()),
 		}})
 
 	return nil
