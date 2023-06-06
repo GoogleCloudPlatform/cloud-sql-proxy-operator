@@ -147,7 +147,10 @@ func TestPodWebhookWithDeploymentOwners(t *testing.T) {
 
 func podWebhookController(cb client.Client) (*PodAdmissionWebhook, context.Context, error) {
 	ctx := log.IntoContext(context.Background(), logger)
-	d := admission.NewDecoder(cb.Scheme())
+	d, err := admission.NewDecoder(cb.Scheme())
+	if err != nil {
+		return nil, nil, err
+	}
 	r := &PodAdmissionWebhook{
 		Client:  cb,
 		decoder: d,

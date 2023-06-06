@@ -741,7 +741,7 @@ func TestProxyCLIArgs(t *testing.T) {
 			csqls := []*cloudsqlapi.AuthProxyWorkload{authProxyWorkloadFromSpec("instance1", tc.proxySpec)}
 
 			// ensure valid
-			_, err := csqls[0].ValidateCreate()
+			err := csqls[0].ValidateCreate()
 			if err != nil {
 				t.Fatal("Invalid AuthProxyWorkload resource", err)
 			}
