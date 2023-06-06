@@ -42,12 +42,6 @@ type PodAdmissionWebhook struct {
 	updater *workload.Updater
 }
 
-// InjectDecoder Dependency injection required by KubeBuilder controller runtime.
-func (a *PodAdmissionWebhook) InjectDecoder(d *admission.Decoder) error {
-	a.decoder = d
-	return nil
-}
-
 // Handle is the MutatingWebhookController implemnentation which will update
 // the proxy sidecars on all workloads to match the AuthProxyWorkload config.
 func (a *PodAdmissionWebhook) Handle(ctx context.Context, req admission.Request) admission.Response {
