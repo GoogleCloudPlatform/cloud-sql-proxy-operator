@@ -19,6 +19,7 @@ package testintegration
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -108,35 +109,32 @@ func EnvTestSetup() (*EnvTestHarness, error) {
 
 	// Start the testenv
 	cfg, err := testEnv.Start()
-	mh := &EnvTestHarness{
+	th := &EnvTestHarness{
 		testEnvCtx:    ctx,
 		testEnv:       testEnv,
 		testEnvCancel: cancel,
 		cfg:           cfg,
 	}
 	if err != nil {
-		return mh, fmt.Errorf("unable to start kuberenetes envtest %v", err)
+		return th, fmt.Errorf("unable to start kuberenetes envtest %v", err)
 	}
 
 	// Initialize rest client configuration
-	mh.s = scheme.Scheme
-	controller.InitScheme(mh.s)
-	cl, err := client.New(cfg, client.Options{Scheme: mh.s})
+	th.s = scheme.Scheme
+	controller.InitScheme(th.s)
+	cl, err := client.New(cfg, client.Options{Scheme: th.s})
 	if err != nil {
-		return mh, fmt.Errorf("unable to to create client %v", err)
+		return th, fmt.Errorf("unable to to create client %v", err)
 	}
-	if cl == nil {
-		return mh, fmt.Errorf("client not created")
-	}
-	mh.Client = cl
+	th.Client = cl
 
 	// Start the controller-runtime manager
-	err = mh.StartMgr(workload.DefaultProxyImage)
+	err = th.StartManager(workload.DefaultProxyImage)
 	if err != nil {
-		return mh, fmt.Errorf("unable to start kuberenetes envtest %v", err)
+		return th, fmt.Errorf("unable to start kuberenetes envtest %v", err)
 	}
 
-	return mh, nil
+	return th, nil
 }
 
 // EnvTestHarness enables integration tests to control the lifecycle of the
@@ -185,9 +183,9 @@ func (h *EnvTestHarness) Teardown() {
 	}
 }
 
-// StopMgr stops the controller manager and waits for it to exit, returning an
+// StopManager stops the controller manager and waits for it to exit, returning an
 // error if the controller manager does not stop within 1 minute.
-func (h *EnvTestHarness) StopMgr() error {
+func (h *EnvTestHarness) StopManager() error {
 	if h.cancel != nil {
 		h.cancel()
 	}
@@ -196,12 +194,12 @@ func (h *EnvTestHarness) StopMgr() error {
 	case <-h.stopped:
 		return nil
 	case <-time.After(1 * time.Minute):
-		return fmt.Errorf("manager did not stop after 1 minute")
+		return errors.New("manager did not stop after 1 minute")
 	}
 }
 
-// StartMgr starts up the manager, configuring it with the proxyImage.
-func (h *EnvTestHarness) StartMgr(proxyImage string) error {
+// StartManager starts up the manager, configuring it with the proxyImage.
+func (h *EnvTestHarness) StartManager(proxyImage string) error {
 	h.ctx, h.cancel = context.WithCancel(h.testEnvCtx)
 
 	// start webhook server using Manager
@@ -219,10 +217,9 @@ func (h *EnvTestHarness) StartMgr(proxyImage string) error {
 	}
 	h.Mgr = mgr
 
+	// Initialize the controller-runtime manager.
 	err = controller.SetupManagers(mgr, "cloud-sql-proxy-operator/dev", proxyImage)
 	if err != nil {
-
-		// Run the
 		return fmt.Errorf("unable to start kuberenetes envtest %v", err)
 	}
 

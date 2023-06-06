@@ -41,18 +41,18 @@ func TestMain(m *testing.M) {
 	// impact the lifecycle of the manager. This makes tests cases more efficient
 	// because it takes 2-3 minutes to start up a new EnvTestHarness.
 	var err error
-	mth, err := testintegration.EnvTestSetup()
+	th, err := testintegration.EnvTestSetup()
 
 	if err != nil {
 		testintegration.Log.Error(err, "errors while initializing kubernetes cluster")
-		mth.Teardown()
+		th.Teardown()
 		os.Exit(1)
 	}
 
-	defaultClient = mth.Client
+	defaultClient = th.Client
 
 	code := m.Run()
-	mth.Teardown()
+	th.Teardown()
 	os.Exit(code)
 }
 
@@ -272,8 +272,8 @@ func TestUpdateWorkloadContainerWhenDefaultProxyImageChanges(t *testing.T) {
 
 	// Restart the manager with a new default proxy image
 	const newDefault = "gcr.io/cloud-sql-connectors/cloud-sql-proxy:999.9.9"
-	th.StopMgr()
-	err = th.StartMgr(newDefault)
+	th.StopManager()
+	err = th.StartManager(newDefault)
 	if err != nil {
 		t.Fatal("can't restart container", err)
 	}
