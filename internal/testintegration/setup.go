@@ -114,6 +114,7 @@ func EnvTestSetup() (*EnvTestHarness, error) {
 		testEnv:       testEnv,
 		testEnvCancel: cancel,
 		cfg:           cfg,
+		cancel:        func() {},
 	}
 	if err != nil {
 		return th, fmt.Errorf("unable to start kuberenetes envtest %v", err)
@@ -159,9 +160,6 @@ type EnvTestHarness struct {
 	// stopped channel is closed when the manager actually stops
 	stopped chan int
 
-	// ctx is the manager's context
-	ctx context.Context
-
 	// cfg is the client configuration from envtest
 	cfg *rest.Config
 
@@ -172,24 +170,22 @@ type EnvTestHarness struct {
 
 // Teardown closes the TestEnv environment at the end of the testcase.
 func (h *EnvTestHarness) Teardown() {
-	if h.testEnvCancel != nil {
-		h.testEnvCancel()
-	}
-	if h.testEnv != nil {
-		err := h.testEnv.Stop()
-		if err != nil {
-			Log.Error(err, "unable to stop envtest environment %v")
-		}
+	h.testEnvCancel()
+	err := h.testEnv.Stop()
+	if err != nil {
+		Log.Error(err, "unable to stop envtest environment %v")
 	}
 }
 
 // StopManager stops the controller manager and waits for it to exit, returning an
 // error if the controller manager does not stop within 1 minute.
 func (h *EnvTestHarness) StopManager() error {
-	if h.cancel != nil {
-		h.cancel()
-	}
-	h.cancel = nil
+	h.cancel()
+
+	// reassign cancel to do nothing, now that we've already
+	// called it.
+	h.cancel = func() {}
+
 	select {
 	case <-h.stopped:
 		return nil
@@ -200,7 +196,8 @@ func (h *EnvTestHarness) StopManager() error {
 
 // StartManager starts up the manager, configuring it with the proxyImage.
 func (h *EnvTestHarness) StartManager(proxyImage string) error {
-	h.ctx, h.cancel = context.WithCancel(h.testEnvCtx)
+	var ctx context.Context
+	ctx, h.cancel = context.WithCancel(h.testEnvCtx)
 
 	// start webhook server using Manager
 	o := &h.testEnv.WebhookInstallOptions
@@ -228,7 +225,7 @@ func (h *EnvTestHarness) StartManager(proxyImage string) error {
 	go func() {
 		defer close(h.stopped)
 		Log.Info("Starting controller manager.")
-		err = mgr.Start(h.ctx)
+		err = mgr.Start(ctx)
 		if err != nil {
 			Log.Info("Starting manager failed.")
 			return
