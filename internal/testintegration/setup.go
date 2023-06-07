@@ -117,7 +117,8 @@ func EnvTestSetup() (*EnvTestHarness, error) {
 		cancel:        func() {},
 	}
 	if err != nil {
-		return th, fmt.Errorf("unable to start kuberenetes envtest %v", err)
+		th.Teardown()
+		return nil, fmt.Errorf("unable to start kuberenetes envtest %v", err)
 	}
 
 	// Initialize rest client configuration
@@ -125,14 +126,16 @@ func EnvTestSetup() (*EnvTestHarness, error) {
 	controller.InitScheme(th.s)
 	cl, err := client.New(cfg, client.Options{Scheme: th.s})
 	if err != nil {
-		return th, fmt.Errorf("unable to to create client %v", err)
+		th.Teardown()
+		return nil, fmt.Errorf("unable to to create client %v", err)
 	}
 	th.Client = cl
 
 	// Start the controller-runtime manager
 	err = th.StartManager(workload.DefaultProxyImage)
 	if err != nil {
-		return th, fmt.Errorf("unable to start kuberenetes envtest %v", err)
+		th.Teardown()
+		return nil, fmt.Errorf("unable to start kuberenetes envtest %v", err)
 	}
 
 	return th, nil
@@ -181,11 +184,6 @@ func (h *EnvTestHarness) Teardown() {
 // error if the controller manager does not stop within 1 minute.
 func (h *EnvTestHarness) StopManager() error {
 	h.cancel()
-
-	// reassign cancel to do nothing, now that we've already
-	// called it.
-	h.cancel = func() {}
-
 	select {
 	case <-h.stopped:
 		return nil
