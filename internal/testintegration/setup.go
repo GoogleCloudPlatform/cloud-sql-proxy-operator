@@ -19,11 +19,13 @@ package testintegration
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/controller"
@@ -43,19 +45,11 @@ import (
 const kubeVersion = "1.24.1"
 
 var (
-	testEnv *envtest.Environment
-
 	// Log is the test logger used by the testintegration tests and server.
 	Log = zap.New(zap.UseFlagOptions(&zap.Options{
 		Development: true,
 		TimeEncoder: zapcore.ISO8601TimeEncoder,
 	}))
-
-	// Client is the kubernetes client.
-	Client client.Client
-
-	// RestartManager is the controller-runtime manager for the operator
-	RestartManager func(string) error
 )
 
 // TestContext returns a background context that includes appropriate logging configuration.
@@ -63,6 +57,8 @@ func TestContext() context.Context {
 	return logr.NewContext(context.Background(), Log)
 }
 
+// runSetupEnvtest runs the setup-envtest tool to download the latest k8s
+// binaries.
 func runSetupEnvtest() (string, error) {
 	cmd := exec.Command("../../bin/setup-envtest", "use", kubeVersion, "-p", "path")
 	path, err := cmd.Output()
@@ -80,13 +76,15 @@ func runSetupEnvtest() (string, error) {
 	return string(path), nil
 }
 
-// EnvTestSetup sets up the envtest environment for a testing package.
+// NewTestHarness sets up the envtest environment for a testing package.
 // This is intended to be called from `func TestMain(m *testing.M)` so
 // that the environment is configured before
-func EnvTestSetup() (func(), error) {
+func NewTestHarness() (*EnvTestHarness, error) {
 	var err error
 
 	ctrl.SetLogger(Log)
+
+	// Initialize the test environment
 
 	// if the KUBEBUILDER_ASSETS env var is not set, then run setup-envtest
 	// and set it according.
@@ -99,9 +97,9 @@ func EnvTestSetup() (func(), error) {
 	}
 
 	Log.Info("Starting up kubebuilder EnvTest")
-	ctx, cancel := context.WithCancel(logr.NewContext(context.TODO(), Log))
+	ctx, cancel := context.WithCancel(logr.NewContext(context.Background(), Log))
 
-	testEnv = &envtest.Environment{
+	testEnv := &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: false,
 		BinaryAssetsDirectory: kubebuilderAssets,
@@ -110,51 +108,111 @@ func EnvTestSetup() (func(), error) {
 		},
 	}
 
-	teardownFunc := func() {
-		cancel()
-		err := testEnv.Stop()
-		if err != nil {
-			Log.Error(err, "unable to stop envtest environment %v")
-		}
-	}
-
+	// Start the testenv
 	cfg, err := testEnv.Start()
+	th := &EnvTestHarness{
+		testEnvCtx:    ctx,
+		testEnv:       testEnv,
+		testEnvCancel: cancel,
+		cfg:           cfg,
+		cancel:        func() {},
+	}
 	if err != nil {
+		th.Teardown()
 		return nil, fmt.Errorf("unable to start kuberenetes envtest %v", err)
 	}
 
-	s := scheme.Scheme
-	controller.InitScheme(s)
-
-	Client, err = client.New(cfg, client.Options{Scheme: s})
+	// Initialize rest client configuration
+	th.s = scheme.Scheme
+	controller.InitScheme(th.s)
+	cl, err := client.New(cfg, client.Options{Scheme: th.s})
 	if err != nil {
-		return teardownFunc, fmt.Errorf("unable to start kuberenetes envtest %v", err)
+		th.Teardown()
+		return nil, fmt.Errorf("unable to to create client %v", err)
 	}
-	if Client == nil {
-		return teardownFunc, fmt.Errorf("unable to start kuberenetes envtest %v", err)
-	}
+	th.Client = cl
 
-	mgrCancelFunc, err := startManager(ctx, cfg, s, workload.DefaultProxyImage)
+	// Start the controller-runtime manager
+	err = th.StartManager(workload.DefaultProxyImage)
 	if err != nil {
-		return teardownFunc, fmt.Errorf("unable to start kuberenetes envtest %v", err)
+		th.Teardown()
+		return nil, fmt.Errorf("unable to start kuberenetes envtest %v", err)
 	}
 
-	RestartManager = func(defaultProxyImage string) error {
-		mgrCancelFunc()
-		mgrCancelFunc, err = startManager(ctx, cfg, s, defaultProxyImage)
-		return err
-	}
-
-	return teardownFunc, nil
+	return th, nil
 }
 
-func startManager(ctx context.Context, cfg *rest.Config, s *runtime.Scheme, proxyImage string) (context.CancelFunc, error) {
-	ctx, managerCancelFunc := context.WithCancel(ctx)
+// EnvTestHarness enables integration tests to control the lifecycle of the
+// operator's controller-manager.
+type EnvTestHarness struct {
+
+	// Client is the kubernetes client.
+	Client client.Client
+
+	// testEnv The actual EnvTest environment
+	testEnv *envtest.Environment
+
+	// testEnvCancel is the context cancel function for the testEnv
+	testEnvCancel context.CancelFunc
+
+	// managerLock protects StartManager() and StopManager() to ensure that
+	// they are not run simultaneously, this locks changes to
+	// Manager, cancel, and stopped.
+	managerLock sync.Mutex
+
+	// Manager is the manager
+	Manager ctrl.Manager
+
+	// cancel is the context cancel function for the manager
+	cancel context.CancelFunc
+
+	// stopped channel is closed when the manager actually stops
+	stopped chan int
+
+	// cfg is the client configuration from envtest
+	cfg *rest.Config
+
+	// s is the client scheme
+	s          *runtime.Scheme
+	testEnvCtx context.Context
+}
+
+// Teardown closes the TestEnv environment at the end of the testcase.
+func (h *EnvTestHarness) Teardown() {
+	h.testEnvCancel()
+	err := h.testEnv.Stop()
+	if err != nil {
+		Log.Error(err, "unable to stop envtest environment %v")
+	}
+}
+
+// StopManager stops the controller manager and waits for it to exit, returning an
+// error if the controller manager does not stop within 1 minute.
+func (h *EnvTestHarness) StopManager() error {
+	h.managerLock.Lock()
+	defer h.managerLock.Unlock()
+
+	h.cancel()
+	select {
+	case <-h.stopped:
+		return nil
+	case <-time.After(1 * time.Minute):
+		return errors.New("manager did not stop after 1 minute")
+	}
+}
+
+// StartManager starts up the manager, configuring it with the proxyImage.
+func (h *EnvTestHarness) StartManager(proxyImage string) error {
+	h.managerLock.Lock()
+	defer h.managerLock.Unlock()
+
+	var ctx context.Context
+	ctx, h.cancel = context.WithCancel(h.testEnvCtx)
 
 	// start webhook server using Manager
-	o := &testEnv.WebhookInstallOptions
-	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             s,
+	o := &h.testEnv.WebhookInstallOptions
+	mgr, err := ctrl.NewManager(h.cfg, ctrl.Options{
+		Scheme:             h.s,
 		Host:               o.LocalServingHost,
 		Port:               o.LocalServingPort,
 		CertDir:            o.LocalServingCertDir,
@@ -162,33 +220,37 @@ func startManager(ctx context.Context, cfg *rest.Config, s *runtime.Scheme, prox
 		MetricsBindAddress: "0",
 	})
 	if err != nil {
-		return managerCancelFunc, fmt.Errorf("unable to start kuberenetes envtest %v", err)
+		return fmt.Errorf("unable to start manager %v", err)
 	}
+	h.Manager = mgr
 
+	// Initialize the controller-runtime manager.
 	err = controller.SetupManagers(mgr, "cloud-sql-proxy-operator/dev", proxyImage)
-
 	if err != nil {
-		return managerCancelFunc, fmt.Errorf("unable to start kuberenetes envtest %v", err)
+		return fmt.Errorf("unable to start kuberenetes envtest %v", err)
 	}
 
+	// Run the manager in a goroutine, close the channel when the manager exits.
+	h.stopped = make(chan int)
 	go func() {
+		defer close(h.stopped)
 		Log.Info("Starting controller manager.")
 		err = mgr.Start(ctx)
 		if err != nil {
-			Log.Info("Starting manager failed.")
+			Log.Info("Starting manager failed.", err)
 			return
 		}
-		Log.Info("Started controller exited normally.")
+		Log.Info("Manager exited normally.")
 	}()
 
-	// wait for the controller manager webhook server to get ready
+	// Wait for the controller manager webhook server to get ready.
 	dialer := &net.Dialer{Timeout: time.Second}
 	addrPort := fmt.Sprintf("%s:%d", o.LocalServingHost, o.LocalServingPort)
-
 	err = testhelpers.RetryUntilSuccess(10, time.Second, func() error {
 
 		// whyNoLint:Ignore InsecureSkipVerify warning, this is only for local testing.
-		conn, err := tls.DialWithDialer(dialer, "tcp", addrPort, &tls.Config{InsecureSkipVerify: true}) //nolint:gosec
+		conn, err := tls.DialWithDialer(dialer, "tcp", addrPort,
+			&tls.Config{InsecureSkipVerify: true}) //nolint:gosec
 		if err != nil {
 			return err
 		}
@@ -197,8 +259,10 @@ func startManager(ctx context.Context, cfg *rest.Config, s *runtime.Scheme, prox
 
 		return nil
 	})
+	if err != nil {
+		return fmt.Errorf("unable to connect to manager %v", err)
+	}
 
-	Log.Info("Setup complete. Webhook server started.")
-
-	return managerCancelFunc, nil
+	Log.Info("Setup complete. Manager started.")
+	return nil
 }
