@@ -41,7 +41,7 @@ func TestMain(m *testing.M) {
 	// impact the lifecycle of the manager. This makes tests cases more efficient
 	// because it takes 2-3 minutes to start up a new EnvTestHarness.
 	var err error
-	th, err := testintegration.EnvTestSetup()
+	th, err := testintegration.NewTestHarness()
 
 	if err != nil {
 		testintegration.Log.Error(err, "errors while initializing kubernetes cluster")
@@ -211,7 +211,7 @@ func TestUpdateWorkloadContainerWhenDefaultProxyImageChanges(t *testing.T) {
 	ctx := testintegration.TestContext()
 	// Use a fresh EnvTestHarness because we are messing with the operator
 	// lifecycle.
-	th, err := testintegration.EnvTestSetup()
+	th, err := testintegration.NewTestHarness()
 	defer th.Teardown()
 
 	tcc := newTestCaseClient("updateimage", th.Client)

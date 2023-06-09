@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/controller"
@@ -75,10 +76,10 @@ func runSetupEnvtest() (string, error) {
 	return string(path), nil
 }
 
-// EnvTestSetup sets up the envtest environment for a testing package.
+// NewTestHarness sets up the envtest environment for a testing package.
 // This is intended to be called from `func TestMain(m *testing.M)` so
 // that the environment is configured before
-func EnvTestSetup() (*EnvTestHarness, error) {
+func NewTestHarness() (*EnvTestHarness, error) {
 	var err error
 
 	ctrl.SetLogger(Log)
@@ -145,17 +146,22 @@ func EnvTestSetup() (*EnvTestHarness, error) {
 // operator's controller-manager.
 type EnvTestHarness struct {
 
-	// Mgr is the manager
-	Mgr ctrl.Manager
-
 	// Client is the kubernetes client.
 	Client client.Client
 
-	// The actual EnvTest environment
+	// testEnv The actual EnvTest environment
 	testEnv *envtest.Environment
 
 	// testEnvCancel is the context cancel function for the testEnv
 	testEnvCancel context.CancelFunc
+
+	// managerLock protects StartManager() and StopManager() to ensure that
+	// they are not run simultaneously, this locks changes to
+	// Manager, cancel, and stopped.
+	managerLock sync.Mutex
+
+	// Manager is the manager
+	Manager ctrl.Manager
 
 	// cancel is the context cancel function for the manager
 	cancel context.CancelFunc
@@ -183,6 +189,9 @@ func (h *EnvTestHarness) Teardown() {
 // StopManager stops the controller manager and waits for it to exit, returning an
 // error if the controller manager does not stop within 1 minute.
 func (h *EnvTestHarness) StopManager() error {
+	h.managerLock.Lock()
+	defer h.managerLock.Unlock()
+
 	h.cancel()
 	select {
 	case <-h.stopped:
@@ -194,6 +203,9 @@ func (h *EnvTestHarness) StopManager() error {
 
 // StartManager starts up the manager, configuring it with the proxyImage.
 func (h *EnvTestHarness) StartManager(proxyImage string) error {
+	h.managerLock.Lock()
+	defer h.managerLock.Unlock()
+
 	var ctx context.Context
 	ctx, h.cancel = context.WithCancel(h.testEnvCtx)
 
@@ -210,7 +222,7 @@ func (h *EnvTestHarness) StartManager(proxyImage string) error {
 	if err != nil {
 		return fmt.Errorf("unable to start manager %v", err)
 	}
-	h.Mgr = mgr
+	h.Manager = mgr
 
 	// Initialize the controller-runtime manager.
 	err = controller.SetupManagers(mgr, "cloud-sql-proxy-operator/dev", proxyImage)
@@ -225,7 +237,7 @@ func (h *EnvTestHarness) StartManager(proxyImage string) error {
 		Log.Info("Starting controller manager.")
 		err = mgr.Start(ctx)
 		if err != nil {
-			Log.Info("Starting manager failed.")
+			Log.Info("Starting manager failed.", err)
 			return
 		}
 		Log.Info("Manager exited normally.")
