@@ -320,7 +320,7 @@ func TestDeleteMisconfiguredPod(t *testing.T) {
 
 	// Use a fresh Manager Harness because we are messing with the operator
 	// lifecycle.
-	th, err := testintegration.EnvTestSetup()
+	th, err := testintegration.NewTestHarness()
 	defer th.Teardown()
 	tcc := newTestCaseClient("deletemisconfig", th.Client)
 
@@ -343,7 +343,7 @@ func TestDeleteMisconfiguredPod(t *testing.T) {
 	}
 
 	// Stop the manager before attempting to create the resources
-	th.StopMgr()
+	th.StopManager()
 	t.Log("Manager is stopped")
 
 	t.Log("Creating deployment")
@@ -374,7 +374,7 @@ func TestDeleteMisconfiguredPod(t *testing.T) {
 
 	t.Log("Restarting the manager...")
 	// Start the manager
-	err = th.StartMgr(workload.DefaultProxyImage)
+	err = th.StartManager(workload.DefaultProxyImage)
 	if err != nil {
 		t.Fatal("can't restart container", err)
 	}
