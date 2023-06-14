@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.1](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.0.0...v1.0.1) (2023-06-14)
+
+
+### Miscellaneous Chores
+
+* Use Kubernetes 1.27 compatible libraries. [#380](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/380) ([d4a21e](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/d4a21e67de2b3813f913ecc7eb37ef766b4f2e56))
+* Prepare release 1.0.1 ([#382](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/382)) ([216b6d1](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/216b6d185064e1d89ad4010a17ffc8f09777a026))
+
+
 ## [1.0.0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v0.5.0...v1.0.0) (2023-05-16)
 
 
