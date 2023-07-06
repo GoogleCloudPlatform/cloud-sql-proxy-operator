@@ -1058,7 +1058,7 @@ func TestUpdater_CheckWorkloadContainers(t *testing.T) {
 	}
 	wlCfgWait.Pod.Status.ContainerStatuses = []corev1.ContainerStatus{{
 		Name:  wlCfgWait.Pod.Spec.Containers[0].Name,
-		State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: "CrashLoopBackoff"}},
+		State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: "CrashLoopBackOff"}},
 	}}
 
 	// Pod configuration says it is running and is missing its proxy containers
@@ -1079,7 +1079,7 @@ func TestUpdater_CheckWorkloadContainers(t *testing.T) {
 	wlCfgMissingWait := podWorkload()
 	wlCfgMissingWait.Pod.Status.ContainerStatuses = []corev1.ContainerStatus{{
 		Name:  wlCfgMissingWait.Pod.Spec.Containers[0].Name,
-		State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: "CrashLoopBackoff"}},
+		State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: "CrashLoopBackOff"}},
 	}}
 
 	// Pod configuration says it is in error and is missing one of the 2 sidecar

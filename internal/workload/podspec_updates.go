@@ -242,8 +242,8 @@ func (u *Updater) CheckWorkloadContainers(wl *PodWorkload, matches []*cloudsqlap
 		if cs.State.Terminated != nil && cs.State.Terminated.Reason == "Error" {
 			return fmt.Errorf("pod is in an error state and missing sidecar containers %v", missingSidecars)
 		}
-		if cs.State.Waiting != nil && cs.State.Waiting.Reason == "CrashLoopBackoff" {
-			return fmt.Errorf("pod is in a CrashLoopBackoff state and missing sidecar containers %v", missingSidecars)
+		if cs.State.Waiting != nil && cs.State.Waiting.Reason == "CrashLoopBackOff" {
+			return fmt.Errorf("pod is in a CrashLoopBackOff state and missing sidecar containers %v", missingSidecars)
 		}
 	}
 
