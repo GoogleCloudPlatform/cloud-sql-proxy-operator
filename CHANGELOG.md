@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.0.1...v1.0.2) (2023-07-06)
+
+
+### Bug Fixes
+
+* Case issue with pod State ([#386](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/386)) ([#387](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/387)) ([0a45c32](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/0a45c32fad3f6b74922d23858a5b883d31d57368))
+
 ## [1.0.1](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.0.0...v1.0.1) (2023-06-14)
 
 
