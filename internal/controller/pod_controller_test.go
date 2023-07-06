@@ -247,7 +247,7 @@ func TestPodDeleteController(t *testing.T) {
 			if tc.setPodError {
 				pods[0].Status.ContainerStatuses = []corev1.ContainerStatus{{
 					Name:  pods[0].Spec.Containers[0].Name,
-					State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: "CrashLoopBackoff"}},
+					State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: "CrashLoopBackOff"}},
 				}}
 			}
 

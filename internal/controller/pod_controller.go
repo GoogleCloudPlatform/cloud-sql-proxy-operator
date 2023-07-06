@@ -230,7 +230,7 @@ func (r *podDeleteController) Reconcile(ctx context.Context, req ctrl.Request) (
 }
 
 // handlePodChanged Deletes pods that meet the following criteria:
-// 1. The pod is in Error or CrashLoopBackoff state.
+// 1. The pod is in Error or CrashLoopBackOff state.
 // 2. The pod matches one or more AuthProxyWorkload resources.
 // 3. The pod is missing one or more proxy sidecar containers for the resources.
 func (r *podDeleteController) handlePodChanged(ctx context.Context, pod *corev1.Pod) error {
