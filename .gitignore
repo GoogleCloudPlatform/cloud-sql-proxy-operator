@@ -35,3 +35,4 @@ ThirdPartyLicenses
 unit_sponge_log.xml
 integration_sponge_log.xml
 test_results.txt
+*.iml

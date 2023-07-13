@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: e2e-java-postgres-short
+  labels:
+    control-plane: e2e-java-postgres-short
+spec:
+  selector:
+    matchLabels:
+      control-plane: e2e-java-postgres-short
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+      labels:
+        app: e2e-java
+        control-plane: e2e-java-postgres-short
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      containers:
+      - image: us-central1-docker.pkg.dev/hessjc-csql-operator-02/testhessjc/e2e-java
+        imagePullPolicy: Always
+        name: manager
+        env:
+        - name: DB_NAME
+          value: "db"
+        - name: DB_USER
+          value: "postgres"
+        - name: DB_PASS
+          value: "604a0cc12f342b9ae9f9"
+        - name: DB_INSTANCE
+          value: "hessjc-csql-operator-02:us-central1:privateinstbbf4eae6hessjc"
+        - name: E2E_CONNECT_PATTERN
+          value: "short"
+        - name: E2E_DB_TYPE
+          value: "postgres"
+        - name: E2E_IP_TYPES
+          value: "PRIVATE"
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - "ALL"
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+      terminationGracePeriodSeconds: 10
+  
