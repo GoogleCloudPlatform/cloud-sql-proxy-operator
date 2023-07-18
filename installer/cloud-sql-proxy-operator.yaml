@@ -79,6 +79,15 @@ spec:
                           minimum: 1
                           type: integer
                       type: object
+                    authentication:
+                      description: Authentication specifies the config for how the proxy authenticates itself to the Google Cloud API.
+                      properties:
+                        impersonationChain:
+                          description: ImpersonationChain is a list of one or more service accounts. The first entry in the chain is the impersonation target. Any additional service accounts after the target are delegates. The roles/iam.serviceAccountTokenCreator must be configured for each account that will be impersonated. This sets the --impersonate-service-account flag on the proxy.
+                          items:
+                            type: string
+                          type: array
+                      type: object
                     container:
                       description: Container is debugging parameter that when specified will override the proxy container with a completely custom Container spec.
                       properties:

@@ -159,6 +159,10 @@ type AuthProxyContainerSpec struct {
 	// available to other containers in the same pod.
 	AdminServer *AdminServerSpec `json:"adminServer,omitempty"`
 
+	// Authentication specifies the config for how the proxy authenticates itself
+	// to the Google Cloud API.
+	Authentication *AuthenticationSpec `json:"authentication,omitempty"`
+
 	// MaxConnections limits the number of connections. Default value is no limit.
 	// This sets the proxy container's CLI argument `--max-connections`
 	//+kubebuilder:validation:Optional
@@ -225,6 +229,19 @@ type AdminServerSpec struct {
 	//   cli flag.
 	//+kubebuilder:validation:MinItems:=1
 	EnableAPIs []string `json:"enableAPIs,omitempty"`
+}
+
+// AuthenticationSpec specifies how the proxy is authenticated with the
+// Google Cloud SQL Admin API. This configures proxy's
+// --impersonate-service-account flag.
+type AuthenticationSpec struct {
+	// ImpersonationChain is a list of one or more service
+	// accounts. The first entry in the chain is the impersonation target. Any
+	// additional service accounts after the target are delegates. The
+	// roles/iam.serviceAccountTokenCreator must be configured for each account
+	// that will be impersonated. This sets the --impersonate-service-account
+	// flag on the proxy.
+	ImpersonationChain []string `json:"impersonationChain,omitempty"`
 }
 
 // TelemetrySpec specifies how the proxy container will expose telemetry.
