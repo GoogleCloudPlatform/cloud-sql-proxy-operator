@@ -238,6 +238,15 @@ func TestAuthProxyWorkload_ValidateCreate_AuthProxyContainerSpec(t *testing.T) {
 			wantValid: true,
 		},
 		{
+			desc: "Valid, ImpersonationChain set",
+			spec: cloudsqlapi.AuthProxyContainerSpec{
+				Authentication: &cloudsqlapi.AuthenticationSpec{
+					ImpersonationChain: []string{"sv1@developer.gserviceaccount.com", "sv2@developer.gserviceaccount.com"},
+				},
+			},
+			wantValid: true,
+		},
+		{
 			desc: "Invalid, Debug set without AdminPort",
 			spec: cloudsqlapi.AuthProxyContainerSpec{
 				AdminServer: &cloudsqlapi.AdminServerSpec{

@@ -569,6 +569,9 @@ func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, c *corev
 	// enable the proxy's admin service
 	s.addAdminServer(p)
 
+	// configure container authentication
+	s.addAuthentication(p)
+
 	// add the user agent
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_USER_AGENT", s.updater.userAgent)
 
@@ -825,6 +828,17 @@ func (s *updateState) addAdminServer(p *cloudsqlapi.AuthProxyWorkload) {
 		case "QuitQuitQuit":
 			s.addProxyContainerEnvVar(p, "CSQL_PROXY_QUITQUITQUIT", "true")
 		}
+	}
+
+}
+
+func (s *updateState) addAuthentication(p *cloudsqlapi.AuthProxyWorkload) {
+	if p.Spec.AuthProxyContainer == nil || p.Spec.AuthProxyContainer.Authentication == nil {
+		return
+	}
+	as := p.Spec.AuthProxyContainer.Authentication
+	if len(as.ImpersonationChain) > 0 {
+		s.addProxyContainerEnvVar(p, "CSQL_PROXY_IMPERSONATE_SERVICE_ACCOUNT", strings.Join(as.ImpersonationChain, ","))
 	}
 
 }
