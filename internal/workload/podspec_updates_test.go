@@ -623,6 +623,24 @@ func TestProxyCLIArgs(t *testing.T) {
 				fmt.Sprintf("hello:world:two?port=%d&private-ip=false", workload.DefaultFirstPort+1)},
 		},
 		{
+			desc: "psc set",
+			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
+				Instances: []cloudsqlapi.InstanceSpec{{
+					ConnectionString: "hello:world:one",
+					PortEnvName:      "DB_PORT",
+					PSC:              &wantTrue,
+				},
+					{
+						ConnectionString: "hello:world:two",
+						PortEnvName:      "DB_PORT_2",
+						PSC:              &wantFalse,
+					}},
+			},
+			wantProxyArgContains: []string{
+				fmt.Sprintf("hello:world:one?port=%d&psc=true", workload.DefaultFirstPort),
+				fmt.Sprintf("hello:world:two?port=%d&psc=false", workload.DefaultFirstPort+1)},
+		},
+		{
 			desc: "global flags",
 			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
 				AuthProxyContainer: &cloudsqlapi.AuthProxyContainerSpec{

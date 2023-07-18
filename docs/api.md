@@ -105,6 +105,7 @@ _Appears in:_
 | `port` _integer_ | Port (optional) sets the tcp port for this instance. If not set, a value will be automatically assigned by the operator and set as an environment variable on all containers in the workload named according to PortEnvName. The operator will choose a port so that it does not conflict with other ports on the workload. |
 | `autoIAMAuthN` _boolean_ | AutoIAMAuthN (optional) Enables IAM Authentication for this instance. Default value is false. |
 | `privateIP` _boolean_ | PrivateIP (optional) Enable connection to the Cloud SQL instance's private ip for this instance. Default value is false. |
+| `psc` _boolean_ | PSC (optional) Enable connection to the Cloud SQL instance's private service connect for this instance. May not be used with PrivateIP. Default value is false. |
 | `portEnvName` _string_ | PortEnvName is name of the environment variable containing this instance's tcp port. Optional, when set this environment variable will be added to all containers in the workload. |
 | `hostEnvName` _string_ | HostEnvName The name of the environment variable containing this instances tcp hostname Optional, when set this environment variable will be added to all containers in the workload. |
 | `unixSocketPath` _string_ | UnixSocketPath is the path to the unix socket where the proxy will listen for connnections. This will be mounted to all containers in the pod. |

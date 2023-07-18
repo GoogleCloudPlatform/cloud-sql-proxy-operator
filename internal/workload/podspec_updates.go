@@ -644,6 +644,14 @@ func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, c *corev
 			}
 		}
 
+		if inst.PSC != nil {
+			if *inst.PSC {
+				params["psc"] = "true"
+			} else {
+				params["psc"] = "false"
+			}
+		}
+
 		var instArgs []string
 		for k, v := range params {
 			instArgs = append(instArgs, fmt.Sprintf("%s=%s", k, v))
