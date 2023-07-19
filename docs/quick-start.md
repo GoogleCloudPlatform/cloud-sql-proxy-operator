@@ -89,7 +89,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: gke-cloud-sql-quickstart
-  -spec:
+spec:
   selector:
     matchLabels:
       app: gke-cloud-sql-app
