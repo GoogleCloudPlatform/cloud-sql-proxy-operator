@@ -323,7 +323,7 @@ type InstanceSpec struct {
 	PrivateIP *bool `json:"privateIP,omitempty"`
 
 	// PSC (optional) Enable connection to the Cloud SQL instance's private
-	// service connect for this instance. May not be used with PrivateIP.
+	// service connect endpoint for this instance. May not be used with PrivateIP.
 	// Default value is false.
 	//+kubebuilder:validation:Optional
 	PSC *bool `json:"psc,omitempty"`
