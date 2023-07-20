@@ -1013,6 +1013,9 @@ spec:
                       privateIP:
                         description: PrivateIP (optional) Enable connection to the Cloud SQL instance's private ip for this instance. Default value is false.
                         type: boolean
+                      psc:
+                        description: PSC (optional) Enable connection to the Cloud SQL instance's private service connect endpoint. May not be used with PrivateIP. Default value is false.
+                        type: boolean
                       unixSocketPath:
                         description: UnixSocketPath is the path to the unix socket where the proxy will listen for connnections. This will be mounted to all containers in the pod.
                         type: string

@@ -322,6 +322,12 @@ type InstanceSpec struct {
 	//+kubebuilder:validation:Optional
 	PrivateIP *bool `json:"privateIP,omitempty"`
 
+	// PSC (optional) Enable connection to the Cloud SQL instance's private
+	// service connect endpoint. May not be used with PrivateIP.
+	// Default value is false.
+	//+kubebuilder:validation:Optional
+	PSC *bool `json:"psc,omitempty"`
+
 	// PortEnvName is name of the environment variable containing this instance's tcp port.
 	// Optional, when set this environment variable will be added to all containers in the workload.
 	//+kubebuilder:validation:Optional
