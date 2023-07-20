@@ -63,7 +63,7 @@ spec:
     hostEnvName: "INSTANCE_HOST"
 ```
 
-Update <INSTANCE_CONNECTION_NAME> with the Cloud SQL instance connection name
+Update `<INSTANCE_CONNECTION_NAME>` with the Cloud SQL instance connection name
 retrieved from the gcloud command on the previous step. This should follow the format
 project_id:region:instance_name. The instance connection name is also visible
 in the Google Cloud Console on the Cloud SQL Instance Overview page.
