@@ -41,6 +41,11 @@ resource "google_sql_database" "db" {
   instance = google_sql_database_instance.instance.name
   project  = var.project_id
 }
+resource "google_sql_database" "db1" {
+  name     = "db1"
+  instance = google_sql_database_instance.instance.name
+  project  = var.project_id
+}
 
 # See versions at https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/sql_database_instance#database_version
 resource "google_sql_database_instance" "mysql" {
@@ -58,6 +63,11 @@ resource "google_sql_database_instance" "mysql" {
 
 resource "google_sql_database" "db_mysql" {
   name     = "db"
+  instance = google_sql_database_instance.mysql.name
+  project  = var.project_id
+}
+resource "google_sql_database" "db_mysql_1" {
+  name     = "db1"
   instance = google_sql_database_instance.mysql.name
   project  = var.project_id
 }
@@ -88,6 +98,12 @@ resource "google_sql_database_instance" "mssql" {
 
 resource "google_sql_database" "db_mssql" {
   name     = "db"
+  instance = google_sql_database_instance.mssql.name
+  project  = var.project_id
+}
+
+resource "google_sql_database" "db_mssql_1" {
+  name     = "db1"
   instance = google_sql_database_instance.mssql.name
   project  = var.project_id
 }

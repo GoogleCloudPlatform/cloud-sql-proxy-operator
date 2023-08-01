@@ -1,13 +1,13 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: e2e-java-mysql-short
+  name: e2e-java-postgres-short-2inst
   labels:
-    control-plane: e2e-java-mysql-short
+    control-plane: e2e-java-postgres-short-2inst
 spec:
   selector:
     matchLabels:
-      control-plane: e2e-java-mysql-short
+      control-plane: e2e-java-postgres-short-2inst
   replicas: 1
   template:
     metadata:
@@ -15,7 +15,7 @@ spec:
         kubectl.kubernetes.io/default-container: manager
       labels:
         app: e2e-java
-        control-plane: e2e-java-mysql-short
+        control-plane: e2e-java-postgres-short-2inst
     spec:
       securityContext:
         runAsNonRoot: true
@@ -29,15 +29,19 @@ spec:
         - name: DB_NAME_1
           value: "db1"
         - name: DB_USER
-          value: "dbuser"
+          value: "postgres"
         - name: DB_PASS
           value: "604a0cc12f342b9ae9f9"
         - name: DB_INSTANCE
-          value: "hessjc-csql-operator-02:us-central1:mysql2d971003318a3077402fhessjc"
+          value: "hessjc-csql-operator-02:us-central1:privateinstbbf4eae6hessjc"
+        - name: DB_INSTANCE_1
+          value: "hessjc-csql-operator-02:us-central1:privateinst1bbf4eae6hessjc"
         - name: E2E_CONNECT_PATTERN
           value: "short"
         - name: E2E_DB_TYPE
-          value: "mysql"
+          value: "postgres"
+        - name: E2E_IP_TYPES
+          value: "PRIVATE"
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

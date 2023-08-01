@@ -59,18 +59,21 @@ locals {
       postgres = {
         instance     = google_sql_database_instance.instance.connection_name
         dbName       = google_sql_database.db.name
+        dbName1       = google_sql_database.db1.name
         rootUser     = "postgres"
         rootPassword = random_id.db_password.hex
       }
       mysql = {
         instance     = google_sql_database_instance.mysql.connection_name
         dbName       = google_sql_database.db.name
+        dbName1       = google_sql_database.db_mysql_1.name
         rootUser     = google_sql_user.mysql_user.name
         rootPassword = google_sql_user.mysql_user.password
       }
       mssql = {
         instance     = google_sql_database_instance.mssql.connection_name
         dbName       = google_sql_database.db.name
+        dbName1       = google_sql_database.db_mssql_1.name
         rootUser     = google_sql_user.mssql_user.name
         rootPassword = google_sql_user.mssql_user.password
       }
@@ -80,6 +83,14 @@ locals {
       postgres = {
         instance     = google_sql_database_instance.private_postgres.connection_name
         dbName       = google_sql_database.private_db.name
+        dbName1       = google_sql_database.private_db_1.name
+        rootUser     = "postgres"
+        rootPassword = random_id.db_password.hex
+      }
+      postgres1 = {
+        instance     = google_sql_database_instance.private_postgres_1.connection_name
+        dbName       = google_sql_database.private_db1.name
+        dbName       = google_sql_database.private_db1_1.name
         rootUser     = "postgres"
         rootPassword = random_id.db_password.hex
       }

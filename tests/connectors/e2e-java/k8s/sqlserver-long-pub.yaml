@@ -26,6 +26,8 @@ spec:
         env:
         - name: DB_NAME
           value: "db"
+        - name: DB_NAME_1
+          value: "db1"
         - name: DB_USER
           value: "dbuser"
         - name: DB_PASS

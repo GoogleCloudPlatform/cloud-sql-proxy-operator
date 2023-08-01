@@ -49,6 +49,49 @@ resource "google_sql_database" "private_db" {
   project  = var.project_id
 }
 
+resource "google_sql_database" "private_db_1" {
+  name     = "db1"
+  instance = google_sql_database_instance.private_postgres.name
+  project  = var.project_id
+}
+
+
+
+# See versions at https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/sql_database_instance#database_version
+resource "google_sql_database_instance" "private_postgres_1" {
+  provider = google-beta
+
+  name             = "privateinst1${random_id.private_db_name_suffix.hex}${var.environment_name}"
+  project          = var.project_id
+  region           = var.gcloud_region
+  database_version = "POSTGRES_13"
+  depends_on       = [google_service_networking_connection.private_vpc_connection]
+
+  settings {
+    tier        = "db-f1-micro"
+    user_labels = local.standard_labels
+    ip_configuration {
+      ipv4_enabled                                  = false
+      private_network                               = google_compute_network.private_k8s_network.id
+      enable_private_path_for_google_cloud_services = true
+    }
+  }
+  deletion_protection = "true"
+  root_password       = random_id.db_password.hex
+}
+
+resource "google_sql_database" "private_db1" {
+  name     = "db"
+  instance = google_sql_database_instance.private_postgres_1.name
+  project  = var.project_id
+}
+
+resource "google_sql_database" "private_db1_1" {
+  name     = "db1"
+  instance = google_sql_database_instance.private_postgres_1.name
+  project  = var.project_id
+}
+
 
 output "private_db_root_password" {
   value = random_id.db_password.hex
