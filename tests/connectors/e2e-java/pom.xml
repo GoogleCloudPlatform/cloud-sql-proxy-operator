@@ -10,7 +10,7 @@
   <properties>
     <maven.compiler.source>11</maven.compiler.source>
     <maven.compiler.target>11</maven.compiler.target>
-    <connector.version>1.13.1-SNAPSHOT</connector.version>
+    <connector.version>1.13.1</connector.version>
   </properties>
 
   <dependencies>

@@ -49,12 +49,17 @@ locals {
     "replicapool.googleapis.com",
     "replicapoolupdater.googleapis.com",
     "resourceviews.googleapis.com",
+    "run.googleapis.com",
     "servicemanagement.googleapis.com",
     "servicenetworking.googleapis.com",
     "sql-component.googleapis.com",
     "sqladmin.googleapis.com",
-    "storage-api.googleapis.com"
+    "storage-api.googleapis.com",
+    "vpcaccess.googleapis.com"
   ])
+}
+data "google_project" "project" {
+  project_id = var.project_id
 }
 
 resource "google_project_service" "project" {
@@ -79,7 +84,8 @@ resource "google_project_iam_binding" "cloud_sql_client" {
   project = var.project_id
   role    = "roles/cloudsql.client"
   members = [
-    "serviceAccount:${google_service_account.node_pool.email}"
+    "serviceAccount:${google_service_account.node_pool.email}",
+    "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
   ]
 }
 
