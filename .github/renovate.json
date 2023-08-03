@@ -52,8 +52,5 @@
       "depNameTemplate": "{{{depName}}}",
       "datasourceTemplate": "docker"
     }
-  ],
-  "schedule": [
-    "before 4am on the first day of the month"
   ]
 }
