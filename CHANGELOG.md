@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.0.2...v1.1.0) (2023-07-20)
+
+
+### Features
+
+* Add support for Private Service Connect ([#391](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/391)) ([116b776](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/116b776ef63defe6a1e764ad6de46cb03d641c45)), closes [#389](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/389)
+
 ## [1.0.2](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.0.1...v1.0.2) (2023-07-06)
 
 
