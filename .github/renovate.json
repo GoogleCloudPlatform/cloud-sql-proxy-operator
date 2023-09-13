@@ -1,6 +1,6 @@
 {
   "extends": [
-    "config:base",
+    "config:recommended",
     ":semanticCommitTypeAll(chore)",
     ":disableDependencyDashboard"
   ],
@@ -27,6 +27,20 @@
       "automerge": true,
       "automergeType": "pr",
       "automergeStrategy": "rebase"
+    },
+    {
+      "matchPackagePatterns": [
+        "^actions/checkout",
+        "^actions/github-script",
+        "^actions/setup-java",
+        "^actions/upload-artifact",
+        "^github/codeql-action",
+        "^google-github-actions/auth",
+        "^google-github-actions/get-secretmanager-secrets",
+        "^micnncim/action-label-syncer",
+        "^ossf/scorecard-action"
+      ],
+      "groupName": "dependencies for github"
     }
   ],
   "force": {
@@ -36,6 +50,7 @@
   },
   "regexManagers": [
     {
+      "customType": "regex",
       "fileMatch": ["^Makefile$"],
       "matchStrings": [
         "(?<envName>.*?_VERSION)\\s*=\\s*(?<currentValue>.*?)\\s*# renovate datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\n"
@@ -45,6 +60,7 @@
       "versioningTemplate": "semver"
     },
     {
+      "customType": "regex",
       "fileMatch": ["podspec_updates.go$"],
       "matchStrings": [
         "DefaultProxyImage = \"(?<depName>gcr.io/cloud-sql-connectors/cloud-sql-proxy):(?<currentValue>.*?)\"\\n"
