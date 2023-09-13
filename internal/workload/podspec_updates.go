@@ -48,6 +48,10 @@ const (
 	// DefaultHealthCheckPort is the used by the proxy to expose prometheus
 	// and kubernetes health checks.
 	DefaultHealthCheckPort int32 = 9801
+
+	// DefaultAdminPort is the used by the proxy to expose the quitquitquit
+	// and debug api endpoints
+	DefaultAdminPort int32 = 9091
 )
 
 var l = logf.Log.WithName("internal.workload")
@@ -304,6 +308,7 @@ type workloadMods struct {
 	EnvVars      []*managedEnvVar   `json:"envVars"`
 	VolumeMounts []*managedVolume   `json:"volumeMounts"`
 	Ports        []*managedPort     `json:"ports"`
+	AdminPorts   []int32            `json:"adminPorts"`
 }
 
 func (s *updateState) addWorkloadPort(p int32) {
@@ -388,6 +393,24 @@ func (s *updateState) useInstancePort(p *cloudsqlapi.AuthProxyWorkload, is *clou
 	})
 
 	return port
+}
+
+func (s *updateState) addAdminPort(p int32) {
+	s.mods.AdminPorts = append(s.mods.AdminPorts, p)
+}
+
+func (s *updateState) addQuitEnvVar() {
+	urls := make([]string, len(s.mods.AdminPorts))
+	for i := 0; i < len(s.mods.AdminPorts); i++ {
+		urls[i] = fmt.Sprintf("http://localhost:%d/quitquitquit", s.mods.AdminPorts[i])
+	}
+	v := strings.Join(urls, " ")
+
+	s.addEnvVar(nil, managedEnvVar{
+		OperatorManagedValue: corev1.EnvVar{
+			Name:  "CSQL_QUIT_URLS",
+			Value: v,
+		}})
 }
 
 func (s *updateState) addPort(p int32, instance proxyInstanceID) {
@@ -524,6 +547,8 @@ func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWo
 		k, v := s.updater.PodAnnotation(inst)
 		ann[k] = v
 	}
+	// Add the envvar containing the proxy quit urls to the workloads
+	s.addQuitEnvVar()
 
 	podSpec.Containers = containers
 
@@ -774,8 +799,9 @@ func (s *updateState) updateContainerEnv(c *corev1.Container) {
 }
 
 // addHealthCheck adds the health check declaration to this workload.
-func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1.Container) {
+func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1.Container) int32 {
 	var portPtr *int32
+	var adminPortPtr *int32
 
 	cs := p.Spec.AuthProxyContainer
 
@@ -814,6 +840,29 @@ func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1
 	// For graceful exits as a sidecar, the proxy should exit with exit code 0
 	// when it receives a SIGTERM.
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_EXIT_ZERO_ON_SIGTERM", "true")
+
+	// Also the operator will enable the /quitquitquit endpoint for graceful exit.
+	// If the AdminServer.Port is set, use it, otherwise use the default
+	// admin port.
+	if cs != nil && cs.AdminServer != nil && cs.AdminServer.Port != 0 {
+		adminPortPtr = &cs.AdminServer.Port
+	}
+	adminPort := s.usePort(adminPortPtr, DefaultAdminPort, p)
+	s.addAdminPort(adminPort)
+	s.addProxyContainerEnvVar(p, "CSQL_PROXY_QUITQUITQUIT", "true")
+	s.addProxyContainerEnvVar(p, "CSQL_PROXY_ADMIN_PORT", fmt.Sprintf("%d", adminPort))
+
+	// Configure the pre-stop hook for /quitquitquit
+	c.Lifecycle = &corev1.Lifecycle{
+		PreStop: &corev1.LifecycleHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Port: intstr.IntOrString{IntVal: adminPort},
+				Path: "/quitquitquit",
+				Host: "localhost",
+			},
+		},
+	}
+	return adminPort
 }
 
 func (s *updateState) addAdminServer(p *cloudsqlapi.AuthProxyWorkload) {
@@ -823,14 +872,10 @@ func (s *updateState) addAdminServer(p *cloudsqlapi.AuthProxyWorkload) {
 	}
 
 	cs := p.Spec.AuthProxyContainer.AdminServer
-	s.addProxyPort(cs.Port, p)
-	s.addProxyContainerEnvVar(p, "CSQL_PROXY_ADMIN_PORT", fmt.Sprintf("%d", cs.Port))
 	for _, name := range cs.EnableAPIs {
 		switch name {
 		case "Debug":
 			s.addProxyContainerEnvVar(p, "CSQL_PROXY_DEBUG", "true")
-		case "QuitQuitQuit":
-			s.addProxyContainerEnvVar(p, "CSQL_PROXY_QUITQUITQUIT", "true")
 		}
 	}
 

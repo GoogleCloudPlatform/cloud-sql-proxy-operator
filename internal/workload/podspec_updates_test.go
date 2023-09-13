@@ -537,10 +537,12 @@ func TestProxyCLIArgs(t *testing.T) {
 			wantWorkloadEnv: map[string]string{
 				"CSQL_PROXY_STRUCTURED_LOGS":      "true",
 				"CSQL_PROXY_HEALTH_CHECK":         "true",
+				"CSQL_PROXY_QUITQUITQUIT":         "true",
 				"CSQL_PROXY_EXIT_ZERO_ON_SIGTERM": "true",
 				"CSQL_PROXY_HTTP_PORT":            fmt.Sprintf("%d", workload.DefaultHealthCheckPort),
 				"CSQL_PROXY_HTTP_ADDRESS":         "0.0.0.0",
 				"CSQL_PROXY_USER_AGENT":           "cloud-sql-proxy-operator/dev",
+				"CSQL_PROXY_ADMIN_PORT":           fmt.Sprintf("%d", workload.DefaultAdminPort),
 			},
 		},
 		{
@@ -692,6 +694,7 @@ func TestProxyCLIArgs(t *testing.T) {
 			},
 		},
 		{
+			desc: "Default admin port enabled when AdminServerSpec is nil",
 			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
 				AuthProxyContainer: &cloudsqlapi.AuthProxyContainerSpec{},
 				Instances: []cloudsqlapi.InstanceSpec{{
@@ -704,7 +707,9 @@ func TestProxyCLIArgs(t *testing.T) {
 			},
 			wantWorkloadEnv: map[string]string{
 				"CSQL_PROXY_HEALTH_CHECK": "true",
+				"CSQL_PROXY_ADMIN_PORT":   fmt.Sprintf("%d", workload.DefaultAdminPort),
 			},
+			dontWantEnvSet: []string{"CSQL_PROXY_DEBUG"},
 		},
 		{
 			desc: "port conflict with other instance causes error",
@@ -908,6 +913,91 @@ func TestPodTemplateAnnotations(t *testing.T) {
 		t.Errorf("got %v, want %v for proxy container command", wl.PodTemplateAnnotations(), wantAnnotations)
 	}
 
+}
+
+func TestQuitUrlEnvVar(t *testing.T) {
+
+	var (
+		u = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
+	)
+
+	// Create a pod
+	wl := podWorkload()
+	wl.Pod.Spec.Containers[0].Ports =
+		[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
+
+	// Create a AuthProxyWorkload that matches the deployment
+	csqls := []*cloudsqlapi.AuthProxyWorkload{
+		simpleAuthProxy("instance1", "project:server:db"),
+		simpleAuthProxy("instance2", "project:server2:db2"),
+		simpleAuthProxy("instance3", "project:server3:db3")}
+
+	csqls[0].ObjectMeta.Generation = 1
+	csqls[1].ObjectMeta.Generation = 2
+	csqls[2].ObjectMeta.Generation = 3
+
+	var wantQuitUrlsEnv = fmt.Sprintf(
+		"http://localhost:%d/quitquitquit http://localhost:%d/quitquitquit http://localhost:%d/quitquitquit", workload.DefaultAdminPort,
+		workload.DefaultAdminPort+1,
+		workload.DefaultAdminPort+2)
+
+	// update the containers
+	err := configureProxies(u, wl, csqls)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// test that envvar was set
+	ev, err := findEnvVar(wl, "busybox", "CSQL_QUIT_URLS")
+	if err != nil {
+		t.Fatal("can't find env var", err)
+	}
+	if ev.Value != wantQuitUrlsEnv {
+		t.Fatal("got", ev.Value, "want", wantQuitUrlsEnv)
+	}
+}
+
+func TestPreStopHook(t *testing.T) {
+
+	var (
+		u = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
+	)
+
+	// Create a pod
+	wl := podWorkload()
+	wl.Pod.Spec.Containers[0].Ports =
+		[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
+
+	// Create a AuthProxyWorkload that matches the deployment
+	csqls := []*cloudsqlapi.AuthProxyWorkload{
+		simpleAuthProxy("instance1", "project:server:db")}
+
+	csqls[0].ObjectMeta.Generation = 1
+
+	// update the containers
+	err := configureProxies(u, wl, csqls)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// test that prestop hook was set
+	c, err := findContainer(wl, workload.ContainerName(csqls[0]))
+	if err != nil {
+		t.Fatal("can't find proxy container", err)
+	}
+	if c.Lifecycle.PreStop == nil || c.Lifecycle.PreStop.HTTPGet == nil {
+		t.Fatal("got nil, want lifecycle.preStop.HTTPGet")
+	}
+	get := c.Lifecycle.PreStop.HTTPGet
+	if get.Port.IntVal != workload.DefaultAdminPort {
+		t.Error("got", get.Port, "want", workload.DefaultAdminPort)
+	}
+	if get.Path != "/quitquitquit" {
+		t.Error("got", get.Path, "want", "/quitquitquit")
+	}
+	if get.Host != "localhost" {
+		t.Error("got", get.Host, "want", "localhost")
+	}
 }
 
 func TestPodAnnotation(t *testing.T) {

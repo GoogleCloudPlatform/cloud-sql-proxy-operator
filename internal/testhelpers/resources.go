@@ -295,6 +295,13 @@ func BuildJob(name types.NamespacedName, appLabel string) *batchv1.Job {
 		},
 	}
 	job.Spec.Template.Spec.RestartPolicy = corev1.RestartPolicyNever
+	podCmd := fmt.Sprintf("echo Container 1 is Running \n"+
+		"sleep %d \n"+
+		"for url in $CSQL_QUIT_URLS ; do \n"+
+		"   wget --post-data '' $url \n"+
+		"done", 30)
+	job.Spec.Template.Spec.Containers[0].Command = []string{"sh", "-c", podCmd}
+
 	return job
 }
 
@@ -322,6 +329,12 @@ func BuildCronJob(name types.NamespacedName, appLabel string) *batchv1.CronJob {
 		},
 	}
 	job.Spec.JobTemplate.Spec.Template.Spec.RestartPolicy = corev1.RestartPolicyNever
+	podCmd := fmt.Sprintf("echo Container 1 is Running \n"+
+		"sleep %d \n"+
+		"for url in $CSQL_QUIT_URLS ; do \n"+
+		"   wget --post-data '' $url \n"+
+		"done", 30)
+	job.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Command = []string{"sh", "-c", podCmd}
 	return job
 
 }
@@ -693,6 +706,10 @@ func (cc *TestCaseClient) ConfigureResources(proxy *cloudsqlapi.AuthProxyWorkloa
 			Requests: map[corev1.ResourceName]resource.Quantity{
 				corev1.ResourceCPU: *resource.NewMilliQuantity(500, resource.DecimalExponent),
 			},
+		},
+		AdminServer: &cloudsqlapi.AdminServerSpec{
+			Port:       9092,
+			EnableAPIs: []string{"QuitQuitQuit"},
 		},
 	}
 }
