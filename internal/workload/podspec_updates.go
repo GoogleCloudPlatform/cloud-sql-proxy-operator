@@ -768,7 +768,6 @@ func (s *updateState) applyTelemetrySpec(p *cloudsqlapi.AuthProxyWorkload) {
 	if tel.QuotaProject != nil {
 		s.addProxyContainerEnvVar(p, "CSQL_PROXY_QUOTA_PROJECT", *tel.QuotaProject)
 	}
-
 	return
 }
 
@@ -832,6 +831,7 @@ func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1
 		FailureThreshold: 3,
 		TimeoutSeconds:   10,
 	}
+
 	// Add a port that is associated with the proxy, but not a specific db instance
 	s.addProxyPort(port, p)
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HTTP_PORT", fmt.Sprintf("%d", port))
@@ -840,6 +840,12 @@ func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1
 	// For graceful exits as a sidecar, the proxy should exit with exit code 0
 	// when it receives a SIGTERM.
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_EXIT_ZERO_ON_SIGTERM", "true")
+
+	// Add a containerPort declaration for the healthcheck & telemetry port
+	c.Ports = append(c.Ports, corev1.ContainerPort{
+		ContainerPort: port,
+		Protocol:      corev1.ProtocolTCP,
+	})
 
 	// Also the operator will enable the /quitquitquit endpoint for graceful exit.
 	// If the AdminServer.Port is set, use it, otherwise use the default

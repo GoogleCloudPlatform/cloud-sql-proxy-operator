@@ -810,7 +810,6 @@ func TestProxyCLIArgs(t *testing.T) {
 				}
 				t.Errorf("got env %v=%v, wants no env var set", dontWantKey, gotEnvVar)
 			}
-
 		})
 	}
 
@@ -912,6 +911,61 @@ func TestPodTemplateAnnotations(t *testing.T) {
 	// test that annotation was set properly
 	if !reflect.DeepEqual(wl.PodTemplateAnnotations(), wantAnnotations) {
 		t.Errorf("got %v, want %v for proxy container command", wl.PodTemplateAnnotations(), wantAnnotations)
+	}
+
+}
+
+func TestTelemetryAddsTelemetryContainerPort(t *testing.T) {
+
+	var (
+		u = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
+	)
+
+	// Create a pod
+	wl := podWorkload()
+	wl.Pod.Spec.Containers[0].Ports =
+		[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
+
+	// Create a AuthProxyWorkload that matches the deployment
+	csqls := []*cloudsqlapi.AuthProxyWorkload{
+		simpleAuthProxy("instance1", "project:server:db"),
+		simpleAuthProxy("instance2", "project:server2:db2"),
+		simpleAuthProxy("instance3", "project:server3:db3")}
+
+	csqls[0].ObjectMeta.Generation = 1
+	csqls[1].ObjectMeta.Generation = 2
+	csqls[2].ObjectMeta.Generation = 3
+
+	var wantPorts = map[string]int32{
+		workload.ContainerName(csqls[0]): workload.DefaultHealthCheckPort,
+		workload.ContainerName(csqls[1]): workload.DefaultHealthCheckPort + 1,
+		workload.ContainerName(csqls[2]): workload.DefaultHealthCheckPort + 2,
+	}
+
+	// update the containers
+	err := configureProxies(u, wl, csqls)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// test that containerPort values were set properly
+	for name, port := range wantPorts {
+		found := false
+		for _, c := range wl.PodSpec().Containers {
+			if c.Name == name {
+				found = true
+				if len(c.Ports) == 0 {
+					t.Fatalf("want container port for conatiner %s at port %d, got no containerPort", name, port)
+				}
+				if got := c.Ports[0].ContainerPort; got != port {
+					t.Errorf("want container port for conatiner %s at port %d, got port = %d ", name, port, got)
+				}
+				continue
+			}
+		}
+		if !found {
+			t.Fatalf("want container %s, got no container", name)
+		}
 	}
 
 }
