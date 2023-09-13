@@ -65,19 +65,22 @@ resource "google_project_service" "project" {
 
 # Create service accounts for k8s workload nodes
 resource "google_service_account" "node_pool" {
+  depends_on   = [google_project_service.project["iam.googleapis.com"]]
   account_id   = "k8s-nodes-${var.environment_name}"
   display_name = "Kubernetes provider SA"
   project      = var.project_id
 }
 resource "google_project_iam_member" "allow_image_pull" {
-  project = var.project_id
-  role    = "roles/artifactregistry.reader"
-  member  = "serviceAccount:${google_service_account.node_pool.email}"
+  depends_on = [google_project_service.project["iam.googleapis.com"]]
+  project    = var.project_id
+  role       = "roles/artifactregistry.reader"
+  member     = "serviceAccount:${google_service_account.node_pool.email}"
 }
 
 resource "google_project_iam_binding" "cloud_sql_client" {
-  project = var.project_id
-  role    = "roles/cloudsql.client"
+  depends_on = [google_project_service.project["iam.googleapis.com"]]
+  project    = var.project_id
+  role       = "roles/cloudsql.client"
   members = [
     "serviceAccount:${google_service_account.node_pool.email}"
   ]
