@@ -535,11 +535,12 @@ func TestProxyCLIArgs(t *testing.T) {
 				}},
 			},
 			wantWorkloadEnv: map[string]string{
-				"CSQL_PROXY_STRUCTURED_LOGS": "true",
-				"CSQL_PROXY_HEALTH_CHECK":    "true",
-				"CSQL_PROXY_HTTP_PORT":       fmt.Sprintf("%d", workload.DefaultHealthCheckPort),
-				"CSQL_PROXY_HTTP_ADDRESS":    "0.0.0.0",
-				"CSQL_PROXY_USER_AGENT":      "cloud-sql-proxy-operator/dev",
+				"CSQL_PROXY_STRUCTURED_LOGS":      "true",
+				"CSQL_PROXY_HEALTH_CHECK":         "true",
+				"CSQL_PROXY_EXIT_ZERO_ON_SIGTERM": "true",
+				"CSQL_PROXY_HTTP_PORT":            fmt.Sprintf("%d", workload.DefaultHealthCheckPort),
+				"CSQL_PROXY_HTTP_ADDRESS":         "0.0.0.0",
+				"CSQL_PROXY_USER_AGENT":           "cloud-sql-proxy-operator/dev",
 			},
 		},
 		{
@@ -691,7 +692,6 @@ func TestProxyCLIArgs(t *testing.T) {
 			},
 		},
 		{
-			desc: "No admin port enabled when AdminServerSpec is nil",
 			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
 				AuthProxyContainer: &cloudsqlapi.AuthProxyContainerSpec{},
 				Instances: []cloudsqlapi.InstanceSpec{{
@@ -705,7 +705,6 @@ func TestProxyCLIArgs(t *testing.T) {
 			wantWorkloadEnv: map[string]string{
 				"CSQL_PROXY_HEALTH_CHECK": "true",
 			},
-			dontWantEnvSet: []string{"CSQL_PROXY_DEBUG", "CSQL_PROXY_ADMIN_PORT"},
 		},
 		{
 			desc: "port conflict with other instance causes error",

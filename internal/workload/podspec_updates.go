@@ -48,10 +48,6 @@ const (
 	// DefaultHealthCheckPort is the used by the proxy to expose prometheus
 	// and kubernetes health checks.
 	DefaultHealthCheckPort int32 = 9801
-
-	// DefaultAdminPort is the used by the proxy to expose prometheus
-	// and kubernetes health checks.
-	DefaultAdminPort int32 = 9802
 )
 
 var l = logf.Log.WithName("internal.workload")
@@ -815,6 +811,9 @@ func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HTTP_PORT", fmt.Sprintf("%d", port))
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HTTP_ADDRESS", "0.0.0.0")
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HEALTH_CHECK", "true")
+	// For graceful exits as a sidecar, the proxy should exit with exit code 0
+	// when it receives a SIGTERM.
+	s.addProxyContainerEnvVar(p, "CSQL_PROXY_EXIT_ZERO_ON_SIGTERM", "true")
 }
 
 func (s *updateState) addAdminServer(p *cloudsqlapi.AuthProxyWorkload) {
