@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -915,7 +916,7 @@ func TestPodTemplateAnnotations(t *testing.T) {
 
 }
 
-func TestQuitUrlEnvVar(t *testing.T) {
+func TestQuitURLEnvVar(t *testing.T) {
 
 	var (
 		u = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
@@ -936,10 +937,14 @@ func TestQuitUrlEnvVar(t *testing.T) {
 	csqls[1].ObjectMeta.Generation = 2
 	csqls[2].ObjectMeta.Generation = 3
 
-	var wantQuitUrlsEnv = fmt.Sprintf(
-		"http://localhost:%d/quitquitquit http://localhost:%d/quitquitquit http://localhost:%d/quitquitquit", workload.DefaultAdminPort,
-		workload.DefaultAdminPort+1,
-		workload.DefaultAdminPort+2)
+	var wantQuitURLSEnv = strings.Join(
+		[]string{
+			fmt.Sprintf("http://localhost:%d/quitquitquit", workload.DefaultAdminPort),
+			fmt.Sprintf("http://localhost:%d/quitquitquit", workload.DefaultAdminPort+1),
+			fmt.Sprintf("http://localhost:%d/quitquitquit", workload.DefaultAdminPort+2),
+		},
+		" ",
+	)
 
 	// update the containers
 	err := configureProxies(u, wl, csqls)
@@ -952,16 +957,14 @@ func TestQuitUrlEnvVar(t *testing.T) {
 	if err != nil {
 		t.Fatal("can't find env var", err)
 	}
-	if ev.Value != wantQuitUrlsEnv {
-		t.Fatal("got", ev.Value, "want", wantQuitUrlsEnv)
+	if ev.Value != wantQuitURLSEnv {
+		t.Fatal("got", ev.Value, "want", wantQuitURLSEnv)
 	}
 }
 
 func TestPreStopHook(t *testing.T) {
 
-	var (
-		u = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
-	)
+	var u = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
 
 	// Create a pod
 	wl := podWorkload()
