@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Use the latest stable golang 1.20 to compile to a binary
-FROM --platform=$BUILDPLATFORM golang:1.20 as build
+FROM --platform=$BUILDPLATFORM golang:1.21 as build
 
 WORKDIR /work
 COPY . .
