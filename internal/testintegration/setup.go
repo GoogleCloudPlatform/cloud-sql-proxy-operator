@@ -40,6 +40,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 const kubeVersion = "1.24.1"
@@ -212,12 +214,18 @@ func (h *EnvTestHarness) StartManager(proxyImage string) error {
 	// start webhook server using Manager
 	o := &h.testEnv.WebhookInstallOptions
 	mgr, err := ctrl.NewManager(h.cfg, ctrl.Options{
-		Scheme:             h.s,
-		Host:               o.LocalServingHost,
-		Port:               o.LocalServingPort,
-		CertDir:            o.LocalServingCertDir,
-		LeaderElection:     false,
-		MetricsBindAddress: "0",
+		Scheme: h.s,
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
+		WebhookServer: &webhook.DefaultServer{
+			Options: webhook.Options{
+				Port:    o.LocalServingPort,
+				Host:    o.LocalServingHost,
+				CertDir: o.LocalServingCertDir,
+			},
+		},
+		LeaderElection: false,
 	})
 	if err != nil {
 		return fmt.Errorf("unable to start manager %v", err)
