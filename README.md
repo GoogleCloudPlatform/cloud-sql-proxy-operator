@@ -42,7 +42,7 @@ Run the following command to install the cloud sql proxy operator into
 your kubernetes cluster:
 
 ```shell
-kubectl apply -f https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/v1.0.0/cloud-sql-proxy-operator.yaml
+kubectl apply -f https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/v1.2.0/cloud-sql-proxy-operator.yaml
 ```
 
 Confirm that the operator is installed and running by listing its pods:

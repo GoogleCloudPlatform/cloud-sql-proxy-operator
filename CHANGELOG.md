@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.1.0...v1.2.0) (2023-09-20)
+
+
+### Features
+
+* Configure proxy container for graceful termination. ([#425](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/425)) ([0e0bb40](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/0e0bb40339f5d4ea2659f81cc4f55ea15a2e3938)), closes [#361](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/361)
+
+
+### Bug Fixes
+
+* IAM api must be enabled before it is used ([#429](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/429)) ([0764b8b](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/0764b8b71b0c8ad0f5d97753b0587039bd7c47a9))
+
 ## [1.1.0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.0.2...v1.1.0) (2023-07-20)
 
 
