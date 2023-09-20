@@ -124,8 +124,9 @@ go_fmt: # Automatically formats go files
 	go mod tidy
 	go run golang.org/x/tools/cmd/goimports@latest -w .
 
-yaml_fmt: # Automatically formats all yaml files
-	go run github.com/UltiRequiem/yamlfmt@latest -w $(shell find . -iname '*.yaml' -or -iname '*.yml' | grep -v -e '^./bin/' | grep -v -e '^./.github/workflows/')
+yaml_fmt: # Automatically format config/ to make generated and handwritten k8s yaml files consistent
+	go run github.com/UltiRequiem/yamlfmt@latest -w \
+		$(shell find ./config -iname '*.yaml' -or -iname '*.yml') $(shell find ./installer -iname '*.yaml' -or -iname '*.yml')
 
 .PHONY: add_copyright_header
 add_copyright_header: # Add the copyright header
