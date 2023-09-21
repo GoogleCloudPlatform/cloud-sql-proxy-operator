@@ -917,9 +917,7 @@ func TestPodTemplateAnnotations(t *testing.T) {
 
 func TestTelemetryAddsTelemetryContainerPort(t *testing.T) {
 
-	var (
-		u = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
-	)
+	var u = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
 
 	// Create a pod
 	wl := podWorkload()
@@ -930,11 +928,25 @@ func TestTelemetryAddsTelemetryContainerPort(t *testing.T) {
 	csqls := []*cloudsqlapi.AuthProxyWorkload{
 		simpleAuthProxy("instance1", "project:server:db"),
 		simpleAuthProxy("instance2", "project:server2:db2"),
-		simpleAuthProxy("instance3", "project:server3:db3")}
+		simpleAuthProxy("instance3", "project:server3:db3"),
+	}
 
-	csqls[0].ObjectMeta.Generation = 1
-	csqls[1].ObjectMeta.Generation = 2
-	csqls[2].ObjectMeta.Generation = 3
+	// explicitly configure the telemetry http port for test consistency.
+	csqls[0].Spec.AuthProxyContainer = &cloudsqlapi.AuthProxyContainerSpec{
+		Telemetry: &cloudsqlapi.TelemetrySpec{
+			HTTPPort: ptr(workload.DefaultHealthCheckPort),
+		},
+	}
+	csqls[1].Spec.AuthProxyContainer = &cloudsqlapi.AuthProxyContainerSpec{
+		Telemetry: &cloudsqlapi.TelemetrySpec{
+			HTTPPort: ptr(workload.DefaultHealthCheckPort + 1),
+		},
+	}
+	csqls[2].Spec.AuthProxyContainer = &cloudsqlapi.AuthProxyContainerSpec{
+		Telemetry: &cloudsqlapi.TelemetrySpec{
+			HTTPPort: ptr(workload.DefaultHealthCheckPort + 2),
+		},
+	}
 
 	var wantPorts = map[string]int32{
 		workload.ContainerName(csqls[0]): workload.DefaultHealthCheckPort,
@@ -949,16 +961,16 @@ func TestTelemetryAddsTelemetryContainerPort(t *testing.T) {
 	}
 
 	// test that containerPort values were set properly
-	for name, port := range wantPorts {
-		found := false
+	for name, wantPort := range wantPorts {
+		var found bool
 		for _, c := range wl.PodSpec().Containers {
 			if c.Name == name {
 				found = true
 				if len(c.Ports) == 0 {
-					t.Fatalf("want container port for conatiner %s at port %d, got no containerPort", name, port)
+					t.Fatalf("want container wantPort for conatiner %s at wantPort %d, got no containerPort", name, wantPort)
 				}
-				if got := c.Ports[0].ContainerPort; got != port {
-					t.Errorf("want container port for conatiner %s at port %d, got port = %d ", name, port, got)
+				if got := c.Ports[0].ContainerPort; got != wantPort {
+					t.Errorf("want container wantPort for conatiner %s at wantPort %d, got wantPort = %d ", name, wantPort, got)
 				}
 				continue
 			}
@@ -986,10 +998,6 @@ func TestQuitURLEnvVar(t *testing.T) {
 		simpleAuthProxy("instance1", "project:server:db"),
 		simpleAuthProxy("instance2", "project:server2:db2"),
 		simpleAuthProxy("instance3", "project:server3:db3")}
-
-	csqls[0].ObjectMeta.Generation = 1
-	csqls[1].ObjectMeta.Generation = 2
-	csqls[2].ObjectMeta.Generation = 3
 
 	var wantQuitURLSEnv = strings.Join(
 		[]string{
