@@ -948,16 +948,16 @@ func TestTelemetryAddsTelemetryContainerPort(t *testing.T) {
 		},
 	}
 
-	var wantPorts = map[string]int32{
-		workload.ContainerName(csqls[0]): workload.DefaultHealthCheckPort,
-		workload.ContainerName(csqls[1]): workload.DefaultHealthCheckPort + 1,
-		workload.ContainerName(csqls[2]): workload.DefaultHealthCheckPort + 2,
-	}
-
 	// update the containers
 	err := configureProxies(u, wl, csqls)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	var wantPorts = map[string]int32{
+		workload.ContainerName(csqls[0]): workload.DefaultHealthCheckPort,
+		workload.ContainerName(csqls[1]): workload.DefaultHealthCheckPort + 1,
+		workload.ContainerName(csqls[2]): workload.DefaultHealthCheckPort + 2,
 	}
 
 	// test that containerPort values were set properly
