@@ -408,7 +408,7 @@ func (s *updateState) addQuitEnvVar() {
 
 	s.addEnvVar(nil, managedEnvVar{
 		OperatorManagedValue: corev1.EnvVar{
-			Name:  "CSQL_QUIT_URLS",
+			Name:  "CSQL_PROXY_QUIT_URLS",
 			Value: v,
 		}})
 }
