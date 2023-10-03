@@ -1015,7 +1015,7 @@ func TestQuitURLEnvVar(t *testing.T) {
 	}
 
 	// test that envvar was set
-	ev, err := findEnvVar(wl, "busybox", "CSQL_QUIT_URLS")
+	ev, err := findEnvVar(wl, "busybox", "CSQL_PROXY_QUIT_URLS")
 	if err != nil {
 		t.Fatal("can't find env var", err)
 	}

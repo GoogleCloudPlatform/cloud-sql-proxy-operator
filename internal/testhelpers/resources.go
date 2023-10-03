@@ -297,7 +297,7 @@ func BuildJob(name types.NamespacedName, appLabel string) *batchv1.Job {
 	job.Spec.Template.Spec.RestartPolicy = corev1.RestartPolicyNever
 	podCmd := fmt.Sprintf("echo Container 1 is Running \n"+
 		"sleep %d \n"+
-		"for url in $CSQL_QUIT_URLS ; do \n"+
+		"for url in $CSQL_PROXY_QUIT_URLS ; do \n"+
 		"   wget --post-data '' $url \n"+
 		"done", 30)
 	job.Spec.Template.Spec.Containers[0].Command = []string{"sh", "-c", podCmd}
@@ -331,7 +331,7 @@ func BuildCronJob(name types.NamespacedName, appLabel string) *batchv1.CronJob {
 	job.Spec.JobTemplate.Spec.Template.Spec.RestartPolicy = corev1.RestartPolicyNever
 	podCmd := fmt.Sprintf("echo Container 1 is Running \n"+
 		"sleep %d \n"+
-		"for url in $CSQL_QUIT_URLS ; do \n"+
+		"for url in $CSQL_PROXY_QUIT_URLS ; do \n"+
 		"   wget --post-data '' $url \n"+
 		"done", 30)
 	job.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Command = []string{"sh", "-c", podCmd}
