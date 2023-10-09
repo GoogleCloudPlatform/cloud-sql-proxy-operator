@@ -39,7 +39,7 @@ const (
 	// DefaultProxyImage is the latest version of the proxy as of the release
 	// of this operator. This is managed as a dependency. We update this constant
 	// when the Cloud SQL Auth Proxy releases a new version.
-	DefaultProxyImage = "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.6.1"
+	DefaultProxyImage = "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.7.0"
 
 	// DefaultFirstPort is the first port number chose for an instance listener by the
 	// proxy.
@@ -408,7 +408,7 @@ func (s *updateState) addQuitEnvVar() {
 
 	s.addEnvVar(nil, managedEnvVar{
 		OperatorManagedValue: corev1.EnvVar{
-			Name:  "CSQL_QUIT_URLS",
+			Name:  "CSQL_PROXY_QUIT_URLS",
 			Value: v,
 		}})
 }
@@ -768,7 +768,6 @@ func (s *updateState) applyTelemetrySpec(p *cloudsqlapi.AuthProxyWorkload) {
 	if tel.QuotaProject != nil {
 		s.addProxyContainerEnvVar(p, "CSQL_PROXY_QUOTA_PROJECT", *tel.QuotaProject)
 	}
-
 	return
 }
 
@@ -832,6 +831,7 @@ func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1
 		FailureThreshold: 3,
 		TimeoutSeconds:   10,
 	}
+
 	// Add a port that is associated with the proxy, but not a specific db instance
 	s.addProxyPort(port, p)
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HTTP_PORT", fmt.Sprintf("%d", port))
@@ -840,6 +840,12 @@ func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1
 	// For graceful exits as a sidecar, the proxy should exit with exit code 0
 	// when it receives a SIGTERM.
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_EXIT_ZERO_ON_SIGTERM", "true")
+
+	// Add a containerPort declaration for the healthcheck & telemetry port
+	c.Ports = append(c.Ports, corev1.ContainerPort{
+		ContainerPort: port,
+		Protocol:      corev1.ProtocolTCP,
+	})
 
 	// Also the operator will enable the /quitquitquit endpoint for graceful exit.
 	// If the AdminServer.Port is set, use it, otherwise use the default
