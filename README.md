@@ -71,7 +71,7 @@ to know all the details to configure your proxy.
 ## Reference Documentation
 - [Quick Start Guide](docs/quick-start.md)
 - [API Documentation](docs/api.md)
-- [Cloud SQL Proxy](/GoogleCloudPlatform/cloud-sql-proxy)
+- [Cloud SQL Proxy](https://github.com/GoogleCloudPlatform/cloud-sql-proxy)
 - [Developer Getting Started](docs/dev.md)
 - [Developing End-to-End tests](docs/e2e-tests.md)
 - [Contributing](docs/contributing.md)
