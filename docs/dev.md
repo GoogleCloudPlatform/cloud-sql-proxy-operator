@@ -51,3 +51,23 @@ the file `bin/last-local-proxy-url.txt`.
 
 Delete the file `bin/last-local-proxy-url.txt` to go back to using
 the public proxy iamge again
+
+## Creating the helm chart
+
+From the project root, the helm chart scaffolding was generated using
+helm version 3.13.1.
+
+```shell
+# Download the latest helm tool
+make helm 
+
+# Create the helm directory
+mkdir -p helm 
+cd helm
+
+
+# Create the operator helm chart
+../bin/helm create cloud-sql-operator
+
+
+```
