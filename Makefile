@@ -243,6 +243,31 @@ installer/install.sh: ## Build install shell script to deploy the operator
 	sed 's/__VERSION__/v$(VERSION)/g' | \
 	sed 's/__CERT_MANAGER_VERSION__/$(CERT_MANAGER_VERSION)/g' > $@
 
+##
+# Update helm chart
+.PHONY: helm_generate
+helm_generate: helm installer/cloud-sql-proxy-operator.yaml bin/install_to_helm
+	bin/install_to_helm \
+      -installYaml=installer/cloud-sql-proxy-operator.yaml \
+      -operatorChartDir=helm/cloud-sql-operator
+      -crdChartDir=helm/cloud-sql-operator-crds
+
+.PHONY: helm_e2e_build_deploy
+helm_e2e_build_deploy: helm e2e_image_push e2e_cert_manager_deploy helm_e2e_install
+
+.PHONY: helm_e2e_install
+helm_e2e_install: helm
+	KUBECONFIG_E2E=$(KUBECONFIG_E2E) \
+	PRIVATE_KUBECONFIG_E2E=$(PRIVATE_KUBECONFIG_E2E) \
+	E2E_OPERATOR_URL=$(E2E_OPERATOR_URL) \
+	tools/helm-install-operator.sh
+
+.PHONY: helm_lint
+helm_lint: helm
+	helm lint helm/cloud-sql-operator
+
+bin/install_to_helm: tools/install_to_helm.go
+	go build -o $@ $<
 
 ##
 ##@ Google Cloud End to End Test

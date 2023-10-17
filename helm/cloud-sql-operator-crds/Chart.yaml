@@ -13,8 +13,8 @@
 # limitations under the License.
 
 apiVersion: v2
-name: cloud-sql-operator
-description: A helm chart for the Cloud SQL Auth Proxy Operator
+name: cloud-sql-operator-crds
+description: A Helm chart for Kubernetes
 
 # A chart can be either an 'application' or a 'library' chart.
 #
@@ -36,16 +36,3 @@ version: 0.1.0
 # follow Semantic Versioning. They should reflect the version the application is using.
 # It is recommended to use it with quotes.
 appVersion: "1.2.0"
-
-icon: https://lh3.googleusercontent.com/W3UEBKN5fp9DlpOe7N8rDi738TxH2BV61XKxmF3EFL15utdzE-rK99XBSnOjtXOKFyDf2-FnXnY=s48-w48-rw
-
-## Add cert-manager chart as a dependency
-#dependencies:
-#- name: cloud-sql-operator-crds
-#  version: v1.13.1
-#  repository: ./charts/
-#  alias: cloud-sql-operator-crds
-#  version: v1.13.1
-#  repository: https://charts.jetstack.io
-#  alias: cert-manager
-#  condition: cert-manager.enabled
