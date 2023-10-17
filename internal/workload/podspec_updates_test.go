@@ -666,6 +666,7 @@ func TestProxyCLIArgs(t *testing.T) {
 					},
 					MaxConnections:  ptr(int64(10)),
 					MaxSigtermDelay: ptr(int64(20)),
+					Quiet:           true,
 				},
 				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "hello:world:one",
@@ -692,6 +693,8 @@ func TestProxyCLIArgs(t *testing.T) {
 				"CSQL_PROXY_QUOTA_PROJECT":         "qp",
 				"CSQL_PROXY_MAX_CONNECTIONS":       "10",
 				"CSQL_PROXY_MAX_SIGTERM_DELAY":     "20",
+				"CSQL_PROXY_QUIET":                 "true",
+				"CSQL_PROXY_STRUCTURED_LOGS":       "true",
 			},
 		},
 		{
