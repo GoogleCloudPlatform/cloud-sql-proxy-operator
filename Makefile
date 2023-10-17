@@ -432,6 +432,7 @@ TERRAFORM ?= $(LOCALBIN)/terraform
 GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
 GO_LICENSES ?= $(LOCALBIN)/go-licenses
 CRD_REF_DOCS ?= $(LOCALBIN)/crd-ref-docs
+HELM ?= $(LOCALBIN)/helm
 
 ## Tool Versions
 # Important note: avoid adding spaces in the macro declarations as any
@@ -445,6 +446,7 @@ CRD_REF_DOCS_VERSION=v0.0.9# renovate datasource=go depName=github.com/elastic/c
 ENVTEST_VERSION=v0.0.0-20230301194117-e2d8821b277f# renovate datasource=go depName=sigs.k8s.io/controller-runtime/tools/setup-envtest
 GOLANGCI_LINT_VERSION=v1.51.2# renovate datasource=go depName=github.com/golangci/golangci-lint/cmd/golangci-lint
 GO_LICENSES_VERSION=v1.6.0# renovate datasource=go depName=github.com/google/go-licenses
+HELM_VERSION=v3.13.1# renovate datasource=go depName=github.com/helm/helm
 
 KUSTOMIZE_VERSION=v4.5.2# don't manage with renovate, this repo has non-standard tags
 
@@ -452,7 +454,7 @@ GOOS?=$(shell go env GOOS | tr -d '\n')
 GOARCH?=$(shell go env GOARCH | tr -d '\n')
 
 remove_tools:
-	rm -rf $(KUSTOMIZE) $(CONTROLLER_GEN) $(KUBECTL) $(ENVTEST) $(TERRAFORM) $(GOLANGCI_LINT) $(CRD_REF_DOCS)
+	rm -rf $(KUSTOMIZE) $(CONTROLLER_GEN) $(KUBECTL) $(ENVTEST) $(TERRAFORM) $(GOLANGCI_LINT) $(CRD_REF_DOCS) $(HELM)
 
 all_tools: kustomize controller-gen envtest kubectl terraform golangci-lint crd-ref-docs
 
@@ -516,8 +518,14 @@ gcloud:
 		 exit 1)
 
 .PHONY: helm
-helm:
-	@which helm > /dev/null || \
-		(echo "Helm command line tools are not available in your path" ; \
-		 echo "Instructions on how to install https://helm.sh/docs/helm/helm_install/ " ; \
-		 exit 1)
+helm: $(HELM)
+$(HELM): $(LOCALBIN) ## Download helm locally if necessary.
+	test -s $@ || \
+		( curl -v -L -o $@.tar.gz https://get.helm.sh/helm-$(HELM_VERSION)-$(GOOS)-$(GOARCH).tar.gz && \
+		cd $(LOCALBIN) && \
+		tar -zxf $@.tar.gz && \
+		mv $(LOCALBIN)/$(GOOS)-$(GOARCH)/* $(LOCALBIN) && \
+		rm -rf $(LOCALBIN)/$(GOOS)-$(GOARCH) && \
+		rm -f $@.tar.gz && \
+		chmod a+x $@ && \
+		touch $@ )
