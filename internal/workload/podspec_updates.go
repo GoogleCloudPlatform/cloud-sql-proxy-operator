@@ -599,6 +599,11 @@ func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, c *corev
 	// configure structured logs
 	s.addProxyContainerEnvVar(p, "CSQL_PROXY_STRUCTURED_LOGS", "true")
 
+	// configure quiet logs
+	if p.Spec.AuthProxyContainer != nil && p.Spec.AuthProxyContainer.Quiet {
+		s.addProxyContainerEnvVar(p, "CSQL_PROXY_QUIET", "true")
+	}
+
 	c.Name = ContainerName(p)
 	c.ImagePullPolicy = "IfNotPresent"
 
