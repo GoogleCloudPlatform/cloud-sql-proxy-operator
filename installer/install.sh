@@ -16,11 +16,11 @@
 
 set -euxo # exit 1 from the script when command fails
 
-# If CSQL_OPERATOR_VERSION is not set, use the release version: v1.1.0.
-CSQL_OPERATOR_VERSION="${CSQL_OPERATOR_VERSION:-v1.1.0}"
+# If CSQL_OPERATOR_VERSION is not set, use the release version: v1.3.0.
+CSQL_OPERATOR_VERSION="${CSQL_OPERATOR_VERSION:-v1.3.0}"
 
-# If CSQL_CERT_MANAGER_VERSION is not set, use the default: v1.13.0.
-CSQL_CERT_MANAGER_VERSION="${CSQL_CERT_MANAGER_VERSION:-v1.13.0}"
+# If CSQL_CERT_MANAGER_VERSION is not set, use the default: v1.13.1.
+CSQL_CERT_MANAGER_VERSION="${CSQL_CERT_MANAGER_VERSION:-v1.13.1}"
 
 # If CSQL_OPERATOR_URL is not set, use the default value from the CSQL_OPERATOR_VERSION
 CSQL_OPERATOR_URL="${CSQL_OPERATOR_URL:-https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/$CSQL_OPERATOR_VERSION/cloud-sql-proxy-operator.yaml}"
