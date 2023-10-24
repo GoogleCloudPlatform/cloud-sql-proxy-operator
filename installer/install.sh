@@ -16,8 +16,8 @@
 
 set -euxo # exit 1 from the script when command fails
 
-# If CSQL_OPERATOR_VERSION is not set, use the release version: v1.2.0.
-CSQL_OPERATOR_VERSION="${CSQL_OPERATOR_VERSION:-v1.2.0}"
+# If CSQL_OPERATOR_VERSION is not set, use the release version: v1.3.0.
+CSQL_OPERATOR_VERSION="${CSQL_OPERATOR_VERSION:-v1.3.0}"
 
 # If CSQL_CERT_MANAGER_VERSION is not set, use the default: v1.13.1.
 CSQL_CERT_MANAGER_VERSION="${CSQL_CERT_MANAGER_VERSION:-v1.13.1}"

@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.2.0...v1.3.0) (2023-10-17)
+
+
+### Features
+
+* Configure containerPort on proxy pod when telemetry is enabled ([#442](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/442)) ([a13ca22](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/a13ca224737d845b3faa8b7b066475d59ad9ddb9))
+
+
+### Bug Fixes
+
+* Correct the name of the quit url envvar CSQL_PROXY_QUIT_URLS. ([#454](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/454)) ([bd75451](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/bd75451235366725642894f454a3ce588bc4422d))
+
 ## [1.2.0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.1.0...v1.2.0) (2023-09-20)
 
 
