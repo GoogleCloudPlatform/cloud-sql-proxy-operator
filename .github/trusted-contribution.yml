@@ -14,6 +14,6 @@
 
 annotations:
   - type: label
-    text: "tests: run"
+    text: "tests: run-unit"
 
 trustedContributors: ['renovate-bot', 'gcf-merge-on-green[bot]']
