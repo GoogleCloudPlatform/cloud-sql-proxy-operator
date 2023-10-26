@@ -60,6 +60,9 @@
 - name: 'tests: run'
   color: 3DED97
   description: Label to trigger Github Action tests.
+- name: 'tests: run-unit'
+  color: 3DED97
+  description: Label to trigger Github Action unit tests.
 - name: 'flakybot: flaky'
   color: 86d9d7
   description: Tells the Flaky Bot not to close or comment on this issue.
