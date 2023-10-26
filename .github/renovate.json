@@ -35,6 +35,8 @@
         "^actions/github-script",
         "^actions/setup-go",
         "^actions/upload-artifact",
+        "^docker/setup-buildx-action",
+        "^docker/setup-qemu-action",
         "^dorny/paths-filter",
         "^github/codeql-action",
         "^golang/govulncheck-action",
@@ -45,7 +47,26 @@
         "^micnncim/action-label-syncer",
         "^ossf/scorecard-action"
       ],
-      "groupName": "dependencies for github"
+      "groupName": "Github action dependencies"
+    },
+    {
+      "matchPackagePatterns": [
+        "^kubernetes",
+        "^k8s.io/client-go",
+        "^sigs.k8s.io/controller-runtime",
+        "^sigs.k8s.io/controller-tools"
+      ],
+      "groupName": "Kubernetes runtime dependencies"
+    },
+    {
+      "matchPackagePatterns": [
+        "^cert-manager/cert-manager",
+        "^github.com/elastic/crd-ref-docs",
+        "^google",
+        "^google-beta",
+        "^hashicorp/terraform"
+      ],
+      "groupName": "Build Tools"
     }
   ],
   "force": {
