@@ -44,6 +44,16 @@ jobs:
             } catch (e) {
               console.log('Failed to remove label. Another job may have already removed it!');
             }
+            try {
+              await github.rest.issues.removeLabel({
+                name: 'tests: run-unit',
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number
+              });
+            } catch (e) {
+              console.log('Failed to remove label. Another job may have already removed it!');
+            }
       - name: Setup Go
         uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
         with:
