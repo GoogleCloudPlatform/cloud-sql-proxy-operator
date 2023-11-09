@@ -15,14 +15,24 @@
 ###
 # Global settings
 
-## RELEASE_TAG is the public image tag for the operator
-RELEASE_TAG_PATH=cloud-sql-connectors/cloud-sql-operator/cloud-sql-proxy-operator:$(VERSION)
-RELEASE_TAG=gcr.io/$(RELEASE_TAG_PATH)
 
 # When the environment variable IS_RELEASE_BUILD is set, the IMG will be set
 # to the RELEASE_TAG, overriding the IMG environment variable. This is intended
 # to be used only in a release job to publish artifacts.
 ifdef IS_RELEASE_BUILD
+RELEASE_TAG_PATH=cloud-sql-connectors/cloud-sql-operator/cloud-sql-proxy-operator:$(VERSION)
+RELEASE_TAG=gcr.io/$(RELEASE_TAG_PATH)
+## RELEASE_TAG is the public image tag for the operator
+IMG=$(RELEASE_TAG)
+endif
+
+# When the environment variable IS_TEST_RELEASE_BUILD is set, the IMG will be set
+# to the RELEASE_TAG, overriding the IMG environment variable. This is intended
+# to be used only in a release job to publish artifacts.
+ifdef IS_TEST_RELEASE_BUILD
+RELEASE_TAG_PATH=cloud-sql-connectors/cloud-sql-operator-test/cloud-sql-proxy-operator:$(RELEASE_TAG_NAME)
+RELEASE_TAG=gcr.io/$(RELEASE_TAG_PATH)
+## RELEASE_TAG is the public image tag for the operator
 IMG=$(RELEASE_TAG)
 endif
 
@@ -147,17 +157,23 @@ generate_crd_docs: crd-ref-docs # Generate the
 .PHONY: build_push_docker
 build_push_docker: # Build docker image with the operator. set IMG env var before running: `IMG=example.com/img:1.0 make build`
 	@test -n "$(IMG)" || ( echo "IMG environment variable must be set to the public repo where you want to push the image" ; exit 1)
+	@test -d 'bin' || mkdir -p bin
 	docker buildx build --platform "linux/amd64" \
 	  --build-arg GO_LD_FLAGS="$(VERSION_LDFLAGS)" \
 	  -f "Dockerfile-operator" \
 	  --push -t "$(IMG)" "$(PWD)"
-	test -d 'bin' || mkdir -p bin
+ifdef IS_TEST_RELEASE_BUILD
+	docker buildx build --platform "linux/amd64" \
+	  --build-arg GO_LD_FLAGS="$(VERSION_LDFLAGS)" \
+	  -f "Dockerfile-operator" \
+	  --output type=tar,dest=bin/cloud-sql-proxy-operator-image.tar -t "$(IMG)" "$(PWD)"
+endif
 	echo "$(IMG)" > bin/last-pushed-image-url.txt
 
 .PHONY: go_lint
 go_lint: golangci-lint # Run go lint tools, fail if unchecked errors
 	# Implements golang CI based on settings described here:
-	# See https://betterprogramming.pub/how-to-improve-code-quality-with-an-automatic-check-in-go-d18a5eb85f09
+	# See https://better`programming.pub/how-to-improve-code-quality-with-an-automatic-check-in-go-d18a5eb85f09
 	$(GOLANGCI_LINT) 	run --fix --fast ./...
 
 .PHONY: tf_lint
