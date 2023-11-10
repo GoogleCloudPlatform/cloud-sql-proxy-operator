@@ -102,4 +102,9 @@ jobs:
         run: |
           go install github.com/jstemmer/go-junit-report/v2@latest
           go-junit-report -in test_results.txt -set-exit-code -out unit_sponge_log.xml
-      
+      - name: FlakyBot
+        if: ${{ (github.event_name == 'schedule' || github.event_name == 'push') && always() }}
+        run: |
+          curl https://github.com/googleapis/repo-automation-bots/releases/download/flakybot-1.1.0/flakybot -o flakybot -s -L
+          chmod +x ./flakybot
+          ./flakybot --repo ${{github.repository}} --commit_hash ${{github.sha}} --build_url https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}
