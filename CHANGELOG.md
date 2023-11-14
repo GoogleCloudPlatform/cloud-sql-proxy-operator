@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.3.0...v1.4.0) (2023-11-14)
+
+
+### Features
+
+* Add support for Service Account Impersonation. ([#445](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/445)) ([4d8e277](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/4d8e2777dd5ab2bcbba06cfdcc3a3320bea91a46)), closes [#392](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/392)
+* Allow users to set quiet logging on proxy container ([#464](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/464)) ([1eaf019](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/1eaf019f3c2871dfd0e72b3eacd712712f7838ca)), closes [#402](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/402)
+
 ## [1.3.0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.2.0...v1.3.0) (2023-10-17)
 
 
