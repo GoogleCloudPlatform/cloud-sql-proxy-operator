@@ -39,6 +39,12 @@ webhooks:
     failurePolicy: Ignore
     name: pods.proxy.cloudsql.google.com
     matchPolicy: Equivalent
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values:
+            - kube-system
     rules:
       - apiGroups:
           - ""
