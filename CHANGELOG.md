@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.4.0...v1.4.1) (2023-12-12)
+
+
+### Bug Fixes
+
+* configure webhook to ignore kube-system ([#499](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/499)) ([291de15](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/291de1535f12a727a78607d6603901209eaf8763))
+
 ## [1.4.0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.3.0...v1.4.0) (2023-11-14)
 
 
