@@ -39,7 +39,7 @@ const (
 	// DefaultProxyImage is the latest version of the proxy as of the release
 	// of this operator. This is managed as a dependency. We update this constant
 	// when the Cloud SQL Auth Proxy releases a new version.
-	DefaultProxyImage = "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.8.0"
+	DefaultProxyImage = "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.8.1"
 
 	// DefaultFirstPort is the first port number chose for an instance listener by the
 	// proxy.
