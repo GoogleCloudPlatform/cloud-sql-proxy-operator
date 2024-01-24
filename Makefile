@@ -437,12 +437,12 @@ CRD_REF_DOCS ?= $(LOCALBIN)/crd-ref-docs
 # Important note: avoid adding spaces in the macro declarations as any
 # additional whitespace will break the renovate regex rules.
 
-KUBECTL_VERSION=v1.28.3# renovate datasource=github-tags depName=kubernetes/kubernetes
+KUBECTL_VERSION=v1.29.1# renovate datasource=github-tags depName=kubernetes/kubernetes
 TERRAFORM_VERSION=v1.7.1# renovate datasource=github-tags depName=hashicorp/terraform
 
-CONTROLLER_TOOLS_VERSION=v0.13.0# renovate datasource=go depName=sigs.k8s.io/controller-tools
+CONTROLLER_TOOLS_VERSION=v0.14.0# renovate datasource=go depName=sigs.k8s.io/controller-tools
 CRD_REF_DOCS_VERSION=v0.0.10# renovate datasource=go depName=github.com/elastic/crd-ref-docs
-ENVTEST_VERSION=v0.0.0-20230301194117-e2d8821b277f# renovate datasource=go depName=sigs.k8s.io/controller-runtime/tools/setup-envtest
+ENVTEST_VERSION=v0.17.0# renovate datasource=go depName=sigs.k8s.io/controller-runtime/tools/setup-envtest
 GOLANGCI_LINT_VERSION=v1.55.2# renovate datasource=go depName=github.com/golangci/golangci-lint/cmd/golangci-lint
 GO_LICENSES_VERSION=v1.6.0# renovate datasource=go depName=github.com/google/go-licenses
 
