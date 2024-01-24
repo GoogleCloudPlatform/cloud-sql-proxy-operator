@@ -54,7 +54,7 @@ SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
 ## The version to use for the cert-manager operator
-CERT_MANAGER_VERSION=v1.13.2# renovate datasource=github-tags depName=cert-manager/cert-manager
+CERT_MANAGER_VERSION=v1.13.3# renovate datasource=github-tags depName=cert-manager/cert-manager
 
 ##@ General
 
@@ -438,7 +438,7 @@ CRD_REF_DOCS ?= $(LOCALBIN)/crd-ref-docs
 # additional whitespace will break the renovate regex rules.
 
 KUBECTL_VERSION=v1.28.3# renovate datasource=github-tags depName=kubernetes/kubernetes
-TERRAFORM_VERSION=v1.6.3# renovate datasource=github-tags depName=hashicorp/terraform
+TERRAFORM_VERSION=v1.7.1# renovate datasource=github-tags depName=hashicorp/terraform
 
 CONTROLLER_TOOLS_VERSION=v0.13.0# renovate datasource=go depName=sigs.k8s.io/controller-tools
 CRD_REF_DOCS_VERSION=v0.0.10# renovate datasource=go depName=github.com/elastic/crd-ref-docs
