@@ -19,9 +19,11 @@ kubectl cluster-info
 Run the following command to install the cloud sql proxy operator into
 your kubernetes cluster:
 
+<!-- {x-version-update-start} -->
 ```shell
 curl https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/v1.4.2/install.sh | bash
 ```
+<!-- {x-version-update-end} -->
 
 This will use `helm` to install the `cert-manager` operator, a prerequisite. Then
 it will install the Cloud SQL Proxy Operator in your cluster.
