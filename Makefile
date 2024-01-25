@@ -442,7 +442,6 @@ TERRAFORM_VERSION=v1.7.1# renovate datasource=github-tags depName=hashicorp/terr
 
 CONTROLLER_TOOLS_VERSION=v0.14.0# renovate datasource=go depName=sigs.k8s.io/controller-tools
 CRD_REF_DOCS_VERSION=v0.0.10# renovate datasource=go depName=github.com/elastic/crd-ref-docs
-ENVTEST_VERSION=v0.17.0# renovate datasource=go depName=sigs.k8s.io/controller-runtime/tools/setup-envtest
 GOLANGCI_LINT_VERSION=v1.55.2# renovate datasource=go depName=github.com/golangci/golangci-lint/cmd/golangci-lint
 GO_LICENSES_VERSION=v1.6.0# renovate datasource=go depName=github.com/google/go-licenses
 
@@ -470,7 +469,7 @@ $(KUSTOMIZE): $(LOCALBIN)
 .PHONY: envtest
 envtest: $(ENVTEST) # Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
-	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@$(ENVTEST_VERSION)
+	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
 .PHONY: crd-ref-docs
 crd-ref-docs: $(CRD_REF_DOCS) # Download crd-ref-docs locally if necessary.
