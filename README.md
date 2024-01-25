@@ -41,9 +41,11 @@ helm install \
 Run the following command to install the cloud sql proxy operator into
 your kubernetes cluster:
 
+<!-- {x-version-update-start} -->
 ```shell
 kubectl apply -f https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/v1.4.2/cloud-sql-proxy-operator.yaml
 ```
+<!-- {x-version-update-end} -->
 
 Confirm that the operator is installed and running by listing its pods:
 

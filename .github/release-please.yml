@@ -16,3 +16,6 @@ handleGHRelease: true
 packageName: cloud-sql-proxy-operator
 releaseType: simple
 versionFile: 'version.txt'
+extraFiles:
+  - README.md
+  - docs/quick-start.md
