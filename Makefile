@@ -234,6 +234,7 @@ installer: installer/cloud-sql-proxy-operator.yaml installer/install.sh
 .PHONY: installer/cloud-sql-proxy-operator.yaml
 installer/cloud-sql-proxy-operator.yaml: kustomize # Build the single yaml file for deploying the operator
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(RELEASE_TAG)
+	mkdir -p installer
 	$(KUSTOMIZE) build config/default > $@
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(SOURCE_CODE_IMAGE)
 
