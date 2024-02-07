@@ -22,6 +22,11 @@ steps:
       - '-c'
       - 'go run github.com/google/go-licenses@v1.6.0 save --save_path ThirdPartyLicenses .'
     id: 'download-licenses'
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: make
+    args:
+      - generate
+    id: 'generate_artifacts'
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: bash
     args:
