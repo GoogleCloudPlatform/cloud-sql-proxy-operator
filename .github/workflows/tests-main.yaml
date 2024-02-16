@@ -41,7 +41,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
         with:
-          go-version: '1.20'
+          go-version: '1.22'
       - name: Set up build.env with phony secrets.
         run: cp build.sample.env build.env
       - name: make test
@@ -61,7 +61,7 @@ jobs:
           curl https://github.com/googleapis/repo-automation-bots/releases/download/flakybot-1.1.0/flakybot -o flakybot -s -L
           chmod +x ./flakybot
           ./flakybot --repo ${{github.repository}} --commit_hash ${{github.sha}} --build_url https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}
-      
+
   e2e:
     name: e2e tests
     runs-on: ubuntu-latest
@@ -85,7 +85,7 @@ jobs:
       - name: 'Setup Go'
         uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
         with:
-          go-version: '1.20'
+          go-version: '1.22'
       - name: Set up QEMU
         uses: docker/setup-qemu-action@2b82ce82d56a2a04d2637cd93a637ae1b359c0a7 # v2.2.0
       - name: Set up Docker Buildx
