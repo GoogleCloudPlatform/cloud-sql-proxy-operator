@@ -26,7 +26,6 @@ import (
 
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/controller"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers"
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
 	"github.com/go-logr/logr"
 	"go.uber.org/zap/zapcore"
 	appsv1 "k8s.io/api/apps/v1"
@@ -54,6 +53,9 @@ var (
 	operatorURL   string
 )
 
+func newPrivateAlloyDBClient(ns string) *testhelpers.TestCaseClient {
+	return newTestClient(ns, infra.Private.AlloyDB, privateClient)
+}
 func newPrivatePostgresClient(ns string) *testhelpers.TestCaseClient {
 	return newTestClient(ns, infra.Private.Postgres, privateClient)
 }
@@ -114,7 +116,7 @@ func setupTests() (func(), error) {
 	}
 
 	// Read e2e test configuration
-	proxyImageURL = loadValue("PROXY_IMAGE_URL", "../bin/last-local-proxy-url.txt", workload.DefaultProxyImage)
+	proxyImageURL = loadValue("PROXY_IMAGE_URL", "../bin/last-local-proxy-url.txt", "")
 	operatorURL = loadValue("OPERATOR_IMAGE_URL", "../bin/last-gcloud-operator-url.txt", "operator:latest")
 	testInfraPath := loadValue("TEST_INFRA_JSON", "", "../bin/testinfra.json")
 	ti, err := loadTestInfra(testInfraPath)
@@ -293,6 +295,7 @@ type testEnvironment struct {
 	Postgres   testDatabase `json:"postgres,omitempty"`
 	MySQL      testDatabase `json:"mysql,omitempty"`
 	MSSQL      testDatabase `json:"mssql,omitempty"`
+	AlloyDB    testDatabase `json:"alloydb,omitempty"`
 	Kubeconfig string       `json:"kubeconfig,omitempty"`
 }
 

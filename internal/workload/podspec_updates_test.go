@@ -137,7 +137,7 @@ func TestUpdatePodWorkload(t *testing.T) {
 	var (
 		wantsName               = "instance1"
 		wantsPort         int32 = 8080
-		wantContainerName       = "csql-default-" + wantsName
+		wantContainerName       = "csql-" + wantsName + "-cloudsql"
 		wantsInstanceName       = "project:server:db"
 		wantsInstanceArg        = fmt.Sprintf("%s?port=%d", wantsInstanceName, wantsPort)
 		u                       = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
@@ -180,6 +180,61 @@ func TestUpdatePodWorkload(t *testing.T) {
 	if gotArg, err := hasArg(wl, wantContainerName, wantsInstanceArg); err != nil || !gotArg {
 		t.Errorf("wants connection string arg %v but it was not present in proxy container args %v",
 			wantsInstanceArg, foundContainer.Args)
+	}
+
+}
+
+func TestAlloyDBPodWorkload(t *testing.T) {
+	var (
+		wantsName               = "instance1"
+		wantsPort         int32 = 8080
+		wantContainerName       = "csql-" + wantsName + "-alloydb"
+		wantsInstanceName       = "projects/csql-testing-2/locations/us-central1/clusters/alloy-adhoc-hessjc/instances/db"
+		wantsInstanceArg        = fmt.Sprintf("%s?port=%d", wantsInstanceName, wantsPort)
+		u                       = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
+	)
+	var err error
+
+	// Create a pod
+	wl := podWorkload()
+
+	// ensure that the deployment only has one container before
+	// updating the deployment.
+	if len(wl.Pod.Spec.Containers) != 1 {
+		t.Fatalf("got %v, wants 1. deployment containers length", len(wl.Pod.Spec.Containers))
+	}
+
+	// Create a AuthProxyWorkload that matches the deployment
+	proxy := authProxyWorkload(wantsName, nil)
+	proxy.Spec.AlloyDBInstances = []cloudsqlapi.InstanceSpec{{ConnectionString: wantsInstanceName}}
+	proxy.Spec.AlloyDBInstances[0].Port = ptr(wantsPort)
+
+	// Update the container with new markWorkloadNeedsUpdate
+	err = configureProxies(u, wl, []*cloudsqlapi.AuthProxyWorkload{proxy})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// test that there are now 2 containers
+	if want, got := 2, len(wl.Pod.Spec.Containers); want != got {
+		t.Fatalf("got %v want %v, number of deployment containers", got, want)
+	}
+
+	t.Logf("Containers: {%v}", wl.Pod.Spec.Containers)
+
+	// test that the container has the proper name following the conventions
+	foundContainer, err := findContainer(wl, wantContainerName)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// test that the container args have the expected args
+	if gotArg, err := hasArg(wl, wantContainerName, wantsInstanceArg); err != nil || !gotArg {
+		t.Errorf("wants connection string arg %v but it was not present in proxy container args %v",
+			wantsInstanceArg, foundContainer.Args)
+	}
+	if gotImg, wantImg := foundContainer.Image, workload.DefaultAlloyDBProxyImage; gotImg != wantImg {
+		t.Errorf("got %v, want %v alloydb container image", gotImg, wantImg)
 	}
 
 }
@@ -230,7 +285,7 @@ func TestUpdateWorkloadFixedPort(t *testing.T) {
 	}
 
 	// test that the instancename matches the new expected instance name.
-	csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-default-%s", csqls[0].GetName()))
+	csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-%s-cloudsql", csqls[0].GetName()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -296,7 +351,7 @@ func TestWorkloadNoPortSet(t *testing.T) {
 	}
 
 	// test that the instancename matches the new expected instance name.
-	csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-default-%s", csqls[0].GetName()))
+	csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-%s-cloudsql", csqls[0].GetName()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -347,7 +402,7 @@ func TestContainerImageChanged(t *testing.T) {
 	}
 
 	// test that the instancename matches the new expected instance name.
-	csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-default-%s", csqls[0].GetName()))
+	csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-%s-cloudsql", csqls[0].GetName()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -402,7 +457,7 @@ func TestContainerImageEmpty(t *testing.T) {
 			}
 
 			// test that the instancename matches the new expected instance name.
-			csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-default-%s", csqls[0].GetName()))
+			csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-%s-cloudsql", csqls[0].GetName()))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -446,7 +501,7 @@ func TestContainerReplaced(t *testing.T) {
 	}
 
 	// test that the instancename matches the new expected instance name.
-	csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-default-%s", csqls[0].GetName()))
+	csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-%s-cloudsql", csqls[0].GetName()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -500,7 +555,7 @@ func TestResourcesFromSpec(t *testing.T) {
 	}
 
 	// test that the instancename matches the new expected instance name.
-	csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-default-%s", csqls[0].GetName()))
+	csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-%s-cloudsql", csqls[0].GetName()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -702,6 +757,56 @@ func TestProxyCLIArgs(t *testing.T) {
 			},
 		},
 		{
+			desc: "global flags for alloydb",
+			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
+				AlloyDBProxyContainer: &cloudsqlapi.AuthProxyContainerSpec{
+					SQLAdminAPIEndpoint: "https://example.com",
+					Telemetry: &cloudsqlapi.TelemetrySpec{
+						TelemetryPrefix:     ptr("telprefix"),
+						TelemetryProject:    ptr("telproject"),
+						TelemetrySampleRate: ptr(200),
+						HTTPPort:            ptr(int32(9092)),
+						DisableTraces:       &wantTrue,
+						DisableMetrics:      &wantTrue,
+						Prometheus:          &wantTrue,
+						PrometheusNamespace: ptr("hello"),
+						QuotaProject:        ptr("qp"),
+					},
+					AdminServer: &cloudsqlapi.AdminServerSpec{
+						EnableAPIs: []string{"Debug", "QuitQuitQuit"},
+						Port:       int32(9091),
+					},
+					MaxConnections:  ptr(int64(10)),
+					MaxSigtermDelay: ptr(int64(20)),
+				},
+				AlloyDBInstances: []cloudsqlapi.InstanceSpec{{
+					ConnectionString: "projects/p/locations/l/clusters/c/instances/i",
+					Port:             ptr(int32(5000)),
+				}},
+			},
+			wantProxyArgContains: []string{
+				fmt.Sprintf("projects/p/locations/l/clusters/c/instances/i?port=%d", 5000),
+			},
+			wantWorkloadEnv: map[string]string{
+				"ALLOYDB_PROXY_SQLADMIN_API_ENDPOINT": "https://example.com",
+				"ALLOYDB_PROXY_TELEMETRY_SAMPLE_RATE": "200",
+				"ALLOYDB_PROXY_PROMETHEUS_NAMESPACE":  "hello",
+				"ALLOYDB_PROXY_TELEMETRY_PROJECT":     "telproject",
+				"ALLOYDB_PROXY_TELEMETRY_PREFIX":      "telprefix",
+				"ALLOYDB_PROXY_HTTP_PORT":             "9092",
+				"ALLOYDB_PROXY_ADMIN_PORT":            "9091",
+				"ALLOYDB_PROXY_DEBUG":                 "true",
+				"ALLOYDB_PROXY_QUITQUITQUIT":          "true",
+				"ALLOYDB_PROXY_HEALTH_CHECK":          "true",
+				"ALLOYDB_PROXY_DISABLE_TRACES":        "true",
+				"ALLOYDB_PROXY_DISABLE_METRICS":       "true",
+				"ALLOYDB_PROXY_PROMETHEUS":            "true",
+				"ALLOYDB_PROXY_QUOTA_PROJECT":         "qp",
+				"ALLOYDB_PROXY_MAX_CONNECTIONS":       "10",
+				"ALLOYDB_PROXY_MAX_SIGTERM_DELAY":     "20",
+			},
+		},
+		{
 			desc: "Default admin port enabled when AdminServerSpec is nil",
 			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
 				AuthProxyContainer: &cloudsqlapi.AuthProxyContainerSpec{},
@@ -790,7 +895,11 @@ func TestProxyCLIArgs(t *testing.T) {
 			}
 
 			// test that the instancename matches the new expected instance name.
-			csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-default-%s", csqls[0].GetName()))
+			proxyType := "cloudsql"
+			if csqls[0].Spec.AlloyDBProxyContainer != nil {
+				proxyType = "alloydb"
+			}
+			csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-%s-%s", csqls[0].GetName(), proxyType))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -962,9 +1071,9 @@ func TestTelemetryAddsTelemetryContainerPort(t *testing.T) {
 	}
 
 	var wantPorts = map[string]int32{
-		workload.ContainerName(csqls[0]): workload.DefaultHealthCheckPort,
-		workload.ContainerName(csqls[1]): workload.DefaultHealthCheckPort + 1,
-		workload.ContainerName(csqls[2]): workload.DefaultHealthCheckPort + 2,
+		workload.ContainerName(csqls[0], "cloudsql"): workload.DefaultHealthCheckPort,
+		workload.ContainerName(csqls[1], "cloudsql"): workload.DefaultHealthCheckPort + 1,
+		workload.ContainerName(csqls[2], "cloudsql"): workload.DefaultHealthCheckPort + 2,
 	}
 
 	// test that containerPort values were set properly
@@ -1053,7 +1162,7 @@ func TestPreStopHook(t *testing.T) {
 	}
 
 	// test that prestop hook was set
-	c, err := findContainer(wl, workload.ContainerName(csqls[0]))
+	c, err := findContainer(wl, workload.ContainerName(csqls[0], "cloudsql"))
 	if err != nil {
 		t.Fatal("can't find proxy container", err)
 	}
@@ -1154,7 +1263,7 @@ func TestWorkloadUnixVolume(t *testing.T) {
 	}
 
 	// test that the instancename matches the new expected instance name.
-	csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-default-%s", csqls[0].GetName()))
+	csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-%s-cloudsql", csqls[0].GetName()))
 	if err != nil {
 		t.Fatal(err)
 	}

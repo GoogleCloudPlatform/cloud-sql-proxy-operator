@@ -41,6 +41,11 @@ const (
 	// when the Cloud SQL Auth Proxy releases a new version.
 	DefaultProxyImage = "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.9.0"
 
+	// DefaultAlloyDBProxyImage is the latest version of the proxy as of the release
+	// of this operator. This is managed as a dependency. We update this constant
+	// when the AlloyDB Auth Proxy releases a new version.
+	DefaultAlloyDBProxyImage = "gcr.io/alloydb-connectors/alloydb-auth-proxy:1.2.1"
+
 	// DefaultFirstPort is the first port number chose for an instance listener by the
 	// proxy.
 	DefaultFirstPort int32 = 5000
@@ -217,17 +222,33 @@ func (u *Updater) CheckWorkloadContainers(wl *PodWorkload, matches []*cloudsqlap
 	// container on this pod, but there is no container.
 	var missing []string
 	for _, p := range matches {
-		wantName := ContainerName(p)
-		var found bool
-		for _, c := range wl.PodSpec().Containers {
-			if c.Name == wantName {
-				found = true
+		var wantName string
+		if len(p.Spec.Instances) > 0 {
+			wantName = ContainerName(p, "cloudsql")
+			var found bool
+			for _, c := range wl.PodSpec().Containers {
+				if c.Name == wantName {
+					found = true
+				}
+			}
+			if !found {
+				missing = append(missing, wantName)
 			}
 		}
-		if !found {
-			missing = append(missing, p.Name)
-			break
+
+		if len(p.Spec.AlloyDBInstances) > 0 {
+			wantName = ContainerName(p, "alloydb")
+			var found bool
+			for _, c := range wl.PodSpec().Containers {
+				if c.Name == wantName {
+					found = true
+				}
+			}
+			if !found {
+				missing = append(missing, wantName)
+			}
 		}
+
 	}
 
 	// If no containers are missing, then there is no error, return nil.
@@ -290,6 +311,7 @@ type managedVolume struct {
 type proxyInstanceID struct {
 	AuthProxyWorkload types.NamespacedName `json:"authProxyWorkload"`
 	ConnectionString  string               `json:"connectionString"`
+	Type              string               `json:"type"`
 }
 
 // updateState holds internal state while a particular workload being configured
@@ -431,19 +453,6 @@ func (s *updateState) addPort(p int32, instance proxyInstanceID) {
 	}
 }
 
-func (s *updateState) addProxyContainerEnvVar(p *cloudsqlapi.AuthProxyWorkload, k, v string) {
-	s.addEnvVar(p, managedEnvVar{
-		Instance: proxyInstanceID{
-			AuthProxyWorkload: types.NamespacedName{
-				Namespace: p.Namespace,
-				Name:      p.Name,
-			},
-		},
-		ContainerName:        ContainerName(p),
-		OperatorManagedValue: corev1.EnvVar{Name: k, Value: v},
-	})
-}
-
 // addWorkloadEnvVar adds or replaces the envVar based on its Name, returning the old and new values
 func (s *updateState) addWorkloadEnvVar(p *cloudsqlapi.AuthProxyWorkload, is *cloudsqlapi.InstanceSpec, ev corev1.EnvVar) {
 	s.addEnvVar(p, managedEnvVar{
@@ -488,30 +497,10 @@ func isEnvVarConflict(oldEnv *managedEnvVar, v managedEnvVar) bool {
 	return oldEnv.OperatorManagedValue.Value != v.OperatorManagedValue.Value
 }
 
-func (s *updateState) initState(pl []*cloudsqlapi.AuthProxyWorkload) {
-	// Reset the mods.DBInstances to the list of pl being
-	// applied right now.
-	s.mods.DBInstances = make([]*proxyInstanceID, 0, len(pl))
-	for _, wl := range pl {
-		for _, instance := range wl.Spec.Instances {
-			s.mods.DBInstances = append(s.mods.DBInstances,
-				&proxyInstanceID{
-					AuthProxyWorkload: types.NamespacedName{
-						Namespace: wl.Namespace,
-						Name:      wl.Name,
-					},
-					ConnectionString: instance.ConnectionString,
-				})
-		}
-	}
-
-}
-
 // update Reconciles the state of a workload, applying the matching DBInstances
 // and removing any out-of-date configuration related to deleted DBInstances
 func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWorkload) error {
 
-	s.initState(matches)
 	podSpec := wl.PodSpec()
 	containers := podSpec.Containers
 
@@ -539,9 +528,37 @@ func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWo
 	for i := range matches {
 		inst := matches[i]
 
-		newContainer := corev1.Container{}
-		s.updateContainer(inst, &newContainer)
-		containers = append(containers, newContainer)
+		// cloudsql proxy container
+		if len(inst.Spec.Instances) > 0 {
+			newContainer := corev1.Container{}
+			ucs := &updateContainerState{
+				us:        s,
+				proxyType: "cloudsql",
+				c:         &newContainer,
+				p:         inst,
+				cs:        inst.Spec.AuthProxyContainer,
+				instances: inst.Spec.Instances,
+				envPrefix: "CSQL_PROXY_",
+			}
+			ucs.init()
+			containers = append(containers, newContainer)
+		}
+
+		// alloydb proxy container
+		if len(inst.Spec.AlloyDBInstances) > 0 {
+			newContainer := corev1.Container{}
+			ucs := &updateContainerState{
+				us:        s,
+				proxyType: "alloydb",
+				c:         &newContainer,
+				p:         inst,
+				cs:        inst.Spec.AlloyDBProxyContainer,
+				instances: inst.Spec.AlloyDBInstances,
+				envPrefix: "ALLOYDB_PROXY_",
+			}
+			ucs.init()
+			containers = append(containers, newContainer)
+		}
 
 		// Add pod annotation for each instance
 		k, v := s.updater.PodAnnotation(inst)
@@ -574,62 +591,76 @@ func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWo
 	return nil
 }
 
+type updateContainerState struct {
+	us            *updateState
+	proxyType     string
+	c             *corev1.Container
+	p             *cloudsqlapi.AuthProxyWorkload
+	cs            *cloudsqlapi.AuthProxyContainerSpec
+	instances     []cloudsqlapi.InstanceSpec
+	containerName string
+	envPrefix     string
+}
+
 // updateContainer Creates or updates the proxy container in the workload's PodSpec
-func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, c *corev1.Container) {
+func (s *updateContainerState) init() {
+	s.containerName = ContainerName(s.p, s.proxyType)
+
 	// if the c was fully overridden, just use that c.
-	if p.Spec.AuthProxyContainer != nil && p.Spec.AuthProxyContainer.Container != nil {
-		p.Spec.AuthProxyContainer.Container.DeepCopyInto(c)
-		c.Name = ContainerName(p)
+	if s.cs != nil && s.cs.Container != nil {
+		s.cs.Container.DeepCopyInto(s.c)
+		s.c.Name = s.containerName
 		return
 	}
 
+	s.c.Name = s.containerName
+	s.c.ImagePullPolicy = "IfNotPresent"
+
 	// always enable http port healthchecks on 0.0.0.0 and structured logs
-	s.addHealthCheck(p, c)
-	s.applyTelemetrySpec(p)
+	s.addHealthCheck()
+	s.applyTelemetrySpec()
 
 	// enable the proxy's admin service
-	s.addAdminServer(p)
+	s.addAdminServer()
 
 	// configure container authentication
-	s.addAuthentication(p)
+	s.addAuthentication()
 
 	// add the user agent
-	s.addProxyContainerEnvVar(p, "CSQL_PROXY_USER_AGENT", s.updater.userAgent)
+	s.addProxyContainerEnvVar("USER_AGENT", s.us.updater.userAgent)
 
 	// configure structured logs
-	s.addProxyContainerEnvVar(p, "CSQL_PROXY_STRUCTURED_LOGS", "true")
+	s.addProxyContainerEnvVar("STRUCTURED_LOGS", "true")
 
+	s.applyContainerSpec()
 	// configure quiet logs
-	if p.Spec.AuthProxyContainer != nil && p.Spec.AuthProxyContainer.Quiet {
-		s.addProxyContainerEnvVar(p, "CSQL_PROXY_QUIET", "true")
+	if s.p.Spec.AuthProxyContainer != nil && s.p.Spec.AuthProxyContainer.Quiet {
+		s.addProxyContainerEnvVar("QUIET", "true")
 	}
 
-	c.Name = ContainerName(p)
-	c.ImagePullPolicy = "IfNotPresent"
-
-	s.applyContainerSpec(p, c)
+	s.applyContainerSpec()
 
 	// Build the c
 	var cliArgs []string
 
 	// Instances
-	for i := range p.Spec.Instances {
-		inst := &p.Spec.Instances[i]
+	for i := range s.instances {
+		inst := &s.instances[i]
 		params := map[string]string{}
 
 		// if it is a TCP socket
 		if inst.UnixSocketPath == "" {
 
-			port := s.useInstancePort(p, inst)
+			port := s.us.useInstancePort(s.p, inst)
 			params["port"] = fmt.Sprint(port)
 			if inst.HostEnvName != "" {
-				s.addWorkloadEnvVar(p, inst, corev1.EnvVar{
+				s.us.addWorkloadEnvVar(s.p, inst, corev1.EnvVar{
 					Name:  inst.HostEnvName,
 					Value: "127.0.0.1",
 				})
 			}
 			if inst.PortEnvName != "" {
-				s.addWorkloadEnvVar(p, inst, corev1.EnvVar{
+				s.us.addWorkloadEnvVar(s.p, inst, corev1.EnvVar{
 					Name:  inst.PortEnvName,
 					Value: fmt.Sprint(port),
 				})
@@ -637,8 +668,8 @@ func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, c *corev
 		} else {
 			// else if it is a unix socket
 			params["unix-socket-path"] = inst.UnixSocketPath
-			mountName := VolumeName(p, inst, "unix")
-			s.addVolumeMount(p, inst,
+			mountName := VolumeName(s.p, inst, "unix")
+			s.us.addVolumeMount(s.p, inst,
 				corev1.VolumeMount{
 					Name:      mountName,
 					ReadOnly:  false,
@@ -650,7 +681,7 @@ func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, c *corev
 				})
 
 			if inst.UnixSocketPathEnvName != "" {
-				s.addWorkloadEnvVar(p, inst, corev1.EnvVar{
+				s.us.addWorkloadEnvVar(s.p, inst, corev1.EnvVar{
 					Name:  inst.UnixSocketPathEnvName,
 					Value: inst.UnixSocketPath,
 				})
@@ -697,17 +728,40 @@ func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, c *corev
 		}
 
 	}
-	c.Args = cliArgs
+	s.c.Args = cliArgs
+}
+
+func (s *updateContainerState) addProxyContainerEnvVar(k, v string) {
+	s.us.addEnvVar(s.p, managedEnvVar{
+		Instance: proxyInstanceID{
+			AuthProxyWorkload: types.NamespacedName{
+				Namespace: s.p.Namespace,
+				Name:      s.p.Name,
+			},
+		},
+		ContainerName:        s.containerName,
+		OperatorManagedValue: corev1.EnvVar{Name: s.envPrefix + k, Value: v},
+	})
+}
+
+func (s *updateContainerState) defaultProxyImage() {
+
 }
 
 // applyContainerSpec applies settings from cloudsqlapi.AuthProxyContainerSpec
 // to the container
-func (s *updateState) applyContainerSpec(p *cloudsqlapi.AuthProxyWorkload, c *corev1.Container) {
+func (s *updateContainerState) applyContainerSpec() {
+	if s.proxyType == "alloydb" {
+		s.c.Image = DefaultAlloyDBProxyImage
+	} else {
+		s.c.Image = s.us.defaultProxyImage()
+	}
+	s.c.Resources = defaultContainerResources
+
 	t := true
 	var f bool
-	c.Image = s.defaultProxyImage()
-	c.Resources = defaultContainerResources
-	c.SecurityContext = &corev1.SecurityContext{
+	s.c.Resources = defaultContainerResources
+	s.c.SecurityContext = &corev1.SecurityContext{
 		// The default Cloud SQL Auth Proxy image runs as the
 		// "nonroot" user and group (uid: 65532) by default.
 		RunAsNonRoot: &t,
@@ -717,28 +771,28 @@ func (s *updateState) applyContainerSpec(p *cloudsqlapi.AuthProxyWorkload, c *co
 		AllowPrivilegeEscalation: &f,
 	}
 
-	if p.Spec.AuthProxyContainer == nil {
+	if s.cs == nil {
 		return
 	}
 
-	if p.Spec.AuthProxyContainer.Image != "" {
-		c.Image = p.Spec.AuthProxyContainer.Image
+	if s.cs.Image != "" {
+		s.c.Image = s.cs.Image
 	}
 
-	if p.Spec.AuthProxyContainer.Resources != nil {
-		c.Resources = *p.Spec.AuthProxyContainer.Resources.DeepCopy()
+	if s.cs.Resources != nil {
+		s.c.Resources = *s.cs.Resources.DeepCopy()
 	}
 
-	if p.Spec.AuthProxyContainer.SQLAdminAPIEndpoint != "" {
-		s.addProxyContainerEnvVar(p, "CSQL_PROXY_SQLADMIN_API_ENDPOINT", p.Spec.AuthProxyContainer.SQLAdminAPIEndpoint)
+	if s.cs.SQLAdminAPIEndpoint != "" {
+		s.addProxyContainerEnvVar("SQLADMIN_API_ENDPOINT", s.cs.SQLAdminAPIEndpoint)
 	}
-	if p.Spec.AuthProxyContainer.MaxConnections != nil &&
-		*p.Spec.AuthProxyContainer.MaxConnections != 0 {
-		s.addProxyContainerEnvVar(p, "CSQL_PROXY_MAX_CONNECTIONS", fmt.Sprintf("%d", *p.Spec.AuthProxyContainer.MaxConnections))
+	if s.cs.MaxConnections != nil &&
+		*s.cs.MaxConnections != 0 {
+		s.addProxyContainerEnvVar("MAX_CONNECTIONS", fmt.Sprintf("%d", *s.cs.MaxConnections))
 	}
-	if p.Spec.AuthProxyContainer.MaxSigtermDelay != nil &&
-		*p.Spec.AuthProxyContainer.MaxSigtermDelay != 0 {
-		s.addProxyContainerEnvVar(p, "CSQL_PROXY_MAX_SIGTERM_DELAY", fmt.Sprintf("%d", *p.Spec.AuthProxyContainer.MaxSigtermDelay))
+	if s.cs.MaxSigtermDelay != nil &&
+		*s.cs.MaxSigtermDelay != 0 {
+		s.addProxyContainerEnvVar("MAX_SIGTERM_DELAY", fmt.Sprintf("%d", *s.cs.MaxSigtermDelay))
 	}
 
 	return
@@ -746,35 +800,35 @@ func (s *updateState) applyContainerSpec(p *cloudsqlapi.AuthProxyWorkload, c *co
 
 // applyTelemetrySpec applies settings from cloudsqlapi.TelemetrySpec
 // to the container
-func (s *updateState) applyTelemetrySpec(p *cloudsqlapi.AuthProxyWorkload) {
-	if p.Spec.AuthProxyContainer == nil || p.Spec.AuthProxyContainer.Telemetry == nil {
+func (s *updateContainerState) applyTelemetrySpec() {
+	if s.cs == nil || s.cs.Telemetry == nil {
 		return
 	}
-	tel := p.Spec.AuthProxyContainer.Telemetry
+	tel := s.cs.Telemetry
 
 	if tel.TelemetrySampleRate != nil {
-		s.addProxyContainerEnvVar(p, "CSQL_PROXY_TELEMETRY_SAMPLE_RATE", fmt.Sprintf("%d", *tel.TelemetrySampleRate))
+		s.addProxyContainerEnvVar("TELEMETRY_SAMPLE_RATE", fmt.Sprintf("%d", *tel.TelemetrySampleRate))
 	}
 	if tel.DisableTraces != nil && *tel.DisableTraces {
-		s.addProxyContainerEnvVar(p, "CSQL_PROXY_DISABLE_TRACES", "true")
+		s.addProxyContainerEnvVar("DISABLE_TRACES", "true")
 	}
 	if tel.DisableMetrics != nil && *tel.DisableMetrics {
-		s.addProxyContainerEnvVar(p, "CSQL_PROXY_DISABLE_METRICS", "true")
+		s.addProxyContainerEnvVar("DISABLE_METRICS", "true")
 	}
 	if tel.PrometheusNamespace != nil || (tel.Prometheus != nil && *tel.Prometheus) {
-		s.addProxyContainerEnvVar(p, "CSQL_PROXY_PROMETHEUS", "true")
+		s.addProxyContainerEnvVar("PROMETHEUS", "true")
 	}
 	if tel.PrometheusNamespace != nil {
-		s.addProxyContainerEnvVar(p, "CSQL_PROXY_PROMETHEUS_NAMESPACE", *tel.PrometheusNamespace)
+		s.addProxyContainerEnvVar("PROMETHEUS_NAMESPACE", *tel.PrometheusNamespace)
 	}
 	if tel.TelemetryProject != nil {
-		s.addProxyContainerEnvVar(p, "CSQL_PROXY_TELEMETRY_PROJECT", *tel.TelemetryProject)
+		s.addProxyContainerEnvVar("TELEMETRY_PROJECT", *tel.TelemetryProject)
 	}
 	if tel.TelemetryPrefix != nil {
-		s.addProxyContainerEnvVar(p, "CSQL_PROXY_TELEMETRY_PREFIX", *tel.TelemetryPrefix)
+		s.addProxyContainerEnvVar("TELEMETRY_PREFIX", *tel.TelemetryPrefix)
 	}
 	if tel.QuotaProject != nil {
-		s.addProxyContainerEnvVar(p, "CSQL_PROXY_QUOTA_PROJECT", *tel.QuotaProject)
+		s.addProxyContainerEnvVar("QUOTA_PROJECT", *tel.QuotaProject)
 	}
 	return
 }
@@ -806,22 +860,20 @@ func (s *updateState) updateContainerEnv(c *corev1.Container) {
 }
 
 // addHealthCheck adds the health check declaration to this workload.
-func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1.Container) int32 {
+func (s *updateContainerState) addHealthCheck() {
 	var portPtr *int32
 	var adminPortPtr *int32
 
-	cs := p.Spec.AuthProxyContainer
-
 	// if the TelemetrySpec.exists, get Port and Port values
-	if cs != nil && cs.Telemetry != nil {
-		if cs.Telemetry.HTTPPort != nil {
-			portPtr = cs.Telemetry.HTTPPort
+	if s.cs != nil && s.cs.Telemetry != nil {
+		if s.cs.Telemetry.HTTPPort != nil {
+			portPtr = s.cs.Telemetry.HTTPPort
 		}
 	}
 
-	port := s.usePort(portPtr, DefaultHealthCheckPort, p)
+	port := s.us.usePort(portPtr, DefaultHealthCheckPort, s.p)
 
-	c.StartupProbe = &corev1.Probe{
+	s.c.StartupProbe = &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{
 			Port: intstr.IntOrString{IntVal: port},
 			Path: "/startup",
@@ -830,7 +882,7 @@ func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1
 		FailureThreshold: 60,
 		TimeoutSeconds:   10,
 	}
-	c.LivenessProbe = &corev1.Probe{
+	s.c.LivenessProbe = &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{
 			Port: intstr.IntOrString{IntVal: port},
 			Path: "/liveness",
@@ -840,17 +892,18 @@ func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1
 		TimeoutSeconds:   10,
 	}
 
+	//TODO: Make prefix variable: CSQL_PROXY_ or ALLOYDB_PROXY_
 	// Add a port that is associated with the proxy, but not a specific db instance
-	s.addProxyPort(port, p)
-	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HTTP_PORT", fmt.Sprintf("%d", port))
-	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HTTP_ADDRESS", "0.0.0.0")
-	s.addProxyContainerEnvVar(p, "CSQL_PROXY_HEALTH_CHECK", "true")
+	s.us.addProxyPort(port, s.p)
+	s.addProxyContainerEnvVar("HTTP_PORT", fmt.Sprintf("%d", port))
+	s.addProxyContainerEnvVar("HTTP_ADDRESS", "0.0.0.0")
+	s.addProxyContainerEnvVar("HEALTH_CHECK", "true")
 	// For graceful exits as a sidecar, the proxy should exit with exit code 0
 	// when it receives a SIGTERM.
-	s.addProxyContainerEnvVar(p, "CSQL_PROXY_EXIT_ZERO_ON_SIGTERM", "true")
+	s.addProxyContainerEnvVar("EXIT_ZERO_ON_SIGTERM", "true")
 
 	// Add a containerPort declaration for the healthcheck & telemetry port
-	c.Ports = append(c.Ports, corev1.ContainerPort{
+	s.c.Ports = append(s.c.Ports, corev1.ContainerPort{
 		ContainerPort: port,
 		Protocol:      corev1.ProtocolTCP,
 	})
@@ -858,16 +911,16 @@ func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1
 	// Also the operator will enable the /quitquitquit endpoint for graceful exit.
 	// If the AdminServer.Port is set, use it, otherwise use the default
 	// admin port.
-	if cs != nil && cs.AdminServer != nil && cs.AdminServer.Port != 0 {
-		adminPortPtr = &cs.AdminServer.Port
+	if s.cs != nil && s.cs.AdminServer != nil && s.cs.AdminServer.Port != 0 {
+		adminPortPtr = &s.cs.AdminServer.Port
 	}
-	adminPort := s.usePort(adminPortPtr, DefaultAdminPort, p)
-	s.addAdminPort(adminPort)
-	s.addProxyContainerEnvVar(p, "CSQL_PROXY_QUITQUITQUIT", "true")
-	s.addProxyContainerEnvVar(p, "CSQL_PROXY_ADMIN_PORT", fmt.Sprintf("%d", adminPort))
+	adminPort := s.us.usePort(adminPortPtr, DefaultAdminPort, s.p)
+	s.us.addAdminPort(adminPort)
+	s.addProxyContainerEnvVar("QUITQUITQUIT", "true")
+	s.addProxyContainerEnvVar("ADMIN_PORT", fmt.Sprintf("%d", adminPort))
 
 	// Configure the pre-stop hook for /quitquitquit
-	c.Lifecycle = &corev1.Lifecycle{
+	s.c.Lifecycle = &corev1.Lifecycle{
 		PreStop: &corev1.LifecycleHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Port: intstr.IntOrString{IntVal: adminPort},
@@ -876,32 +929,31 @@ func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1
 			},
 		},
 	}
-	return adminPort
 }
 
-func (s *updateState) addAdminServer(p *cloudsqlapi.AuthProxyWorkload) {
+func (s *updateContainerState) addAdminServer() {
 
-	if p.Spec.AuthProxyContainer == nil || p.Spec.AuthProxyContainer.AdminServer == nil {
+	if s.cs == nil || s.cs.AdminServer == nil {
 		return
 	}
 
-	cs := p.Spec.AuthProxyContainer.AdminServer
+	cs := s.cs.AdminServer
 	for _, name := range cs.EnableAPIs {
 		switch name {
 		case "Debug":
-			s.addProxyContainerEnvVar(p, "CSQL_PROXY_DEBUG", "true")
+			s.addProxyContainerEnvVar("DEBUG", "true")
 		}
 	}
 
 }
 
-func (s *updateState) addAuthentication(p *cloudsqlapi.AuthProxyWorkload) {
-	if p.Spec.AuthProxyContainer == nil || p.Spec.AuthProxyContainer.Authentication == nil {
+func (s *updateContainerState) addAuthentication() {
+	if s.p.Spec.AuthProxyContainer == nil || s.p.Spec.AuthProxyContainer.Authentication == nil {
 		return
 	}
-	as := p.Spec.AuthProxyContainer.Authentication
+	as := s.p.Spec.AuthProxyContainer.Authentication
 	if len(as.ImpersonationChain) > 0 {
-		s.addProxyContainerEnvVar(p, "CSQL_PROXY_IMPERSONATE_SERVICE_ACCOUNT", strings.Join(as.ImpersonationChain, ","))
+		s.addProxyContainerEnvVar("IMPERSONATE_SERVICE_ACCOUNT", strings.Join(as.ImpersonationChain, ","))
 	}
 
 }

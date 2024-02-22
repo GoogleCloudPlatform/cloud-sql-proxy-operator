@@ -74,8 +74,8 @@ func TestSafePrefixedName(t *testing.T) {
 
 func TestContainerName(t *testing.T) {
 	csql := authProxyWorkload("hello-world", []cloudsqlapi.InstanceSpec{{ConnectionString: "proj:inst:db"}})
-	got := workload.ContainerName(csql)
-	want := "csql-default-hello-world"
+	got := workload.ContainerName(csql, "cloudsql")
+	want := "csql-hello-world-cloudsql"
 	if want != got {
 		t.Errorf("got %v, want %v", got, want)
 	}

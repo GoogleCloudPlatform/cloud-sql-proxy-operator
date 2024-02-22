@@ -35,6 +35,7 @@ provider "google" {
 # Enable gcloud project APIs
 locals {
   project_services = toset([
+    "alloydb.googleapis.com",
     "artifactregistry.googleapis.com",
     "cloudresourcemanager.googleapis.com",
     "compute.googleapis.com",
@@ -81,6 +82,14 @@ resource "google_project_iam_binding" "cloud_sql_client" {
   depends_on = [google_project_service.project["iam.googleapis.com"]]
   project    = var.project_id
   role       = "roles/cloudsql.client"
+  members = [
+    "serviceAccount:${google_service_account.node_pool.email}"
+  ]
+}
+
+resource "google_project_iam_binding" "alloy_db_client" {
+  project = var.project_id
+  role    = "roles/alloydb.client"
   members = [
     "serviceAccount:${google_service_account.node_pool.email}"
   ]

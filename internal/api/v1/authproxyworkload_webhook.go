@@ -102,7 +102,14 @@ func (r *AuthProxyWorkload) validate() field.ErrorList {
 	allErrs = append(allErrs, validation.ValidateLabelName(r.Name, field.NewPath("metadata", "name"))...)
 	allErrs = append(allErrs, validateWorkload(&r.Spec.Workload, field.NewPath("spec", "workload"))...)
 	allErrs = append(allErrs, validateInstances(&r.Spec.Instances, field.NewPath("spec", "instances"))...)
+	allErrs = append(allErrs, validateInstances(&r.Spec.AlloyDBInstances, field.NewPath("spec", "alloyDbInstances"))...)
+	if len(r.Spec.Instances)+len(r.Spec.AlloyDBInstances) == 0 {
+		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "instances"),
+			nil,
+			"at least one database instance must be declared"))
+	}
 	allErrs = append(allErrs, validateContainer(r.Spec.AuthProxyContainer, field.NewPath("spec", "authProxyContainer"))...)
+	allErrs = append(allErrs, validateContainer(r.Spec.AlloyDBProxyContainer, field.NewPath("spec", "alloyDbProxyContainer"))...)
 
 	return allErrs
 
@@ -255,12 +262,7 @@ func validateWorkload(spec *WorkloadSelectorSpec, f *field.Path) field.ErrorList
 //     both.
 func validateInstances(spec *[]InstanceSpec, f *field.Path) field.ErrorList {
 	var errs field.ErrorList
-	if len(*spec) == 0 {
-		errs = append(errs, field.Invalid(f,
-			nil,
-			"at least one database instance must be declared"))
-		return errs
-	}
+
 	for i, inst := range *spec {
 		ff := f.Child(fmt.Sprintf("%d", i))
 		if inst.Port != nil {

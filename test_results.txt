@@ -1,0 +1,5 @@
+?   	github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testhelpers	[no test files]
+ok  	github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1	0.802s	coverage: 30.2% of statements
+ok  	github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/controller	1.307s	coverage: 57.1% of statements
+ok  	github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/testintegration	53.473s	coverage: 67.9% of statements
+ok  	github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload	2.455s	coverage: 78.6% of statements

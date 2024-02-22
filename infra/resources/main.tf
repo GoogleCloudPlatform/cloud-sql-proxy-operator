@@ -48,6 +48,11 @@ locals {
   }
 }
 
+# Import google project data
+data "google_project" "project" {
+  project_id = var.project_id
+}
+
 ##
 # This is how you do an output file containing terraform data for use by
 # a subsequent script.
@@ -80,6 +85,12 @@ locals {
       postgres = {
         instance     = google_sql_database_instance.private_postgres.connection_name
         dbName       = google_sql_database.private_db.name
+        rootUser     = "postgres"
+        rootPassword = random_id.db_password.hex
+      }
+      alloydb = {
+        instance     = local.alloydb_instance_uri
+        dbName       = local.alloydb_db_name
         rootUser     = "postgres"
         rootPassword = random_id.db_password.hex
       }

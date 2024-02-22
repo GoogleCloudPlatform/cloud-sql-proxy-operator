@@ -96,13 +96,20 @@ type AuthProxyWorkloadSpec struct {
 	Workload WorkloadSelectorSpec `json:"workloadSelector"`
 
 	// Instances describes the Cloud SQL instances to configure on the proxy container.
-	//+kubebuilder:validation:Required
-	//+kubebuilder:validation:MinItems=1
-	Instances []InstanceSpec `json:"instances"`
+	//+kubebuilder:validation:Optional
+	Instances []InstanceSpec `json:"instances,omitempty"`
+
+	// AlloyDBInstances describes the Cloud SQL instances to configure on the proxy container.
+	//+kubebuilder:validation:Optional
+	AlloyDBInstances []InstanceSpec `json:"alloyDbInstances,omitempty"`
 
 	// AuthProxyContainer describes the resources and config for the Auth Proxy container.
 	//+kubebuilder:validation:Optional
 	AuthProxyContainer *AuthProxyContainerSpec `json:"authProxyContainer,omitempty"`
+
+	// AlloyDBProxyContainer describes the resources and config for the AlloyDB Proxy container.
+	//+kubebuilder:validation:Optional
+	AlloyDBProxyContainer *AuthProxyContainerSpec `json:"alloyDbProxyContainer,omitempty"`
 }
 
 // WorkloadSelectorSpec describes which workloads should be configured with this
@@ -322,7 +329,7 @@ type InstanceSpec struct {
 	// ConnectionString is the connection string for the Cloud SQL Instance
 	// in the format `project_id:region:instance_name`
 	//+kubebuilder:validation:Required
-	//+kubebuilder:validation:Pattern:="^([^:]+(:[^:]+)?):([^:]+):([^:]+)$"
+	// TODO Fix pattern: kubebuilder:validation:Pattern:="^(([^:]+(:[^:]+)?):([^:]+):([^:]+))|(projects/([a-z0-9]|-)+/locations/([a-z0-9]|-)+/clusters/([a-z0-9]|-)+/instances/([a-z0-9]|-)+)$"
 	ConnectionString string `json:"connectionString,omitempty"`
 
 	// Port (optional) sets the tcp port for this instance. If not set, a value will

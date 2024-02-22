@@ -32,14 +32,15 @@ const ContainerPrefix = "csql-"
 // already is required to be 63 characters or less because it is a name. Because
 // we are prepending 'csql-' ContainerPrefix as a marker, the generated name with
 // the prefix could be longer than 63 characters.
-func ContainerName(r *cloudsqlapi.AuthProxyWorkload) string {
-	return SafePrefixedName(ContainerPrefix, r.GetNamespace()+"-"+r.GetName())
+func ContainerName(r *cloudsqlapi.AuthProxyWorkload, proxyType string) string {
+	return SafePrefixedName(ContainerPrefix, r.GetName()+"-"+proxyType)
 }
 
 // VolumeName generates a unique, valid name for a volume based on the AuthProxyWorkload
 // name and the Cloud SQL instance name.
 func VolumeName(r *cloudsqlapi.AuthProxyWorkload, inst *cloudsqlapi.InstanceSpec, mountType string) string {
 	connName := strings.ReplaceAll(strings.ToLower(inst.ConnectionString), ":", "-")
+	connName = strings.ReplaceAll(connName, "/", "-")
 	return SafePrefixedName(ContainerPrefix, r.GetName()+"-"+mountType+"-"+connName)
 }
 
