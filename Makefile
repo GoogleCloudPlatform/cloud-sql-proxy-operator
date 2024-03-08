@@ -54,7 +54,7 @@ SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
 ## The version to use for the cert-manager operator
-CERT_MANAGER_VERSION=v1.14.3# renovate datasource=github-tags depName=cert-manager/cert-manager
+CERT_MANAGER_VERSION=v1.14.4# renovate datasource=github-tags depName=cert-manager/cert-manager
 
 ##@ General
 
