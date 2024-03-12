@@ -442,7 +442,7 @@ KUBECTL_VERSION=v1.29.2# renovate datasource=github-tags depName=kubernetes/kube
 TERRAFORM_VERSION=v1.7.4# renovate datasource=github-tags depName=hashicorp/terraform
 
 CONTROLLER_TOOLS_VERSION=v0.14.0# renovate datasource=go depName=sigs.k8s.io/controller-tools
-CRD_REF_DOCS_VERSION=v0.0.10# renovate datasource=go depName=github.com/elastic/crd-ref-docs
+CRD_REF_DOCS_VERSION=v0.0.11# renovate datasource=go depName=github.com/elastic/crd-ref-docs
 GOLANGCI_LINT_VERSION=v1.55.2# renovate datasource=go depName=github.com/golangci/golangci-lint/cmd/golangci-lint
 GO_LICENSES_VERSION=v1.6.0# renovate datasource=go depName=github.com/google/go-licenses
 
