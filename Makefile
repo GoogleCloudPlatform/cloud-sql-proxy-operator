@@ -15,22 +15,19 @@
 ###
 # Global settings
 
-## RELEASE_TAG is the public image tag for the operator
-RELEASE_TAG_PATH=cloud-sql-connectors/cloud-sql-operator/cloud-sql-proxy-operator:$(VERSION)
-RELEASE_TAG=gcr.io/$(RELEASE_TAG_PATH)
-
-# When the environment variable IS_RELEASE_BUILD is set, the IMG will be set
-# to the RELEASE_TAG, overriding the IMG environment variable. This is intended
-# to be used only in a release job to publish artifacts.
-ifdef IS_RELEASE_BUILD
-IMG=$(RELEASE_TAG)
+# INSTALLER_IMG in inserted into the installer script as the operator image.
+# If $IMG is set, it INSTALLER_IMG defaults to $IMG. If $IMG, then INSTALLER_IMG
+# is assigned a placeholder.
+ifdef IMG
+	INSTALLER_IMG=$(IMG)
 endif
-
+INSTALLER_IMG ?= cloud-sql-proxy-operator:latest
 
 # IMG is used by build to determine where to push the docker image for the
 # operator. You must set the IMG environment variable when you run make build
 # or other dependent targets.
 IMG ?=
+
 
 # Import the local build environment file. This holds configuration specific
 # to the local environment. build.sample.env describes the required configuration
@@ -233,7 +230,7 @@ installer: installer/cloud-sql-proxy-operator.yaml installer/install.sh
 
 .PHONY: installer/cloud-sql-proxy-operator.yaml
 installer/cloud-sql-proxy-operator.yaml: kustomize # Build the single yaml file for deploying the operator
-	cd config/manager && $(KUSTOMIZE) edit set image controller=$(RELEASE_TAG)
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(INSTALLER_IMG)
 	mkdir -p installer
 	$(KUSTOMIZE) build config/default > $@
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(SOURCE_CODE_IMAGE)
