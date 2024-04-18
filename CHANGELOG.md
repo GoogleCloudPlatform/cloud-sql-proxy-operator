@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.5](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.4.4...v1.4.5) (2024-04-18)
+
+
+### Miscellaneous Chores
+
+* Trigger release v1.4.5 ([#580](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/580)) ([95978d3](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/95978d3712318ad5adc38574e945588a6bbbdb64))
+
 ## [1.4.4](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.4.3...v1.4.4) (2024-03-14)
 
 
