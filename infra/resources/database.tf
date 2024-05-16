@@ -31,6 +31,10 @@ resource "google_sql_database_instance" "instance" {
   settings {
     tier        = "db-f1-micro"
     user_labels = local.standard_labels
+    database_flags {
+      name  = "cloudsql.iam_authentication"
+      value = "on"
+    }
   }
   deletion_protection = "true"
   root_password       = random_id.db_password.hex
@@ -39,6 +43,13 @@ resource "google_sql_database_instance" "instance" {
 resource "google_sql_database" "db" {
   name     = "db"
   instance = google_sql_database_instance.instance.name
+  project  = var.project_id
+}
+
+resource "google_sql_user" "iam_user" {
+  name     = "hessjc@google.com"
+  instance = google_sql_database_instance.instance.name
+  type     = "CLOUD_IAM_USER"
   project  = var.project_id
 }
 
