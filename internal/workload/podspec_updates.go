@@ -604,6 +604,11 @@ func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, c *corev
 		s.addProxyContainerEnvVar(p, "CSQL_PROXY_QUIET", "true")
 	}
 
+	// configure lazy refresh
+	if p.Spec.AuthProxyContainer != nil && p.Spec.AuthProxyContainer.RefreshStrategy == cloudsqlapi.RefreshStrategyLazy {
+		s.addProxyContainerEnvVar(p, "CSQL_PROXY_LAZY_REFRESH", "true")
+	}
+
 	c.Name = ContainerName(p)
 	c.ImagePullPolicy = "IfNotPresent"
 
