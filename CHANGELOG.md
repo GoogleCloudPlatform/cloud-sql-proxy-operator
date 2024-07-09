@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.5.0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.4.5...v1.5.0) (2024-07-09)
+
+
+### Features
+
+* Add refresh strategy proxy configuration. Part of [#597](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/597). ([#598](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/598)) ([591c2a8](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/591c2a8763b8aac2ca0d9a21b727dfa79bc84575))
+
+
+### Bug Fixes
+
+* Bump dependencies to latest. ([#590](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/590)) ([f79adb0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/f79adb076b7bb68a727c76b3b850be031cf7df65))
+
 ## [1.4.5](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.4.4...v1.4.5) (2024-04-18)
 
 
