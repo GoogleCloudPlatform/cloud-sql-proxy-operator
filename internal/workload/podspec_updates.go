@@ -39,7 +39,7 @@ const (
 	// DefaultProxyImage is the latest version of the proxy as of the release
 	// of this operator. This is managed as a dependency. We update this constant
 	// when the Cloud SQL Auth Proxy releases a new version.
-	DefaultProxyImage = "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.2"
+	DefaultProxyImage = "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.4"
 
 	// DefaultFirstPort is the first port number chose for an instance listener by the
 	// proxy.
@@ -602,6 +602,11 @@ func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, c *corev
 	// configure quiet logs
 	if p.Spec.AuthProxyContainer != nil && p.Spec.AuthProxyContainer.Quiet {
 		s.addProxyContainerEnvVar(p, "CSQL_PROXY_QUIET", "true")
+	}
+
+	// configure lazy refresh
+	if p.Spec.AuthProxyContainer != nil && p.Spec.AuthProxyContainer.RefreshStrategy == cloudsqlapi.RefreshStrategyLazy {
+		s.addProxyContainerEnvVar(p, "CSQL_PROXY_LAZY_REFRESH", "true")
 	}
 
 	c.Name = ContainerName(p)
