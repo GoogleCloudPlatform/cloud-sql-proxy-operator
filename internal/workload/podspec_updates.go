@@ -743,7 +743,7 @@ func (s *updateState) applyContainerSpec(p *cloudsqlapi.AuthProxyWorkload, c *co
 	}
 	if p.Spec.AuthProxyContainer.MaxSigtermDelay != nil &&
 		*p.Spec.AuthProxyContainer.MaxSigtermDelay != 0 {
-		s.addProxyContainerEnvVar(p, "CSQL_PROXY_MAX_SIGTERM_DELAY", fmt.Sprintf("%d", *p.Spec.AuthProxyContainer.MaxSigtermDelay))
+		s.addProxyContainerEnvVar(p, "CSQL_PROXY_MAX_SIGTERM_DELAY", fmt.Sprintf("%ds", *p.Spec.AuthProxyContainer.MaxSigtermDelay))
 	}
 
 	return

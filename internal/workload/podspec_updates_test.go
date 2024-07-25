@@ -696,7 +696,7 @@ func TestProxyCLIArgs(t *testing.T) {
 				"CSQL_PROXY_PROMETHEUS":                  "true",
 				"CSQL_PROXY_QUOTA_PROJECT":               "qp",
 				"CSQL_PROXY_MAX_CONNECTIONS":             "10",
-				"CSQL_PROXY_MAX_SIGTERM_DELAY":           "20",
+				"CSQL_PROXY_MAX_SIGTERM_DELAY":           "20s",
 				"CSQL_PROXY_IMPERSONATE_SERVICE_ACCOUNT": "sv1@developer.gserviceaccount.com,sv2@developer.gserviceaccount.com",
 				"CSQL_PROXY_QUIET":                       "true",
 				"CSQL_PROXY_STRUCTURED_LOGS":             "true",
