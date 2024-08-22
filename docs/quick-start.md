@@ -21,7 +21,7 @@ your kubernetes cluster:
 
 <!-- {x-release-please-start-version} -->
 ```shell
-curl https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/v1.5.0/install.sh | bash
+curl https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/v1.5.1/install.sh | bash
 ```
 <!-- {x-release-please-end} -->
 

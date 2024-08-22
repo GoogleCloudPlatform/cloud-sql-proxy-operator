@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.1](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.5.0...v1.5.1) (2024-08-22)
+
+
+### Bug Fixes
+
+* Add seconds unit to CSQL_PROXY_MAX_SIGTERM_DELAY value. ([#611](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/611)) ([c4eb455](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/c4eb4550e2423d716baf7e3d380894ac0b917601)), closes [#610](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/610)
+
 ## [1.5.0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.4.5...v1.5.0) (2024-07-09)
 
 
