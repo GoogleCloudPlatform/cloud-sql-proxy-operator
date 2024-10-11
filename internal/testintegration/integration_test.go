@@ -100,7 +100,7 @@ func TestModifiesNewDeployment(t *testing.T) {
 	key := types.NamespacedName{Name: pwlName, Namespace: tcc.Namespace}
 
 	t.Log("Creating AuthProxyWorkload")
-	_, err = tcc.CreateAuthProxyWorkload(ctx, key, deploymentAppLabel, tcc.ConnectionString, "Deployment")
+	_, err = tcc.CreateAuthProxyWorkload(ctx, key, workload.SidecarTypeContainer, deploymentAppLabel, tcc.ConnectionString, "Deployment")
 	if err != nil {
 		t.Error(err)
 		return
@@ -173,7 +173,7 @@ func TestModifiesExistingDeployment(t *testing.T) {
 	}
 
 	t.Log("Creating cloud sql instance")
-	_, err = tcc.CreateAuthProxyWorkload(ctx, pKey, deploymentAppLabel, tcc.ConnectionString, "Deployment")
+	_, err = tcc.CreateAuthProxyWorkload(ctx, pKey, workload.SidecarTypeContainer, deploymentAppLabel, tcc.ConnectionString, "Deployment")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -228,7 +228,7 @@ func TestUpdateWorkloadContainerWhenDefaultProxyImageChanges(t *testing.T) {
 	key := types.NamespacedName{Name: pwlName, Namespace: tcc.Namespace}
 
 	t.Log("Creating AuthProxyWorkload")
-	p, err := tcc.CreateAuthProxyWorkload(ctx, key, deploymentAppLabel, tcc.ConnectionString, "Deployment")
+	p, err := tcc.CreateAuthProxyWorkload(ctx, key, workload.SidecarTypeContainer, deploymentAppLabel, tcc.ConnectionString, "Deployment")
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -336,7 +336,7 @@ func TestDeleteMisconfiguredPod(t *testing.T) {
 	key := types.NamespacedName{Name: pwlName, Namespace: tcc.Namespace}
 
 	t.Log("Creating AuthProxyWorkload")
-	_, err = tcc.CreateAuthProxyWorkload(ctx, key, deploymentAppLabel, tcc.ConnectionString, "Deployment")
+	_, err = tcc.CreateAuthProxyWorkload(ctx, key, workload.SidecarTypeContainer, deploymentAppLabel, tcc.ConnectionString, "Deployment")
 	if err != nil {
 		t.Error(err)
 		return
