@@ -560,6 +560,7 @@ func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWo
 	s.addQuitEnvVar()
 
 	podSpec.Containers = containers
+	podSpec.InitContainers = initContainers
 
 	if len(ann) != 0 {
 		wl.SetPodTemplateAnnotations(ann)
