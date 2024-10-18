@@ -516,20 +516,13 @@ func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWo
 
 	s.initState(matches)
 	podSpec := wl.PodSpec()
-	containers := podSpec.Containers
-	initContainers := podSpec.InitContainers
+	allContainers := append(podSpec.Containers, podSpec.InitContainers...)
 
-	var nonAuthProxyContainers []corev1.Container
-	for i := 0; i < len(containers); i++ {
-		if !strings.HasPrefix(containers[i].Name, ContainerPrefix) {
-			nonAuthProxyContainers = append(nonAuthProxyContainers, containers[i])
-		}
-	}
-
-	for i := 0; i < len(nonAuthProxyContainers); i++ {
-		c := nonAuthProxyContainers[i]
-		for j := 0; j < len(c.Ports); j++ {
-			s.addWorkloadPort(c.Ports[j].ContainerPort)
+	for _, container := range allContainers {
+		if !strings.HasPrefix(container.Name, ContainerPrefix) {
+			for _, port := range container.Ports {
+				s.addWorkloadPort(port.ContainerPort)
+			}
 		}
 	}
 
@@ -548,9 +541,9 @@ func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWo
 
 		switch inst.Spec.SidecarType {
 		case SidecarTypeContainer:
-			containers = append(containers, newContainer)
+			podSpec.Containers = append(podSpec.Containers, newContainer)
 		case SidecarTypeInitContainer:
-			initContainers = append([]corev1.Container{newContainer}, initContainers...)
+			podSpec.InitContainers = append([]corev1.Container{newContainer}, podSpec.InitContainers...)
 		}
 		// Add pod annotation for each instance
 		k, v := s.updater.PodAnnotation(inst)
@@ -558,9 +551,6 @@ func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWo
 	}
 	// Add the envvar containing the proxy quit urls to the workloads
 	s.addQuitEnvVar()
-
-	podSpec.Containers = containers
-	podSpec.InitContainers = initContainers
 
 	if len(ann) != 0 {
 		wl.SetPodTemplateAnnotations(ann)
