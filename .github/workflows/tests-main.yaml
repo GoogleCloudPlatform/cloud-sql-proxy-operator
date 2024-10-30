@@ -79,7 +79,7 @@ jobs:
           access_token_lifetime: 600s
       - id: secrets
         name: Get secrets
-        uses: google-github-actions/get-secretmanager-secrets@dc4a1392bad0fd60aee00bb2097e30ef07a1caae # v2.1.3
+        uses: google-github-actions/get-secretmanager-secrets@e5bb06c2ca53b244f978d33348d18317a7f263ce # v2.2.2
         with:
           secrets: |-
             NODEPOOL_SERVICEACCOUNT_EMAIL:${{ vars.GOOGLE_CLOUD_PROJECT }}/NODEPOOL_SERVICEACCOUNT_EMAIL
