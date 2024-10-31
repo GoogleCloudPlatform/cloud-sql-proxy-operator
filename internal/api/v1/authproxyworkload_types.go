@@ -95,6 +95,11 @@ type AuthProxyWorkload struct {
 
 // AuthProxyWorkloadSpec describes where and how to configure the proxy.
 type AuthProxyWorkloadSpec struct {
+	// SidecarType describes how to run a proxy container.
+	//+kubebuilder:validation:Optional
+	//+kubebuilder:validation:Enum=initContainer;container
+	//+kubebuilder:default=initContainer
+	SidecarType string `json:"sidecarType"`
 	// Workload selects the workload where the proxy container will be added.
 	//+kubebuilder:validation:Required
 	Workload WorkloadSelectorSpec `json:"workloadSelector"`

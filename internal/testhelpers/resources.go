@@ -679,12 +679,18 @@ func NewAuthProxyWorkload(key types.NamespacedName) *cloudsqlapi.AuthProxyWorklo
 }
 
 // CreateAuthProxyWorkload creates an AuthProxyWorkload in the kubernetes cluster.
-func (cc *TestCaseClient) CreateAuthProxyWorkload(ctx context.Context, key types.NamespacedName, appLabel string, connectionString string, kind string) (*cloudsqlapi.AuthProxyWorkload, error) {
+func (cc *TestCaseClient) CreateAuthProxyWorkload(ctx context.Context, key types.NamespacedName, scType, appLabel, connectionString, kind string) (*cloudsqlapi.AuthProxyWorkload, error) {
 	p := NewAuthProxyWorkload(key)
 	AddTCPInstance(p, connectionString)
+	cc.ConfigureSidecarType(p, scType)
 	cc.ConfigureSelector(p, appLabel, kind)
 	cc.ConfigureResources(p)
 	return p, cc.Create(ctx, p)
+}
+
+// ConfigureSidecarType Configures the workload sidecar type
+func (cc *TestCaseClient) ConfigureSidecarType(proxy *cloudsqlapi.AuthProxyWorkload, scType string) {
+	proxy.Spec.SidecarType = scType
 }
 
 // ConfigureSelector Configures the workload selector on AuthProxyWorkload to use the label selector

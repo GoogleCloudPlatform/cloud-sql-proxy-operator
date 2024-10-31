@@ -48,6 +48,7 @@ func simpleAuthProxy(name, connectionString string) *cloudsqlapi.AuthProxyWorklo
 
 func authProxyWorkload(name string, instances []cloudsqlapi.InstanceSpec) *cloudsqlapi.AuthProxyWorkload {
 	return authProxyWorkloadFromSpec(name, cloudsqlapi.AuthProxyWorkloadSpec{
+		SidecarType: workload.SidecarTypeContainer,
 		Workload: cloudsqlapi.WorkloadSelectorSpec{
 			Kind: "Deployment",
 			Selector: &metav1.LabelSelector{
@@ -136,6 +137,7 @@ func configureProxies(u *workload.Updater, wl *workload.PodWorkload, proxies []*
 func TestUpdatePodWorkload(t *testing.T) {
 	var (
 		wantsName               = "instance1"
+		wantsScType             = workload.SidecarTypeContainer
 		wantsPort         int32 = 8080
 		wantContainerName       = "csql-default-" + wantsName
 		wantsInstanceName       = "project:server:db"
@@ -156,6 +158,7 @@ func TestUpdatePodWorkload(t *testing.T) {
 	// Create a AuthProxyWorkload that matches the deployment
 	proxy := simpleAuthProxy(wantsName, wantsInstanceName)
 	proxy.Spec.Instances[0].Port = ptr(wantsPort)
+	proxy.Spec.SidecarType = wantsScType
 
 	// Update the container with new markWorkloadNeedsUpdate
 	err = configureProxies(u, wl, []*cloudsqlapi.AuthProxyWorkload{proxy})
@@ -529,6 +532,7 @@ func TestProxyCLIArgs(t *testing.T) {
 		{
 			desc: "default cli config",
 			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
+				SidecarType: workload.SidecarTypeContainer,
 				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "hello:world:db",
 					Port:             &wantPort,
@@ -549,6 +553,7 @@ func TestProxyCLIArgs(t *testing.T) {
 		{
 			desc: "port explicitly set",
 			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
+				SidecarType: workload.SidecarTypeContainer,
 				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "hello:world:db",
 					Port:             &wantPort,
@@ -560,6 +565,7 @@ func TestProxyCLIArgs(t *testing.T) {
 		{
 			desc: "port implicitly set and increments",
 			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
+				SidecarType: workload.SidecarTypeContainer,
 				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "hello:world:one",
 					PortEnvName:      "DB_PORT",
@@ -593,6 +599,7 @@ func TestProxyCLIArgs(t *testing.T) {
 		{
 			desc: "auto-iam-authn set",
 			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
+				SidecarType: workload.SidecarTypeContainer,
 				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "hello:world:one",
 					PortEnvName:      "DB_PORT",
@@ -611,6 +618,7 @@ func TestProxyCLIArgs(t *testing.T) {
 		{
 			desc: "private-ip set",
 			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
+				SidecarType: workload.SidecarTypeContainer,
 				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "hello:world:one",
 					PortEnvName:      "DB_PORT",
@@ -629,6 +637,7 @@ func TestProxyCLIArgs(t *testing.T) {
 		{
 			desc: "psc set",
 			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
+				SidecarType: workload.SidecarTypeContainer,
 				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "hello:world:one",
 					PortEnvName:      "DB_PORT",
@@ -647,6 +656,7 @@ func TestProxyCLIArgs(t *testing.T) {
 		{
 			desc: "global flags",
 			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
+				SidecarType: workload.SidecarTypeContainer,
 				AuthProxyContainer: &cloudsqlapi.AuthProxyContainerSpec{
 					SQLAdminAPIEndpoint: "https://example.com",
 					Telemetry: &cloudsqlapi.TelemetrySpec{
@@ -706,6 +716,7 @@ func TestProxyCLIArgs(t *testing.T) {
 		{
 			desc: "Default admin port enabled when AdminServerSpec is nil",
 			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
+				SidecarType:        workload.SidecarTypeContainer,
 				AuthProxyContainer: &cloudsqlapi.AuthProxyContainerSpec{},
 				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "hello:world:one",
@@ -743,6 +754,7 @@ func TestProxyCLIArgs(t *testing.T) {
 		{
 			desc: "port conflict with workload container",
 			proxySpec: cloudsqlapi.AuthProxyWorkloadSpec{
+				SidecarType: workload.SidecarTypeContainer,
 				Instances: []cloudsqlapi.InstanceSpec{{
 					ConnectionString: "hello:world:one",
 					PortEnvName:      "DB_PORT_1",
