@@ -128,7 +128,7 @@ func TestProxyAppliedOnNewWorkload(t *testing.T) {
 			key := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
 
 			t.Log("Creating AuthProxyWorkload")
-			_, err = tp.CreateAuthProxyWorkload(ctx, key, workload.SidecarTypeContainer, appLabel, tp.ConnectionString, kind)
+			_, err = tp.CreateAuthProxyWorkload(ctx, key, appLabel, tp.ConnectionString, kind)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -235,7 +235,7 @@ func TestProxyAppliedOnExistingWorkload(t *testing.T) {
 			}
 
 			t.Log("Creating AuthProxyWorkload")
-			_, err = tp.CreateAuthProxyWorkload(ctx, key, workload.SidecarTypeContainer, appLabel, tp.ConnectionString, kind)
+			_, err = tp.CreateAuthProxyWorkload(ctx, key, appLabel, tp.ConnectionString, kind)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -352,7 +352,7 @@ func TestPublicDBConnections(t *testing.T) {
 					t.Fatal(err)
 				}
 			} else {
-				_, err = tp.CreateAuthProxyWorkload(ctx, key, workload.SidecarTypeContainer, appLabel, tp.ConnectionString, kind)
+				_, err = tp.CreateAuthProxyWorkload(ctx, key, appLabel, tp.ConnectionString, kind)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -429,7 +429,7 @@ func TestUpdateWorkloadOnDelete(t *testing.T) {
 	key := types.NamespacedName{Name: pwlName, Namespace: tp.Namespace}
 
 	t.Log("Creating AuthProxyWorkload")
-	proxy, err := tp.CreateAuthProxyWorkload(ctx, key, workload.SidecarTypeContainer, appLabel, tp.ConnectionString, kind)
+	proxy, err := tp.CreateAuthProxyWorkload(ctx, key, appLabel, tp.ConnectionString, kind)
 	if err != nil {
 		t.Fatal(err)
 	}

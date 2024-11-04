@@ -94,7 +94,6 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `sidecarType` _string_ | SidecarType describes how to run a proxy container. | initContainer | Enum: [initContainer container] <br />Optional: {} <br /> |
 | `workloadSelector` _[WorkloadSelectorSpec](#workloadselectorspec)_ | Workload selects the workload where the proxy container will be added. |  | Required: {} <br /> |
 | `instances` _[InstanceSpec](#instancespec) array_ | Instances describes the Cloud SQL instances to configure on the proxy container. |  | MinItems: 1 <br />Required: {} <br /> |
 | `authProxyContainer` _[AuthProxyContainerSpec](#authproxycontainerspec)_ | AuthProxyContainer describes the resources and config for the Auth Proxy container. |  | Optional: {} <br /> |

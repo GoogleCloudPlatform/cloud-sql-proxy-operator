@@ -19,8 +19,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
-
 	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -55,7 +53,7 @@ func (cc *TestCaseClient) CreateResource(ctx context.Context) (*cloudsqlapi.Auth
 		return nil, fmt.Errorf("can't create namespace, %v", err)
 	}
 	key := types.NamespacedName{Name: name, Namespace: ns}
-	_, err = cc.CreateAuthProxyWorkload(ctx, key, workload.SidecarTypeContainer, "app", expectedConnStr, "Deployment")
+	_, err = cc.CreateAuthProxyWorkload(ctx, key, "app", expectedConnStr, "Deployment")
 	if err != nil {
 		return nil, fmt.Errorf("unable to create auth proxy workload %v", err)
 	}

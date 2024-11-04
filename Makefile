@@ -164,7 +164,7 @@ tf_lint: terraform # Run terraform fmt to ensure terraform code is consistent
 
 .PHONY: go_test
 go_test: ctrl_manifests envtest # Run tests (but not internal/teste2e)
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" \
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path 1.28.x)" \
 		go test ./internal/.../. -coverprofile cover.out -race | tee test_results.txt
 
 ##

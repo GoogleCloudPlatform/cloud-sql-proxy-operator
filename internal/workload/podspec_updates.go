@@ -52,9 +52,6 @@ const (
 	// DefaultAdminPort is the used by the proxy to expose the quitquitquit
 	// and debug api endpoints
 	DefaultAdminPort int32 = 9091
-
-	SidecarTypeInitContainer string = "initContainer"
-	SidecarTypeContainer     string = "container"
 )
 
 var l = logf.Log.WithName("internal.workload")
@@ -92,12 +89,19 @@ type Updater struct {
 
 	// defaultProxyImage is the current default proxy image for the operator
 	defaultProxyImage string
+
+	// useSidecar specifies whether to use the Kubernetes SidecarContainers feature
+	useSidecar bool
 }
 
 // NewUpdater creates a new instance of Updater with a supplier
-// that loads the default proxy impage from the public docker registry
-func NewUpdater(userAgent string, defaultProxyImage string) *Updater {
-	return &Updater{userAgent: userAgent, defaultProxyImage: defaultProxyImage}
+// that loads the default proxy image from the public docker registry
+func NewUpdater(userAgent, defaultProxyImage string, useSidecar bool) *Updater {
+	return &Updater{
+		userAgent:         userAgent,
+		defaultProxyImage: defaultProxyImage,
+		useSidecar:        useSidecar,
+	}
 }
 
 // ConfigError is an error with extra details about why an AuthProxyWorkload
@@ -539,12 +543,12 @@ func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWo
 		newContainer := corev1.Container{}
 		s.updateContainer(inst, &newContainer)
 
-		switch inst.Spec.SidecarType {
-		case SidecarTypeContainer:
-			podSpec.Containers = append(podSpec.Containers, newContainer)
-		case SidecarTypeInitContainer:
+		if s.updater.useSidecar {
 			podSpec.InitContainers = append([]corev1.Container{newContainer}, podSpec.InitContainers...)
+		} else {
+			podSpec.Containers = append(podSpec.Containers, newContainer)
 		}
+
 		// Add pod annotation for each instance
 		k, v := s.updater.PodAnnotation(inst)
 		ann[k] = v
@@ -618,7 +622,7 @@ func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, c *corev
 
 	c.Name = ContainerName(p)
 	c.ImagePullPolicy = corev1.PullIfNotPresent
-	if p.Spec.SidecarType == SidecarTypeInitContainer {
+	if s.updater.useSidecar {
 		policy := corev1.ContainerRestartPolicyAlways
 		c.RestartPolicy = &policy
 	}
