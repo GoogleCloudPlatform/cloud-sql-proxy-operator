@@ -440,7 +440,11 @@ func (cc *TestCaseClient) ExpectPodContainerCount(ctx context.Context, podSelect
 			return fmt.Errorf("got 0 pods, want at least 1 pod")
 		}
 		for _, pod := range pods.Items {
-			got := len(pod.Spec.Containers)
+			// The use len(Containers) + len(InitContainers) as the total number
+			// of containers on the pod. This way the assertion works the same
+			// when it runs with k8s <= 1.28 using regular containers for the proxy
+			// as well as with k8s >= 1.29 using init containers for the proxy.
+			got := len(pod.Spec.Containers) + len(pod.Spec.InitContainers)
 			if got != count {
 				countBadPods++
 			}

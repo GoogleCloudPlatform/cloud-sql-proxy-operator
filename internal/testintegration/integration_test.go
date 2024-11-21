@@ -265,7 +265,14 @@ func TestUpdateWorkloadContainerWhenDefaultProxyImageChanges(t *testing.T) {
 	// Check that the pods have the expected default proxy image
 	pods, err := testhelpers.ListPods(ctx, tcc.Client, tcc.Namespace, d.Spec.Selector)
 	for _, p := range pods.Items {
-		if got, want := p.Spec.Containers[1].Image, workload.DefaultProxyImage; got != want {
+		want := workload.DefaultProxyImage
+		var got string
+		if len(p.Spec.Containers) > 1 {
+			got = p.Spec.Containers[1].Image
+		} else {
+			got = p.Spec.InitContainers[0].Image
+		}
+		if got != want {
 			t.Errorf("got %v, want %v image before operator upgrade", got, want)
 		}
 	}
@@ -305,7 +312,15 @@ func TestUpdateWorkloadContainerWhenDefaultProxyImageChanges(t *testing.T) {
 	// Check that the new pods have the new default proxy image
 	pods, err = testhelpers.ListPods(ctx, tcc.Client, tcc.Namespace, d.Spec.Selector)
 	for _, p := range pods.Items {
-		if got, want := p.Spec.Containers[1].Image, newDefault; got != want {
+		want := newDefault
+		var got string
+		if len(p.Spec.Containers) > 1 {
+			got = p.Spec.Containers[1].Image
+		} else {
+			got = p.Spec.InitContainers[0].Image
+		}
+
+		if got != want {
 			t.Errorf("got %v, want %v image before operator upgrade", got, want)
 		}
 	}
