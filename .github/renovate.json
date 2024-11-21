@@ -7,6 +7,7 @@
   "ignorePresets": [
     ":semanticPrefixFixDepsChoreOthers"
   ],
+  "commitMessagePrefix": "deps: ",
   "prConcurrentLimit": 0,
   "rebaseWhen": "behind-base-branch",
   "dependencyDashboard": true,
@@ -22,12 +23,6 @@
         "major"
       ],
       "enabled": false
-    },
-    {
-      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
-      "automerge": true,
-      "automergeType": "pr",
-      "automergeStrategy": "rebase"
     },
     {
       "matchManagers": ["github-actions"],
@@ -51,6 +46,15 @@
         "^hashicorp/terraform"
       ],
       "groupName": "Build Tools"
+    },
+    {
+      "groupName": "Non-major go dependency updates",
+      "matchManagers": ["gomod"],
+      "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "groupName": "Non-major other dependency updates",
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"]
     }
   ],
   "force": {
