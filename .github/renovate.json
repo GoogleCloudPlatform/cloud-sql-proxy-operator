@@ -48,9 +48,13 @@
       "groupName": "Build Tools"
     },
     {
-      "groupName": "Non-major dependency updates",
+      "groupName": "Non-major go dependency updates",
       "matchManagers": ["gomod"],
       "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "groupName": "Non-major other dependency updates",
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"]
     }
   ],
   "force": {
