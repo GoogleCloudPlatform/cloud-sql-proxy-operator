@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.6.0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.5.1...v1.6.0) (2024-11-22)
+
+
+### Features
+
+* Add --min-sigterm-delay property to the workload configuration ([#639](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/639)) ([b4c226a](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/b4c226acad2d0af9860eb191da96637f6906f94e)), closes [#627](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/627)
+* Run the proxy container as Sidecar Init Container ([#624](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/624)) ([19d8043](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/19d8043c3a7a2368ce797b3d7766656002cf5c6f)), closes [#381](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/381)
+
+
+### Bug Fixes
+
+* Update proxy version to v2.14.1 ([#632](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/632)) ([85655e5](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/85655e517e2080550ded7c830be29c4b8256064f))
+
 ## [1.5.1](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.5.0...v1.5.1) (2024-08-22)
 
 
