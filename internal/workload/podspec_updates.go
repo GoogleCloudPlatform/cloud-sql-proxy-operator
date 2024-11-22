@@ -89,12 +89,19 @@ type Updater struct {
 
 	// defaultProxyImage is the current default proxy image for the operator
 	defaultProxyImage string
+
+	// useSidecar specifies whether to use the Kubernetes SidecarContainers feature
+	useSidecar bool
 }
 
 // NewUpdater creates a new instance of Updater with a supplier
-// that loads the default proxy impage from the public docker registry
-func NewUpdater(userAgent string, defaultProxyImage string) *Updater {
-	return &Updater{userAgent: userAgent, defaultProxyImage: defaultProxyImage}
+// that loads the default proxy image from the public docker registry
+func NewUpdater(userAgent, defaultProxyImage string, useSidecar bool) *Updater {
+	return &Updater{
+		userAgent:         userAgent,
+		defaultProxyImage: defaultProxyImage,
+		useSidecar:        useSidecar,
+	}
 }
 
 // ConfigError is an error with extra details about why an AuthProxyWorkload
@@ -513,19 +520,13 @@ func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWo
 
 	s.initState(matches)
 	podSpec := wl.PodSpec()
-	containers := podSpec.Containers
+	allContainers := append(podSpec.Containers, podSpec.InitContainers...)
 
-	var nonAuthProxyContainers []corev1.Container
-	for i := 0; i < len(containers); i++ {
-		if !strings.HasPrefix(containers[i].Name, ContainerPrefix) {
-			nonAuthProxyContainers = append(nonAuthProxyContainers, containers[i])
-		}
-	}
-
-	for i := 0; i < len(nonAuthProxyContainers); i++ {
-		c := nonAuthProxyContainers[i]
-		for j := 0; j < len(c.Ports); j++ {
-			s.addWorkloadPort(c.Ports[j].ContainerPort)
+	for _, container := range allContainers {
+		if !strings.HasPrefix(container.Name, ContainerPrefix) {
+			for _, port := range container.Ports {
+				s.addWorkloadPort(port.ContainerPort)
+			}
 		}
 	}
 
@@ -541,7 +542,12 @@ func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWo
 
 		newContainer := corev1.Container{}
 		s.updateContainer(inst, &newContainer)
-		containers = append(containers, newContainer)
+
+		if s.updater.useSidecar {
+			podSpec.InitContainers = append([]corev1.Container{newContainer}, podSpec.InitContainers...)
+		} else {
+			podSpec.Containers = append(podSpec.Containers, newContainer)
+		}
 
 		// Add pod annotation for each instance
 		k, v := s.updater.PodAnnotation(inst)
@@ -550,17 +556,13 @@ func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWo
 	// Add the envvar containing the proxy quit urls to the workloads
 	s.addQuitEnvVar()
 
-	podSpec.Containers = containers
-
 	if len(ann) != 0 {
 		wl.SetPodTemplateAnnotations(ann)
 	}
 
-	for i := range podSpec.Containers {
-		c := &podSpec.Containers[i]
-		s.updateContainerEnv(c)
-		s.applyContainerVolumes(c)
-	}
+	s.processContainers(&podSpec.Containers)
+	s.processContainers(&podSpec.InitContainers)
+
 	s.applyVolumes(&podSpec)
 
 	// only return ConfigError if there were reported
@@ -572,6 +574,15 @@ func (s *updateState) update(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWo
 	wl.SetPodSpec(podSpec)
 
 	return nil
+}
+
+// processContainers applies container envs and volumes to all containers
+func (s *updateState) processContainers(containers *[]corev1.Container) {
+	for i := range *containers {
+		c := &(*containers)[i]
+		s.updateContainerEnv(c)
+		s.applyContainerVolumes(c)
+	}
 }
 
 // updateContainer Creates or updates the proxy container in the workload's PodSpec
@@ -610,8 +621,11 @@ func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, c *corev
 	}
 
 	c.Name = ContainerName(p)
-	c.ImagePullPolicy = "IfNotPresent"
-
+	c.ImagePullPolicy = corev1.PullIfNotPresent
+	if s.updater.useSidecar {
+		policy := corev1.ContainerRestartPolicyAlways
+		c.RestartPolicy = &policy
+	}
 	s.applyContainerSpec(p, c)
 
 	// Build the c

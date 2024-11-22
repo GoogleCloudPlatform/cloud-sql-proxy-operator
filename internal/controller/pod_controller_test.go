@@ -151,7 +151,7 @@ func podWebhookController(cb client.Client) (*PodAdmissionWebhook, context.Conte
 	r := &PodAdmissionWebhook{
 		Client:  cb,
 		decoder: d,
-		updater: workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage),
+		updater: workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage, false),
 	}
 
 	return r, ctx, nil
@@ -293,7 +293,7 @@ func podDeleteControllerForTest(c client.Client) (*podDeleteController, context.
 	r := &podDeleteController{
 		Client:  c,
 		Scheme:  c.Scheme(),
-		updater: workload.NewUpdater("cloud-sql-proxy-operator/dev", "proxy:1.0"),
+		updater: workload.NewUpdater("cloud-sql-proxy-operator/dev", "proxy:1.0", false),
 	}
 	return r, ctx
 }
