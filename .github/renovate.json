@@ -39,7 +39,7 @@
     },
     {
       "groupName": "Go dependency updates",
-      "matchUpdateTypes": ["minor", "patch","pin","digest"]
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"]
     },
     {
       "groupName": "Other dependency updates",
