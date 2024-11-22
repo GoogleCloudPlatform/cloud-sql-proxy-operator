@@ -1,41 +1,17 @@
 {
   "extends": [
-    "config:recommended",
-    ":semanticCommitTypeAll(chore)",
-    ":disableDependencyDashboard"
+    "config:recommended"
   ],
-  "ignorePresets": [
-    ":semanticPrefixFixDepsChoreOthers"
-  ],
-  "commitMessagePrefix": "deps: ",
-  "prConcurrentLimit": 0,
-  "rebaseWhen": "behind-base-branch",
-  "dependencyDashboard": true,
   "dependencyDashboardLabels": ["type: process"],
-  "semanticCommits": "enabled",
+  "commitMessagePrefix": "deps: ",
   "postUpdateOptions": [
     "gomodTidy"
   ],
+  "prConcurrentLimit": 5,
   "packageRules": [
-    {
-      "description": "Disable MAJOR update types",
-      "matchUpdateTypes": [
-        "major"
-      ],
-      "enabled": false
-    },
     {
       "matchManagers": ["github-actions"],
       "groupName": "Github action dependencies"
-    },
-    {
-      "matchPackagePatterns": [
-        "^kubernetes",
-        "^k8s.io/client-go",
-        "^sigs.k8s.io/controller-runtime",
-        "^sigs.k8s.io/controller-tools"
-      ],
-      "groupName": "Kubernetes runtime dependencies"
     },
     {
       "matchPackagePatterns": [
@@ -48,20 +24,28 @@
       "groupName": "Build Tools"
     },
     {
-      "groupName": "Non-major go dependency updates",
+      "matchPackagePatterns": [
+        "^kubernetes",
+        "^k8s.io/client-go",
+        "^sigs.k8s.io/controller-runtime",
+        "^sigs.k8s.io/controller-tools"
+      ],
       "matchManagers": ["gomod"],
-      "matchUpdateTypes": ["minor", "patch"]
+      "groupName": "Kubernetes runtime dependencies"
     },
     {
-      "groupName": "Non-major other dependency updates",
+      "matchManagers": ["dockerfile"],
+      "groupName": "Container image updates"
+    },
+    {
+      "groupName": "Go dependency updates",
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"]
+    },
+    {
+      "groupName": "Other dependency updates",
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"]
     }
   ],
-  "force": {
-    "constraints": {
-      "go": "1.20"
-    }
-  },
   "regexManagers": [
     {
       "customType": "regex",
