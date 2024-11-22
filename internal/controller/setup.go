@@ -19,6 +19,9 @@ import (
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	utilversion "k8s.io/apimachinery/pkg/util/version"
+	"k8s.io/apimachinery/pkg/version"
+	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -37,13 +40,33 @@ func InitScheme(scheme *runtime.Scheme) {
 	//+kubebuilder:scaffold:scheme
 }
 
+func getKubernetesVersion(mgr manager.Manager) (*version.Info, error) {
+	kubeClient, err := kubernetes.NewForConfig(mgr.GetConfig())
+	if err != nil {
+		return nil, err
+	}
+
+	return kubeClient.Discovery().ServerVersion()
+}
+
+func UseSidecar(v *version.Info) bool {
+	return utilversion.MustParseSemantic(v.GitVersion).AtLeast(utilversion.MustParseSemantic("v1.29.0"))
+}
+
 // SetupManagers was moved out of ../main.go here so that it can be invoked
 // from the testintegration tests AND from the actual operator.
 func SetupManagers(mgr manager.Manager, userAgent, defaultProxyImage string) error {
-	u := workload.NewUpdater(userAgent, defaultProxyImage)
+	var err error
+	kubeVersion, err := getKubernetesVersion(mgr)
+	if err != nil {
+		setupLog.Error(err, "unable to get kubernetes version", "controller", "AuthProxyWorkload")
+		return err
+	}
+	setupLog.Info("Kubernetes", "version", kubeVersion.String())
+
+	u := workload.NewUpdater(userAgent, defaultProxyImage, UseSidecar(kubeVersion))
 
 	setupLog.Info("Configuring reconcilers...")
-	var err error
 
 	_, err = NewAuthProxyWorkloadReconciler(mgr, u)
 	if err != nil {

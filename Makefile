@@ -91,7 +91,7 @@ build: generate build_push_docker ## Builds and pushes the docker image to tag d
 	@echo "TIME: $(shell date) end make build"
 
 .PHONY: test
-test: generate go_test ## Run tests (but not internal/teste2e)
+test: generate go_test go_test_k8s_1_28 ## Run tests (but not internal/teste2e)
 	@echo "TIME: $(shell date) end make test"
 
 .PHONY: deploy
@@ -165,6 +165,11 @@ tf_lint: terraform # Run terraform fmt to ensure terraform code is consistent
 .PHONY: go_test
 go_test: ctrl_manifests envtest # Run tests (but not internal/teste2e)
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" \
+		go test ./internal/.../. -coverprofile cover.out -race | tee test_results.txt
+
+.PHONY: go_test_k8s_1_28
+go_test_k8s_1_28: ctrl_manifests envtest # Run tests using older kubernetes version 1.28 (but not internal/teste2e)
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use 1.28.x -p path)" \
 		go test ./internal/.../. -coverprofile cover.out -race | tee test_results.txt
 
 ##

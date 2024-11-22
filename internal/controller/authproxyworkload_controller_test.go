@@ -490,7 +490,7 @@ func reconciler(p *cloudsqlapi.AuthProxyWorkload, cb client.Client, defaultProxy
 	r := &AuthProxyWorkloadReconciler{
 		Client:          cb,
 		recentlyDeleted: &recentlyDeletedCache{},
-		updater:         workload.NewUpdater("cloud-sql-proxy-operator/dev", defaultProxyImage),
+		updater:         workload.NewUpdater("cloud-sql-proxy-operator/dev", defaultProxyImage, false),
 	}
 	req := ctrl.Request{
 		NamespacedName: types.NamespacedName{

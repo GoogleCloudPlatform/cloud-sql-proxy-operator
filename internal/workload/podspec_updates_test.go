@@ -140,7 +140,7 @@ func TestUpdatePodWorkload(t *testing.T) {
 		wantContainerName       = "csql-default-" + wantsName
 		wantsInstanceName       = "project:server:db"
 		wantsInstanceArg        = fmt.Sprintf("%s?port=%d", wantsInstanceName, wantsPort)
-		u                       = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
+		u                       = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage, false)
 	)
 	var err error
 
@@ -195,7 +195,7 @@ func TestUpdateWorkloadFixedPort(t *testing.T) {
 			"DB_HOST": "127.0.0.1",
 			"DB_PORT": strconv.Itoa(int(wantsPort)),
 		}
-		u = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
+		u = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage, false)
 	)
 
 	// Create a pod
@@ -263,7 +263,7 @@ func TestWorkloadNoPortSet(t *testing.T) {
 			"DB_PORT": strconv.Itoa(int(wantsPort)),
 		}
 	)
-	u := workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
+	u := workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage, false)
 
 	// Create a pod
 	wl := podWorkload()
@@ -321,7 +321,7 @@ func TestContainerImageChanged(t *testing.T) {
 	var (
 		wantsInstanceName = "project:server:db"
 		wantImage         = "custom-image:latest"
-		u                 = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
+		u                 = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage, false)
 	)
 
 	// Create a pod
@@ -363,7 +363,7 @@ func TestContainerImageEmpty(t *testing.T) {
 	var (
 		wantsInstanceName = "project:server:db"
 		wantImage         = workload.DefaultProxyImage
-		u                 = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
+		u                 = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage, false)
 	)
 	// Create a AuthProxyWorkload that matches the deployment
 
@@ -422,7 +422,7 @@ func TestContainerReplaced(t *testing.T) {
 		wantContainer     = &corev1.Container{
 			Name: "sample", Image: "debian:latest", Command: []string{"/bin/bash"},
 		}
-		u = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
+		u = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage, false)
 	)
 
 	// Create a pod
@@ -476,7 +476,7 @@ func TestResourcesFromSpec(t *testing.T) {
 			},
 		}
 
-		u = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
+		u = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage, false)
 	)
 
 	// Create a pod
@@ -757,7 +757,7 @@ func TestProxyCLIArgs(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			u := workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
+			u := workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage, false)
 
 			// Create a pod
 			wl := &workload.PodWorkload{Pod: &corev1.Pod{
@@ -892,7 +892,7 @@ func TestPodTemplateAnnotations(t *testing.T) {
 			"cloudsql.cloud.google.com/instance2": "2," + workload.DefaultProxyImage,
 		}
 
-		u = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
+		u = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage, false)
 	)
 
 	// Create a pod
@@ -926,7 +926,7 @@ func TestPodTemplateAnnotations(t *testing.T) {
 
 func TestTelemetryAddsTelemetryContainerPort(t *testing.T) {
 
-	var u = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
+	var u = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage, false)
 
 	// Create a pod
 	wl := podWorkload()
@@ -994,7 +994,7 @@ func TestTelemetryAddsTelemetryContainerPort(t *testing.T) {
 func TestQuitURLEnvVar(t *testing.T) {
 
 	var (
-		u = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
+		u = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage, false)
 	)
 
 	// Create a pod
@@ -1035,7 +1035,7 @@ func TestQuitURLEnvVar(t *testing.T) {
 
 func TestPreStopHook(t *testing.T) {
 
-	var u = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
+	var u = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage, false)
 
 	// Create a pod
 	wl := podWorkload()
@@ -1123,7 +1123,7 @@ func TestWorkloadUnixVolume(t *testing.T) {
 		wantWorkloadEnv = map[string]string{
 			"DB_SOCKET_PATH": wantsUnixSocketPath,
 		}
-		u = workload.NewUpdater("authproxyworkload/dev", workload.DefaultProxyImage)
+		u = workload.NewUpdater("authproxyworkload/dev", workload.DefaultProxyImage, false)
 	)
 
 	// Create a pod
@@ -1201,7 +1201,7 @@ func TestWorkloadUnixVolume(t *testing.T) {
 func TestUpdater_CheckWorkloadContainers(t *testing.T) {
 	var (
 		wantsInstanceName = "project:server:db"
-		u                 = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage)
+		u                 = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage, false)
 	)
 
 	// Create a AuthProxyWorkloads to match the pods
