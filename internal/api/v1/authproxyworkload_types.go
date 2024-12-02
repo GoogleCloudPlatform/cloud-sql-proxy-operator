@@ -181,6 +181,13 @@ type AuthProxyContainerSpec struct {
 	//+kubebuilder:validation:Minimum=0
 	MaxSigtermDelay *int64 `json:"maxSigtermDelay,omitempty"`
 
+	// MinSigtermDelay is the minimum number of seconds to wait for connections to
+	// close after receiving a TERM signal. This sets the proxy container's
+	// CLI argument `--min-sigterm-delay`
+	//+kubebuilder:validation:Optional
+	//+kubebuilder:validation:Minimum=0
+	MinSigtermDelay *int64 `json:"minSigtermDelay,omitempty"`
+
 	// SQLAdminAPIEndpoint is a debugging parameter that when specified will
 	// change the Google Cloud api endpoint used by the proxy.
 	//+kubebuilder:validation:Optional
