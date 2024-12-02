@@ -38,7 +38,7 @@ jobs:
           service_account: ${{ vars.SERVICE_ACCOUNT }}
           access_token_lifetime: 600s
       - name: Setup Go
-        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
+        uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.1.0
         with:
           go-version: "1.22"
       - name: Set up build.env with phony secrets.
@@ -79,7 +79,7 @@ jobs:
           access_token_lifetime: 600s
       - id: secrets
         name: Get secrets
-        uses: google-github-actions/get-secretmanager-secrets@dc4a1392bad0fd60aee00bb2097e30ef07a1caae # v2.1.3
+        uses: google-github-actions/get-secretmanager-secrets@e5bb06c2ca53b244f978d33348d18317a7f263ce # v2.2.2
         with:
           secrets: |-
             NODEPOOL_SERVICEACCOUNT_EMAIL:${{ vars.GOOGLE_CLOUD_PROJECT }}/NODEPOOL_SERVICEACCOUNT_EMAIL
@@ -88,7 +88,7 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@e30db14379863a8c79331b04a9969f4c1e225e0b # v1.1.1
       - name: "Setup Go"
-        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
+        uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.1.0
         with:
           go-version: "1.22"
       - name: Set up QEMU
