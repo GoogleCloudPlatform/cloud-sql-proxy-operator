@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.1](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.6.0...v1.6.1) (2024-12-12)
+
+
+### Bug Fixes
+
+* Update Auth Proxy to version v2.14.2 ([#650](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/650)) ([35526d4](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/35526d46dfdb94d1b5b919a87adb3a7948bebfe6))
+* Update dependencies. ([#648](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/648)) ([555c117](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/555c117103e0c74fee77ce59cae509d34b05b7a6))
+
 ## [1.6.0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.5.1...v1.6.0) (2024-11-22)
 
 
