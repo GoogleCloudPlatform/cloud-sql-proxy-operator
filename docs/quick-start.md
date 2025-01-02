@@ -112,10 +112,6 @@ spec:
         env:
         - name: PORT
           value: "8080"
-        - name: INSTANCE_HOST
-          value: "set-by-proxy"
-        - name: DB_PORT
-          value: "set-by-proxy"
         - name: DB_USER
           valueFrom:
             secretKeyRef:
