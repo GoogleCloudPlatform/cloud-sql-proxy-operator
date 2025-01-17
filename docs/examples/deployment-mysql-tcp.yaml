@@ -46,6 +46,7 @@ spec:
     - connectionString: "my-project:us-central1:instance" # from your Cloud SQL Database instance
       portEnvName: "DB_PORT" # Will set an env var named 'DB_PORT' to the database port
       hostEnvName: "DB_HOST" # Will set an env var named 'DB_HOST' to the proxy's host, 127.0.0.1
+      privateIP: true # Optional - Will use the private IP instead of public IP
 ---
 ##
 # Put the database name, username, and password into a kubernetes secret
@@ -103,10 +104,6 @@ spec:
             - "-c"
             - "sleep 10 ; mysql --host=$DB_HOST --port=$DB_PORT --user=$DB_USER --password=$DB_PASS --database=$DB_NAME '--execute=select now() ; sleep 3600"
           env:
-            - name: DB_HOST
-              value: "set-by-operator"
-            - name: DB_PORT
-              value: "set-by-operator"
             - name: DB_USER
               valueFrom:
                 secretKeyRef:
