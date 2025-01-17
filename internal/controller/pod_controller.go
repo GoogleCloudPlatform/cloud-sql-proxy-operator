@@ -38,7 +38,7 @@ import (
 // supported workload types: Deployment, ReplicaSet, StatefulSet, Pod, CronJob, Job
 type PodAdmissionWebhook struct {
 	Client  client.Client
-	decoder *admission.Decoder
+	decoder admission.Decoder
 	updater *workload.Updater
 }
 

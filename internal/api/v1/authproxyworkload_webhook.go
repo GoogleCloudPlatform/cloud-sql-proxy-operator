@@ -15,6 +15,7 @@
 package v1
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"reflect"
@@ -43,22 +44,23 @@ func (r *AuthProxyWorkload) SetupWebhookWithManager(mgr ctrl.Manager) error {
 }
 
 // +kubebuilder:webhook:path=/mutate-cloudsql-cloud-google-com-v1-authproxyworkload,mutating=true,failurePolicy=fail,sideEffects=None,groups=cloudsql.cloud.google.com,resources=authproxyworkloads,verbs=create;update,versions=v1,name=mauthproxyworkload.kb.io,admissionReviewVersions=v1
-var _ webhook.Defaulter = &AuthProxyWorkload{}
+var _ webhook.CustomDefaulter = &AuthProxyWorkload{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *AuthProxyWorkload) Default() {
+func (r *AuthProxyWorkload) Default(_ context.Context, _ runtime.Object) error {
 	authproxyworkloadlog.Info("default", "name", r.Name)
 	if r.Spec.AuthProxyContainer != nil &&
 		r.Spec.AuthProxyContainer.RolloutStrategy == "" {
 		r.Spec.AuthProxyContainer.RolloutStrategy = WorkloadStrategy
 	}
+	return nil
 }
 
 // +kubebuilder:webhook:path=/validate-cloudsql-cloud-google-com-v1-authproxyworkload,mutating=false,failurePolicy=fail,sideEffects=None,groups=cloudsql.cloud.google.com,resources=authproxyworkloads,verbs=create;update,versions=v1,name=vauthproxyworkload.kb.io,admissionReviewVersions=v1
-var _ webhook.Validator = &AuthProxyWorkload{}
+var _ webhook.CustomValidator = &AuthProxyWorkload{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *AuthProxyWorkload) ValidateCreate() (admission.Warnings, error) {
+func (r *AuthProxyWorkload) ValidateCreate(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	allErrs := r.validate()
 	if len(allErrs) > 0 {
 		return nil, apierrors.NewInvalid(
@@ -72,7 +74,7 @@ func (r *AuthProxyWorkload) ValidateCreate() (admission.Warnings, error) {
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *AuthProxyWorkload) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
+func (r *AuthProxyWorkload) ValidateUpdate(_ context.Context, old runtime.Object, _ runtime.Object) (admission.Warnings, error) {
 	o, ok := old.(*AuthProxyWorkload)
 	if !ok {
 		return nil, fmt.Errorf("bad request, expected old to be an AuthProxyWorkload")
@@ -92,7 +94,7 @@ func (r *AuthProxyWorkload) ValidateUpdate(old runtime.Object) (admission.Warnin
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *AuthProxyWorkload) ValidateDelete() (admission.Warnings, error) {
+func (r *AuthProxyWorkload) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }
 
