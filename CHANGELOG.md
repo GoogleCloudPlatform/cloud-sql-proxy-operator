@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.2](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.6.1...v1.6.2) (2025-01-17)
+
+
+### Bug Fixes
+
+* **examples:** do not manually set env vars in deployment ([#653](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/653)) ([4a2d655](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/4a2d65544d47f1910c1a6501b5204cca77ba3548))
+
 ## [1.6.1](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.6.0...v1.6.1) (2024-12-12)
 
 
