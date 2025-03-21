@@ -123,8 +123,8 @@ func TestAuthProxyWorkload_ValidateCreate_InstanceSpec(t *testing.T) {
 					Instances: tc.spec,
 				},
 			}
-			p.Default()
-			_, err := p.ValidateCreate()
+			p.Default(nil, nil)
+			_, err := p.ValidateCreate(nil, nil)
 			gotValid := err == nil
 			switch {
 			case tc.wantValid && !gotValid:
@@ -202,8 +202,8 @@ func TestAuthProxyWorkload_ValidateCreate_WorkloadSpec(t *testing.T) {
 					}},
 				},
 			}
-			p.Default()
-			_, err := p.ValidateCreate()
+			p.Default(nil, nil)
+			_, err := p.ValidateCreate(nil, nil)
 			gotValid := err == nil
 			switch {
 			case tc.wantValid && !gotValid:
@@ -292,8 +292,8 @@ func TestAuthProxyWorkload_ValidateCreate_AuthProxyContainerSpec(t *testing.T) {
 					}},
 				},
 			}
-			p.Default()
-			_, err := p.ValidateCreate()
+			p.Default(nil, nil)
+			_, err := p.ValidateCreate(nil, nil)
 			gotValid := err == nil
 			switch {
 			case tc.wantValid && !gotValid:
@@ -433,10 +433,10 @@ func TestAuthProxyWorkload_ValidateUpdate(t *testing.T) {
 				ObjectMeta: v1.ObjectMeta{Name: "sample"},
 				Spec:       tc.oldSpec,
 			}
-			p.Default()
-			oldP.Default()
+			p.Default(nil, &p)
+			oldP.Default(nil, &oldP)
 
-			_, err := p.ValidateUpdate(&oldP)
+			_, err := p.ValidateUpdate(nil, &oldP, &p)
 			gotValid := err == nil
 
 			switch {
@@ -537,10 +537,10 @@ func TestAuthProxyWorkload_ValidateUpdate_AuthProxyContainerSpec(t *testing.T) {
 					}},
 				},
 			}
-			p.Default()
-			oldP.Default()
+			p.Default(nil, &p)
+			oldP.Default(nil, &oldP)
 
-			_, err := p.ValidateUpdate(&oldP)
+			_, err := p.ValidateUpdate(nil, &oldP, &p)
 			gotValid := err == nil
 
 			switch {
