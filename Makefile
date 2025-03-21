@@ -293,7 +293,7 @@ e2e_test_clean: e2e_cleanup_test_namespaces e2e_undeploy ## Remove all operator 
 e2e_teardown: e2e_cluster_destroy ## Remove the test infrastructure for e2e tests from the Google Cloud Project
 
 .PHONY: e2e_test_job
-e2e_test_job: e2e_setup_job e2e_build_deploy e2e_test_run
+e2e_test_job: e2e_setup_job e2e_test_clean e2e_build_deploy e2e_test_run
 
 .PHONY: e2e_setup_job
 e2e_setup_job: e2e_project e2e_cluster_job e2e_cert_manager_deploy
