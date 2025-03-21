@@ -372,17 +372,15 @@ e2e_test_run_gotest:  # Run the golang e2e tests
 
 .PHONY: e2e_cleanup_test_namespaces
 e2e_cleanup_test_namespaces: e2e_project kustomize kubectl # remove e2e test namespaces named "test*"
-	( $(E2E_KUBECTL) get ns -o=name | \
-		grep namespace/test | \
-		$(E2E_KUBECTL_ENV) xargs $(KUBECTL) delete ) || true
-	( $(E2E_PRIVATE_KUBECTL) get ns -o=name | \
-		grep namespace/test | \
-		$(E2E_PRIVATE_KUBECTL_ENV) xargs $(KUBECTL) delete ) || true
+	$(E2E_PRIVATE_KUBECTL_ENV) KUBECTL=$(KUBECTL) $(PWD)/tools/delete-test-namespaces.sh
+	$(E2E_KUBECTL_ENV) KUBECTL=$(KUBECTL) $(PWD)/tools/delete-test-namespaces.sh
 
 .PHONY: e2e_undeploy
 e2e_undeploy: e2e_project kustomize kubectl $(E2E_WORK_DIR) # Remove the operator from the GKE cluster
-	$(E2E_KUBECTL) delete -f $(E2E_WORK_DIR)/operator.yaml
-	$(E2E_PRIVATE_KUBECTL) delete -f $(E2E_WORK_DIR)/operator.yaml
+	$(E2E_KUBECTL) delete -f $(E2E_WORK_DIR)/operator.yaml --timeout=30s || true
+	$(E2E_KUBECTL_ENV) KUBECTL=$(KUBECTL) $(PWD)/tools/delete-test-namespaces.sh namespace/cloud-sql-proxy-operator-system
+	$(E2E_PRIVATE_KUBECTL) delete -f $(E2E_WORK_DIR)/operator.yaml --timeout=30s || true
+	$(E2E_PRIVATE_KUBECTL_ENV) KUBECTL=$(KUBECTL) $(PWD)/tools/delete-test-namespaces.sh namespace/cloud-sql-proxy-operator-system
 
 ###
 # Build the operator docker image and push it to the

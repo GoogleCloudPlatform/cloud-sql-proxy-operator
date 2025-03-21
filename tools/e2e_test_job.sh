@@ -58,6 +58,11 @@ set -x
 echo "TIME: $(date) Run Tests"
 echo "Running tests on environment ${ENVIRONMENT_NAME:-undefined}"
 
+# Force cleanup of the existing resources before running tests.
+echo "Cleaning up the test resources from past runs"
+make e2e_test_clean >> bin/e2e_test.log || true
+
+echo "Starting the tests"
 # Run e2e test, filtering the stdout so that it only logs go test results.
 if make e2e_test_job > bin/e2e_test.log 2>&1 ; then
   echo "STATUS: E2E Test Passed"

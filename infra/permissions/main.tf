@@ -76,6 +76,12 @@ resource "google_project_iam_member" "allow_image_pull" {
   role       = "roles/artifactregistry.reader"
   member     = "serviceAccount:${google_service_account.node_pool.email}"
 }
+resource "google_project_iam_member" "default_node_service_acct" {
+  depends_on = [google_project_service.project["iam.googleapis.com"]]
+  project    = var.project_id
+  role       = "roles/container.defaultNodeServiceAccount"
+  member     = "serviceAccount:${google_service_account.node_pool.email}"
+}
 
 resource "google_project_iam_binding" "cloud_sql_client" {
   depends_on = [google_project_service.project["iam.googleapis.com"]]
