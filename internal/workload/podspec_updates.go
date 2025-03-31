@@ -226,7 +226,9 @@ func (u *Updater) CheckWorkloadContainers(wl *PodWorkload, matches []*cloudsqlap
 	for _, p := range matches {
 		wantName := ContainerName(p)
 		var found bool
-		for _, c := range wl.PodSpec().Containers {
+		podSpec := wl.PodSpec()
+		allContainers := append(podSpec.Containers, podSpec.InitContainers...)
+		for _, c := range allContainers {
 			if c.Name == wantName {
 				found = true
 			}
