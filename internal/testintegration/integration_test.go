@@ -71,15 +71,15 @@ func TestCreateAndDeleteResource(t *testing.T) {
 	tcc := newTestCaseClient("create", defaultClient)
 	res, err := tcc.CreateResource(ctx)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = tcc.WaitForFinalizerOnResource(ctx, res)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = tcc.DeleteResourceAndWait(ctx, res)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 }
