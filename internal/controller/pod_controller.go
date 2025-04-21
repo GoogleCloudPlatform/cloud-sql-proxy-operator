@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/json"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -38,7 +39,7 @@ import (
 // supported workload types: Deployment, ReplicaSet, StatefulSet, Pod, CronJob, Job
 type PodAdmissionWebhook struct {
 	Client  client.Client
-	decoder *admission.Decoder
+	decoder admission.Decoder
 	updater *workload.Updater
 }
 
@@ -204,8 +205,10 @@ func newPodDeleteController(mgr ctrl.Manager, u *workload.Updater) (*podDeleteCo
 // setupWithManager adds this AuthProxyWorkload controller to the controller-runtime
 // manager.
 func (r *podDeleteController) setupWithManager(mgr ctrl.Manager) error {
+	b := true
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Pod{}).
+		WithOptions(controller.Options{SkipNameValidation: &b}).
 		Complete(r)
 }
 
