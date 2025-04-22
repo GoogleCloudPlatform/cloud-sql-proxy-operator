@@ -15,6 +15,7 @@
 package v1_test
 
 import (
+	"context"
 	"testing"
 
 	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1"
@@ -113,6 +114,7 @@ func TestAuthProxyWorkload_ValidateCreate_InstanceSpec(t *testing.T) {
 	}
 	for _, tc := range data {
 		t.Run(tc.desc, func(t *testing.T) {
+			ctx := context.Background()
 			p := cloudsqlapi.AuthProxyWorkload{
 				ObjectMeta: v1.ObjectMeta{Name: "sample"},
 				Spec: cloudsqlapi.AuthProxyWorkloadSpec{
@@ -123,8 +125,8 @@ func TestAuthProxyWorkload_ValidateCreate_InstanceSpec(t *testing.T) {
 					Instances: tc.spec,
 				},
 			}
-			p.Default()
-			_, err := p.ValidateCreate()
+			(&cloudsqlapi.AuthProxyWorkloadDefaulter{}).Default(ctx, &p)
+			_, err := (&cloudsqlapi.AuthProxyWorkloadValidator{}).ValidateCreate(ctx, &p)
 			gotValid := err == nil
 			switch {
 			case tc.wantValid && !gotValid:
@@ -192,6 +194,7 @@ func TestAuthProxyWorkload_ValidateCreate_WorkloadSpec(t *testing.T) {
 
 	for _, tc := range data {
 		t.Run(tc.desc, func(t *testing.T) {
+			ctx := context.Background()
 			p := cloudsqlapi.AuthProxyWorkload{
 				ObjectMeta: v1.ObjectMeta{Name: "sample"},
 				Spec: cloudsqlapi.AuthProxyWorkloadSpec{
@@ -202,8 +205,8 @@ func TestAuthProxyWorkload_ValidateCreate_WorkloadSpec(t *testing.T) {
 					}},
 				},
 			}
-			p.Default()
-			_, err := p.ValidateCreate()
+			(&cloudsqlapi.AuthProxyWorkloadDefaulter{}).Default(ctx, &p)
+			_, err := (&cloudsqlapi.AuthProxyWorkloadValidator{}).ValidateCreate(ctx, &p)
 			gotValid := err == nil
 			switch {
 			case tc.wantValid && !gotValid:
@@ -278,6 +281,7 @@ func TestAuthProxyWorkload_ValidateCreate_AuthProxyContainerSpec(t *testing.T) {
 
 	for _, tc := range data {
 		t.Run(tc.desc, func(t *testing.T) {
+			ctx := context.Background()
 			p := cloudsqlapi.AuthProxyWorkload{
 				ObjectMeta: v1.ObjectMeta{Name: "sample"},
 				Spec: cloudsqlapi.AuthProxyWorkloadSpec{
@@ -292,8 +296,8 @@ func TestAuthProxyWorkload_ValidateCreate_AuthProxyContainerSpec(t *testing.T) {
 					}},
 				},
 			}
-			p.Default()
-			_, err := p.ValidateCreate()
+			(&cloudsqlapi.AuthProxyWorkloadDefaulter{}).Default(ctx, &p)
+			_, err := (&cloudsqlapi.AuthProxyWorkloadValidator{}).ValidateCreate(ctx, &p)
 			gotValid := err == nil
 			switch {
 			case tc.wantValid && !gotValid:
@@ -425,6 +429,7 @@ func TestAuthProxyWorkload_ValidateUpdate(t *testing.T) {
 
 	for _, tc := range data {
 		t.Run(tc.desc, func(t *testing.T) {
+			ctx := context.Background()
 			p := cloudsqlapi.AuthProxyWorkload{
 				ObjectMeta: v1.ObjectMeta{Name: "sample"},
 				Spec:       tc.spec,
@@ -433,10 +438,9 @@ func TestAuthProxyWorkload_ValidateUpdate(t *testing.T) {
 				ObjectMeta: v1.ObjectMeta{Name: "sample"},
 				Spec:       tc.oldSpec,
 			}
-			p.Default()
-			oldP.Default()
-
-			_, err := p.ValidateUpdate(&oldP)
+			(&cloudsqlapi.AuthProxyWorkloadDefaulter{}).Default(ctx, &p)
+			(&cloudsqlapi.AuthProxyWorkloadDefaulter{}).Default(ctx, &oldP)
+			_, err := (&cloudsqlapi.AuthProxyWorkloadValidator{}).ValidateUpdate(ctx, &oldP, &p)
 			gotValid := err == nil
 
 			switch {
@@ -505,6 +509,7 @@ func TestAuthProxyWorkload_ValidateUpdate_AuthProxyContainerSpec(t *testing.T) {
 	}
 	for _, tc := range data {
 		t.Run(tc.desc, func(t *testing.T) {
+			ctx := context.Background()
 			p := cloudsqlapi.AuthProxyWorkload{
 				ObjectMeta: v1.ObjectMeta{Name: "sample"},
 				Spec: cloudsqlapi.AuthProxyWorkloadSpec{
@@ -537,10 +542,10 @@ func TestAuthProxyWorkload_ValidateUpdate_AuthProxyContainerSpec(t *testing.T) {
 					}},
 				},
 			}
-			p.Default()
-			oldP.Default()
 
-			_, err := p.ValidateUpdate(&oldP)
+			(&cloudsqlapi.AuthProxyWorkloadDefaulter{}).Default(ctx, &p)
+			(&cloudsqlapi.AuthProxyWorkloadDefaulter{}).Default(ctx, &oldP)
+			_, err := (&cloudsqlapi.AuthProxyWorkloadValidator{}).ValidateUpdate(ctx, &oldP, &p)
 			gotValid := err == nil
 
 			switch {

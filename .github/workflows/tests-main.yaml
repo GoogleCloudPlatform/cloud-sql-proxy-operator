@@ -40,7 +40,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
         with:
-          go-version: "1.23"
+          go-version: "1.24"
       - name: Set up build.env with phony secrets.
         run: cp build.sample.env build.env
       - name: make test
@@ -90,7 +90,7 @@ jobs:
       - name: "Setup Go"
         uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
         with:
-          go-version: "1.23"
+          go-version: "1.24"
       - name: Set up QEMU
         uses: docker/setup-qemu-action@2b82ce82d56a2a04d2637cd93a637ae1b359c0a7 # v2.2.0
       - name: Set up Docker Buildx
