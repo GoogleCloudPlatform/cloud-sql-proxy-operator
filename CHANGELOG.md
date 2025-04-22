@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.4](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.6.3...v1.6.4) (2025-04-22)
+
+
+### Bug Fixes
+
+* Check all containers and init containers for proxy before recreating pod ([#662](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/662)) ([a28e16a](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/a28e16a332b63c2f3a9be91c350ed2083227de52))
+* Upgrades Kubernetes libraries to 1.32 ([#664](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/664)) ([e5e2da5](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/e5e2da518006482c08b66b4e21df06f4faa9bb62))
+
 ## [1.6.3](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.6.2...v1.6.3) (2025-03-25)
 
 
