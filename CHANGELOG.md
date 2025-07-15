@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.6](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.6.5...v1.6.6) (2025-07-15)
+
+
+### Bug Fixes
+
+* Update dependencies to latest. ([#684](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/684)) ([deac722](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/deac7223e8a44e585362a906aa669d60b9d7e3ef))
+
 ## [1.6.5](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.6.4...v1.6.5) (2025-04-29)
 
 
