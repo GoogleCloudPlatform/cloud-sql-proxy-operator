@@ -263,6 +263,7 @@ func TestReconcileState33(t *testing.T) {
 
 	// mimic a pod that was updated by the webhook
 	reqName, reqVal := workload.PodAnnotation(p, workload.DefaultProxyImage)
+
 	pod := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "thing",

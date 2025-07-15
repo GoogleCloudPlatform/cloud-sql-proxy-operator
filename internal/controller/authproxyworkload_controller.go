@@ -134,7 +134,7 @@ func (r *AuthProxyWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	resource := &cloudsqlapi.AuthProxyWorkload{}
 
 	l.Info("Reconcile loop started AuthProxyWorkload", "name", req.NamespacedName)
-	if err = r.Get(ctx, req.NamespacedName, resource); err != nil {
+	if err = r.Client.Get(ctx, req.NamespacedName, resource); err != nil {
 		// The resource can't be loaded.
 		// If it was recently deleted, then ignore the error and don't requeue.
 		if r.recentlyDeleted.get(req.NamespacedName) {
@@ -188,7 +188,7 @@ func (r *AuthProxyWorkloadReconciler) doDelete(ctx context.Context, resource *cl
 	// Remove the finalizer so that the object can be fully deleted
 	if controllerutil.ContainsFinalizer(resource, finalizerName) {
 		controllerutil.RemoveFinalizer(resource, finalizerName)
-		err = r.Update(ctx, resource)
+		err = r.Client.Update(ctx, resource)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -364,7 +364,7 @@ func (r *AuthProxyWorkloadReconciler) applyFinalizer(
 	// the finalizer, exit the reconcile loop and requeue.
 	controllerutil.AddFinalizer(resource, finalizerName)
 
-	err := r.Update(ctx, resource)
+	err := r.Client.Update(ctx, resource)
 	if err != nil {
 		l.Info("Error adding finalizer. Will requeue for reconcile.", "err", err)
 		return requeueNow, err
@@ -382,7 +382,7 @@ func (r *AuthProxyWorkloadReconciler) patchAuthProxyWorkloadStatus(
 	if err != nil {
 		return err
 	}
-	err = r.Get(ctx, types.NamespacedName{
+	err = r.Client.Get(ctx, types.NamespacedName{
 		Namespace: resource.GetNamespace(),
 		Name:      resource.GetName(),
 	}, orig)
@@ -502,7 +502,7 @@ func (r *AuthProxyWorkloadReconciler) loadByName(ctx context.Context, workloadSe
 		return nil, fmt.Errorf("unable to load by name %s/%s:  %v", key.Namespace, key.Name, err)
 	}
 
-	err = r.Get(ctx, key, wl.Object())
+	err = r.Client.Get(ctx, key, wl.Object())
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, nil // empty list when no named workload is found. It is not an error.
@@ -527,7 +527,7 @@ func (r *AuthProxyWorkloadReconciler) loadByLabelSelector(ctx context.Context, w
 	if err != nil {
 		return nil, err
 	}
-	err = r.List(ctx, wl.List(), client.InNamespace(ns), client.MatchingLabelsSelector{Selector: sel})
+	err = r.Client.List(ctx, wl.List(), client.InNamespace(ns), client.MatchingLabelsSelector{Selector: sel})
 	if err != nil {
 		l.Error(err, "Unable to list s for workloadSelector", "selector", sel)
 		return nil, err

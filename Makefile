@@ -51,7 +51,7 @@ SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
 ## The version to use for the cert-manager operator
-CERT_MANAGER_VERSION=v1.17.2# renovate datasource=github-tags depName=cert-manager/cert-manager
+CERT_MANAGER_VERSION=v1.18.2# renovate datasource=github-tags depName=cert-manager/cert-manager
 
 ##@ General
 
@@ -155,7 +155,7 @@ build_push_docker: # Build docker image with the operator. set IMG env var befor
 go_lint: golangci-lint # Run go lint tools, fail if unchecked errors
 	# Implements golang CI based on settings described here:
 	# See https://betterprogramming.pub/how-to-improve-code-quality-with-an-automatic-check-in-go-d18a5eb85f09
-	$(GOLANGCI_LINT) 	run --fix --fast ./...
+	$(GOLANGCI_LINT) 	run --fix ./...
 
 .PHONY: tf_lint
 tf_lint: terraform # Run terraform fmt to ensure terraform code is consistent
@@ -439,11 +439,11 @@ CRD_REF_DOCS ?= $(LOCALBIN)/crd-ref-docs
 # additional whitespace will break the renovate regex rules.
 
 KUBECTL_VERSION=v1.32.2# renovate datasource=github-tags depName=kubernetes/kubernetes
-TERRAFORM_VERSION=v1.11.4# renovate datasource=github-tags depName=hashicorp/terraform
+TERRAFORM_VERSION=v1.12.2# renovate datasource=github-tags depName=hashicorp/terraform
 
 CONTROLLER_TOOLS_VERSION=v0.17.3# renovate datasource=go depName=sigs.k8s.io/controller-tools
 CRD_REF_DOCS_VERSION=v0.1.0# renovate datasource=go depName=github.com/elastic/crd-ref-docs
-GOLANGCI_LINT_VERSION=v1.64.8# renovate datasource=go depName=github.com/golangci/golangci-lint/cmd/golangci-lint
+GOLANGCI_LINT_VERSION=v2.2.2# renovate datasource=go depName=github.com/golangci/golangci-lint/cmd/golangci-lint
 GO_LICENSES_VERSION=v1.6.0# renovate datasource=go depName=github.com/google/go-licenses
 
 KUSTOMIZE_VERSION=v5.6.0# don't manage with renovate, this repo has non-standard tags
@@ -498,7 +498,7 @@ $(TERRAFORM): $(LOCALBIN)
 .PHONY: golangci-lint
 golangci-lint: $(GOLANGCI_LINT) ## Download controller-gen locally if necessary.
 $(GOLANGCI_LINT): $(LOCALBIN)
-	test -s $@ || GOBIN=$(LOCALBIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+	test -s $@ || GOBIN=$(LOCALBIN) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
 .PHONY: go-licenses
 go-licenses: $(GO_LICENSES) ## Download controller-gen locally if necessary.
