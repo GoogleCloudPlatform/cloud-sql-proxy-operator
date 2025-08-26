@@ -25,6 +25,7 @@ testbin/*
 *.swo
 *~
 .bin
+*.iml
 
 # Ignore secrets for the build
 /build.env
