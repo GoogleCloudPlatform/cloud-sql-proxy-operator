@@ -135,52 +135,69 @@ func configureProxies(u *workload.Updater, wl *workload.PodWorkload, proxies []*
 }
 
 func TestUpdatePodWorkload(t *testing.T) {
-	var (
-		wantsName               = "instance1"
-		wantsPort         int32 = 8080
-		wantContainerName       = "csql-default-" + wantsName
-		wantsInstanceName       = "project:server:db"
-		wantsInstanceArg        = fmt.Sprintf("%s?port=%d", wantsInstanceName, wantsPort)
-		u                       = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage, false)
-	)
-	var err error
-
-	// Create a pod
-	wl := podWorkload()
-
-	// ensure that the deployment only has one container before
-	// updating the deployment.
-	if len(wl.Pod.Spec.Containers) != 1 {
-		t.Fatalf("got %v, wants 1. deployment containers length", len(wl.Pod.Spec.Containers))
+	tcs := []struct {
+		name              string
+		wantsName         string
+		wantsPort         int32
+		wantsInstanceName string
+	}{{
+		name:              "WithInstanceConnectionString",
+		wantsName:         "instance1",
+		wantsPort:         int32(8080),
+		wantsInstanceName: "project:server:db",
+	}, {
+		name:              "WithDnsNameString",
+		wantsName:         "instance1",
+		wantsPort:         int32(8080),
+		wantsInstanceName: "db.example.com",
+	},
 	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			u := workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage, false)
+			wantsContainerName := "csql-default-" + tc.wantsName
+			wantsInstanceArg := fmt.Sprintf("%s?port=%d", tc.wantsInstanceName, tc.wantsPort)
 
-	// Create a AuthProxyWorkload that matches the deployment
-	proxy := simpleAuthProxy(wantsName, wantsInstanceName)
-	proxy.Spec.Instances[0].Port = ptr(wantsPort)
+			var err error
 
-	// Update the container with new markWorkloadNeedsUpdate
-	err = configureProxies(u, wl, []*cloudsqlapi.AuthProxyWorkload{proxy})
-	if err != nil {
-		t.Fatal(err)
-	}
+			// Create a pod
+			wl := podWorkload()
 
-	// test that there are now 2 containers
-	if want, got := 2, len(wl.Pod.Spec.Containers); want != got {
-		t.Fatalf("got %v want %v, number of deployment containers", got, want)
-	}
+			// ensure that the deployment only has one container before
+			// updating the deployment.
+			if len(wl.Pod.Spec.Containers) != 1 {
+				t.Fatalf("got %v, wants 1. deployment containers length", len(wl.Pod.Spec.Containers))
+			}
 
-	t.Logf("Containers: {%v}", wl.Pod.Spec.Containers)
+			// Create a AuthProxyWorkload that matches the deployment
+			proxy := simpleAuthProxy(tc.wantsName, tc.wantsInstanceName)
+			proxy.Spec.Instances[0].Port = ptr(tc.wantsPort)
 
-	// test that the container has the proper name following the conventions
-	foundContainer, err := findContainer(wl, wantContainerName)
-	if err != nil {
-		t.Fatal(err)
-	}
+			// Update the container with new markWorkloadNeedsUpdate
+			err = configureProxies(u, wl, []*cloudsqlapi.AuthProxyWorkload{proxy})
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	// test that the container args have the expected args
-	if gotArg, err := hasArg(wl, wantContainerName, wantsInstanceArg); err != nil || !gotArg {
-		t.Errorf("wants connection string arg %v but it was not present in proxy container args %v",
-			wantsInstanceArg, foundContainer.Args)
+			// test that there are now 2 containers
+			if want, got := 2, len(wl.Pod.Spec.Containers); want != got {
+				t.Fatalf("got %v want %v, number of deployment containers", got, want)
+			}
+
+			t.Logf("Containers: {%v}", wl.Pod.Spec.Containers)
+
+			// test that the container has the proper name following the conventions
+			foundContainer, err := findContainer(wl, wantsContainerName)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// test that the container args have the expected args
+			if gotArg, err := hasArg(wl, wantsContainerName, wantsInstanceArg); err != nil || !gotArg {
+				t.Errorf("wants connection string arg %v but it was not present in proxy container args %v",
+					wantsInstanceArg, foundContainer.Args)
+			}
+		})
 	}
 
 }
