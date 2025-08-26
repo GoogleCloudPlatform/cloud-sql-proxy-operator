@@ -20,6 +20,7 @@ import (
 	"path"
 	"reflect"
 
+	"cloud.google.com/go/cloudsqlconn/instance"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -281,6 +282,7 @@ func validateInstances(spec *[]InstanceSpec, f *field.Path) field.ErrorList {
 	}
 	for i, inst := range *spec {
 		ff := f.Child(fmt.Sprintf("%d", i))
+		errs = append(errs, validateConnectionString(inst, f)...)
 		if inst.Port != nil {
 			for _, s := range apivalidation.IsValidPortNum(int(*inst.Port)) {
 				errs = append(errs, field.Invalid(ff.Child("port"), inst.Port, s))
@@ -309,6 +311,16 @@ func validateInstances(spec *[]InstanceSpec, f *field.Path) field.ErrorList {
 		}
 	}
 	return errs
+}
+
+func validateConnectionString(inst InstanceSpec, f *field.Path) field.ErrorList {
+	if instance.IsValidDomain(inst.ConnectionString) {
+		return nil
+	}
+	if _, err := instance.ParseConnName(inst.ConnectionString); err != nil {
+		return []*field.Error{field.Invalid(f, inst.ConnectionString, "is not a valid instance connection name or dns name")}
+	}
+	return nil
 }
 
 func validateEnvName(f *field.Path, envName string) field.ErrorList {

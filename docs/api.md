@@ -158,7 +158,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `connectionString` _string_ | ConnectionString is the connection string for the Cloud SQL Instance<br />in the format `project_id:region:instance_name` |  | Pattern: `^([^:]+(:[^:]+)?):([^:]+):([^:]+)$` <br />Required: \{\} <br /> |
+| `connectionString` _string_ | ConnectionString is the connection string for the Cloud SQL Instance.<br />This may be an instance connection name in the format `project_id:region:instance_name`<br />or a DNS name for the instance. |  | Required: \{\} <br /> |
 | `port` _integer_ | Port (optional) sets the tcp port for this instance. If not set, a value will<br />be automatically assigned by the operator and set as an environment variable<br />on all containers in the workload named according to PortEnvName. The operator will choose<br />a port so that it does not conflict with other ports on the workload. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `autoIAMAuthN` _boolean_ | AutoIAMAuthN (optional) Enables IAM Authentication for this instance.<br />Default value is false. |  | Optional: \{\} <br /> |
 | `privateIP` _boolean_ | PrivateIP (optional) Enable connection to the Cloud SQL instance's private ip for this instance.<br />Default value is false. |  | Optional: \{\} <br /> |

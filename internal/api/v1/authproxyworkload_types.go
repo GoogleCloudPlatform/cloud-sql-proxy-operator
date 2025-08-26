@@ -345,10 +345,10 @@ type TelemetrySpec struct {
 //	`{ "connectionString":"my-project:us-central1:my-db-server", "port":5000 }`
 type InstanceSpec struct {
 
-	// ConnectionString is the connection string for the Cloud SQL Instance
-	// in the format `project_id:region:instance_name`
+	// ConnectionString is the connection string for the Cloud SQL Instance.
+	// This may be an instance connection name in the format `project_id:region:instance_name`
+	// or a DNS name for the instance.
 	//+kubebuilder:validation:Required
-	//+kubebuilder:validation:Pattern:="^([^:]+(:[^:]+)?):([^:]+):([^:]+)$"
 	ConnectionString string `json:"connectionString,omitempty"`
 
 	// Port (optional) sets the tcp port for this instance. If not set, a value will
