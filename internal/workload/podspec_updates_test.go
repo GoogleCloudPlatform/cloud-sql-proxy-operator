@@ -513,6 +513,54 @@ func TestResourcesFromSpec(t *testing.T) {
 
 }
 
+func TestSecurityContextFromSpec(t *testing.T) {
+	var (
+		wantsInstanceName   = "project:server:db"
+		wantSecurityContext = &corev1.SecurityContext{
+			Privileged: ptr(true),
+			RunAsUser:  ptr(int64(1000)),
+			RunAsGroup: ptr(int64(1000)),
+			Capabilities: &corev1.Capabilities{
+				Add: []corev1.Capability{"NET_ADMIN"},
+			},
+		}
+
+		u = workload.NewUpdater("cloud-sql-proxy-operator/dev", workload.DefaultProxyImage, false)
+	)
+
+	// Create a pod
+	wl := podWorkload()
+	wl.Pod.Spec.Containers[0].Ports =
+		[]corev1.ContainerPort{{Name: "http", ContainerPort: 8080}}
+
+	// Create a AuthProxyWorkload that matches the deployment
+	csqls := []*cloudsqlapi.AuthProxyWorkload{simpleAuthProxy("instance1", wantsInstanceName)}
+	csqls[0].Spec.AuthProxyContainer = &cloudsqlapi.AuthProxyContainerSpec{SecurityContext: wantSecurityContext}
+
+	// update the containers
+	err := configureProxies(u, wl, csqls)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// ensure that the new container exists
+	if len(wl.Pod.Spec.Containers) != 2 {
+		t.Fatalf("got %v, wants 1. deployment containers length", len(wl.Pod.Spec.Containers))
+	}
+
+	// test that the instancename matches the new expected instance name.
+	csqlContainer, err := findContainer(wl, fmt.Sprintf("csql-default-%s", csqls[0].GetName()))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// test that resources was set
+	if !reflect.DeepEqual(csqlContainer.SecurityContext, wantSecurityContext) {
+		t.Errorf("got %v, want %v for proxy container command", csqlContainer.SecurityContext, wantSecurityContext)
+	}
+
+}
+
 func TestProxyCLIArgs(t *testing.T) {
 	wantTrue := true
 	wantFalse := false

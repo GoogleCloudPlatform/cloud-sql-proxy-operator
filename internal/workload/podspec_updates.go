@@ -737,7 +737,9 @@ func (s *updateState) applyContainerSpec(p *cloudsqlapi.AuthProxyWorkload, c *co
 		// Do not allow privilege escalation
 		AllowPrivilegeEscalation: &f,
 	}
-
+	if p.Spec.AuthProxyContainer != nil && p.Spec.AuthProxyContainer.SecurityContext != nil {
+		c.SecurityContext = p.Spec.AuthProxyContainer.SecurityContext.DeepCopy()
+	}
 	if p.Spec.AuthProxyContainer == nil {
 		return
 	}

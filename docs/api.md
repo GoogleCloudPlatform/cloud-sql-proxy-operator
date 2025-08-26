@@ -50,6 +50,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `container` _[Container](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#container-v1-core)_ | Container is debugging parameter that when specified will override the<br />proxy container with a completely custom Container spec. |  | Optional: \{\} <br /> |
 | `resources` _[ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#resourcerequirements-v1-core)_ | Resources specifies the resources required for the proxy pod. |  | Optional: \{\} <br /> |
+| `securityContext` _[SecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#securitycontext-v1-core)_ | SecurityContext specifies the security context for the proxy container. |  | Optional: \{\} <br /> |
 | `telemetry` _[TelemetrySpec](#telemetryspec)_ | Telemetry specifies how the proxy should expose telemetry.<br />Optional, by default |  | Optional: \{\} <br /> |
 | `adminServer` _[AdminServerSpec](#adminserverspec)_ | AdminServer specifies the config for the proxy's admin service which is<br />available to other containers in the same pod. |  |  |
 | `authentication` _[AuthenticationSpec](#authenticationspec)_ | Authentication specifies the config for how the proxy authenticates itself<br />to the Google Cloud API. |  |  |

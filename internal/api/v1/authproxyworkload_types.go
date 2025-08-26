@@ -154,6 +154,10 @@ type AuthProxyContainerSpec struct {
 	//+kubebuilder:validation:Optional
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 
+	// SecurityContext specifies the security context for the proxy container.
+	//+kubebuilder:validation:Optional
+	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
+
 	// Telemetry specifies how the proxy should expose telemetry.
 	// Optional, by default
 	//+kubebuilder:validation:Optional
