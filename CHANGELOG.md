@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.7.0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.6.6...v1.7.0) (2025-08-28)
+
+
+### Features
+
+* Specify the security context on the proxy container. ([#698](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/698)) ([05130f0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/05130f0ab326e13af3bbd5232a0bf24f04a57af3))
+* Support dns name for connector names ([#701](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/701)) ([35402f7](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/35402f77de11d9bd4c8154b389807083f9fad590)), closes [#683](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/683)
+
+
+### Bug Fixes
+
+* **deps:** Update all dependencies to latest ([#696](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/696)) ([d8bacd5](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/d8bacd550af197f1648215fbb73c491be1ac6a17))
+* Update proxy to 2.18.2 to include DNS name fix. ([#704](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/704)) ([feed387](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/feed3877e76d50a3753d7d4bca2cd05a79bd613b))
+
 ## [1.6.6](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.6.5...v1.6.6) (2025-07-15)
 
 
