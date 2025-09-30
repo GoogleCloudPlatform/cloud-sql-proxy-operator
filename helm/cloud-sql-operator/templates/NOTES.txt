@@ -1,0 +1,2 @@
+Check that the operator is running by running these commands:
+kubectl -n {{ .Release.Namespace }} get pods
