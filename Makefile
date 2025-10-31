@@ -246,6 +246,31 @@ installer/install.sh: ## Build install shell script to deploy the operator
 	sed 's/__VERSION__/v$(VERSION)/g' | \
 	sed 's/__CERT_MANAGER_VERSION__/$(CERT_MANAGER_VERSION)/g' > $@
 
+##
+# Update helm chart
+.PHONY: helm_generate
+helm_generate: helm installer/cloud-sql-proxy-operator.yaml bin/install_to_helm
+	bin/install_to_helm \
+      -installYaml=installer/cloud-sql-proxy-operator.yaml \
+      -operatorChartDir=helm/cloud-sql-operator
+      -crdChartDir=helm/cloud-sql-operator-crds
+
+.PHONY: helm_e2e_build_deploy
+helm_e2e_build_deploy: helm e2e_image_push e2e_cert_manager_deploy helm_e2e_install
+
+.PHONY: helm_e2e_install
+helm_e2e_install: helm
+	KUBECONFIG_E2E=$(KUBECONFIG_E2E) \
+	PRIVATE_KUBECONFIG_E2E=$(PRIVATE_KUBECONFIG_E2E) \
+	E2E_OPERATOR_URL=$(E2E_OPERATOR_URL) \
+	tools/helm-install-operator.sh
+
+.PHONY: helm_lint
+helm_lint: helm
+	helm lint helm/cloud-sql-operator
+
+bin/install_to_helm: tools/install_to_helm.go
+	go build -o $@ $<
 
 ##
 ##@ Google Cloud End to End Test
@@ -433,6 +458,7 @@ TERRAFORM ?= $(LOCALBIN)/terraform
 GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
 GO_LICENSES ?= $(LOCALBIN)/go-licenses
 CRD_REF_DOCS ?= $(LOCALBIN)/crd-ref-docs
+HELM ?= $(LOCALBIN)/helm
 
 ## Tool Versions
 # Important note: avoid adding spaces in the macro declarations as any
@@ -445,6 +471,7 @@ CONTROLLER_TOOLS_VERSION=v0.17.3# renovate datasource=go depName=sigs.k8s.io/con
 CRD_REF_DOCS_VERSION=v0.2.0# renovate datasource=go depName=github.com/elastic/crd-ref-docs
 GOLANGCI_LINT_VERSION=v2.2.2# renovate datasource=go depName=github.com/golangci/golangci-lint/cmd/golangci-lint
 GO_LICENSES_VERSION=v1.6.0# renovate datasource=go depName=github.com/google/go-licenses
+HELM_VERSION=v3.13.1# renovate datasource=go depName=github.com/helm/helm
 
 KUSTOMIZE_VERSION=v5.6.0# don't manage with renovate, this repo has non-standard tags
 
@@ -452,7 +479,7 @@ GOOS?=$(shell go env GOOS | tr -d '\n')
 GOARCH?=$(shell go env GOARCH | tr -d '\n')
 
 remove_tools:
-	rm -rf $(KUSTOMIZE) $(CONTROLLER_GEN) $(KUBECTL) $(ENVTEST) $(TERRAFORM) $(GOLANGCI_LINT) $(CRD_REF_DOCS)
+	rm -rf $(KUSTOMIZE) $(CONTROLLER_GEN) $(KUBECTL) $(ENVTEST) $(TERRAFORM) $(GOLANGCI_LINT) $(CRD_REF_DOCS) $(HELM)
 
 all_tools: kustomize controller-gen envtest kubectl terraform golangci-lint crd-ref-docs
 
@@ -516,8 +543,14 @@ gcloud:
 		 exit 1)
 
 .PHONY: helm
-helm:
-	@which helm > /dev/null || \
-		(echo "Helm command line tools are not available in your path" ; \
-		 echo "Instructions on how to install https://helm.sh/docs/helm/helm_install/ " ; \
-		 exit 1)
+helm: $(HELM)
+$(HELM): $(LOCALBIN) ## Download helm locally if necessary.
+	test -s $@ || \
+		( curl -v -L -o $@.tar.gz https://get.helm.sh/helm-$(HELM_VERSION)-$(GOOS)-$(GOARCH).tar.gz && \
+		cd $(LOCALBIN) && \
+		tar -zxf $@.tar.gz && \
+		mv $(LOCALBIN)/$(GOOS)-$(GOARCH)/* $(LOCALBIN) && \
+		rm -rf $(LOCALBIN)/$(GOOS)-$(GOARCH) && \
+		rm -f $@.tar.gz && \
+		chmod a+x $@ && \
+		touch $@ )
