@@ -29,9 +29,9 @@ function clean() {
   make clean
 }
 
-## build - Builds the project without running tests.
+## build - Builds the project without running tests or pushing the container image
 function build() {
-   make build
+   make build_docker_local
 }
 
 ## test - Runs local unit tests.

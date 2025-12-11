@@ -43,6 +43,9 @@ resource "google_container_cluster" "primary" {
   remove_default_node_pool = true
   resource_labels          = local.standard_labels
 
+  lifecycle {
+    ignore_changes = [min_master_version]
+  }
 }
 
 resource "google_container_node_pool" "primary_preemptible_nodes" {
@@ -77,6 +80,9 @@ resource "google_container_node_pool" "primary_preemptible_nodes" {
       "https://www.googleapis.com/auth/monitoring",
       "https://www.googleapis.com/auth/sqlservice.admin",
     ]
+  }
+  lifecycle {
+    ignore_changes = [version]
   }
 }
 
