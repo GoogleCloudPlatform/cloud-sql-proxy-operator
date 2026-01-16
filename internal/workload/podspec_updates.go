@@ -679,13 +679,10 @@ func (s *updateState) updateContainer(p *cloudsqlapi.AuthProxyWorkload, c *corev
 
 		}
 
-		if inst.AutoIAMAuthN != nil {
-			if *inst.AutoIAMAuthN {
-				params["auto-iam-authn"] = "true"
-			} else {
-				params["auto-iam-authn"] = "false"
-			}
+		if inst.AutoIAMAuthN != nil && *inst.AutoIAMAuthN {
+			s.addProxyContainerEnvVar(p, "CSQL_PROXY_AUTO_IAM_AUTHN", "true")
 		}
+
 		if inst.PrivateIP != nil {
 			if *inst.PrivateIP {
 				params["private-ip"] = "true"

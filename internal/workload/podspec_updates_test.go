@@ -670,9 +670,9 @@ func TestProxyCLIArgs(t *testing.T) {
 						AutoIAMAuthN:     &wantFalse,
 					}},
 			},
-			wantProxyArgContains: []string{
-				fmt.Sprintf("hello:world:one?auto-iam-authn=true&port=%d", workload.DefaultFirstPort),
-				fmt.Sprintf("hello:world:two?auto-iam-authn=false&port=%d", workload.DefaultFirstPort+1)},
+			wantWorkloadEnv: map[string]string{
+				"CSQL_PROXY_AUTO_IAM_AUTHN": "true",
+			},
 		},
 		{
 			desc: "private-ip set",
