@@ -444,7 +444,7 @@ TERRAFORM_VERSION=v1.13.4# renovate datasource=github-tags depName=hashicorp/ter
 CONTROLLER_TOOLS_VERSION=v0.17.3# renovate datasource=go depName=sigs.k8s.io/controller-tools
 CRD_REF_DOCS_VERSION=v0.2.0# renovate datasource=go depName=github.com/elastic/crd-ref-docs
 GOLANGCI_LINT_VERSION=v2.2.2# renovate datasource=go depName=github.com/golangci/golangci-lint/cmd/golangci-lint
-GO_LICENSES_VERSION=v1.6.0# renovate datasource=go depName=github.com/google/go-licenses
+GO_LICENSES_VERSION=v2.0.1# renovate datasource=go depName=github.com/google/go-licenses/v2
 
 KUSTOMIZE_VERSION=v5.6.0# don't manage with renovate, this repo has non-standard tags
 
@@ -503,7 +503,7 @@ $(GOLANGCI_LINT): $(LOCALBIN)
 .PHONY: go-licenses
 go-licenses: $(GO_LICENSES) ## Download controller-gen locally if necessary.
 $(GO_LICENSES): $(LOCALBIN)
-	test -s $@ || GOBIN=$(LOCALBIN) go install github.com/google/go-licenses@$(GO_LICENSES_VERSION)
+	test -s $@ || GOBIN=$(LOCALBIN) go install github.com/google/go-licenses/v2@$(GO_LICENSES_VERSION)
 
 ##
 # Tools that need to be installed on the development machine
