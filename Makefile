@@ -503,7 +503,7 @@ $(GOLANGCI_LINT): $(LOCALBIN)
 .PHONY: go-licenses
 go-licenses: $(GO_LICENSES) ## Download controller-gen locally if necessary.
 $(GO_LICENSES): $(LOCALBIN)
-	test -s $@ || GOBIN=$(LOCALBIN) go install github.com/google/go-licenses/v2/cmd/go-licenses@$(GO_LICENSES_VERSION)
+	test -s $@ || GOBIN=$(LOCALBIN) go install github.com/google/go-licenses/v2@$(GO_LICENSES_VERSION)
 
 ##
 # Tools that need to be installed on the development machine
