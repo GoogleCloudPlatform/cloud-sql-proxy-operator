@@ -444,7 +444,7 @@ TERRAFORM_VERSION=v1.13.4# renovate datasource=github-tags depName=hashicorp/ter
 CONTROLLER_TOOLS_VERSION=v0.17.3# renovate datasource=go depName=sigs.k8s.io/controller-tools
 CRD_REF_DOCS_VERSION=v0.2.0# renovate datasource=go depName=github.com/elastic/crd-ref-docs
 GOLANGCI_LINT_VERSION=v2.2.2# renovate datasource=go depName=github.com/golangci/golangci-lint/cmd/golangci-lint
-GO_LICENSES_VERSION=v1.6.0# renovate datasource=go depName=github.com/google/go-licenses
+GO_LICENSES_VERSION=v2.0.1# renovate datasource=go depName=github.com/google/go-licenses
 
 KUSTOMIZE_VERSION=v5.6.0# don't manage with renovate, this repo has non-standard tags
 
