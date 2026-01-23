@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.3](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.7.2...v1.7.3) (2026-01-23)
+
+
+### Bug Fixes
+
+* update go licenses to v2 ([#726](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/726)) ([8bf84e2](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/8bf84e21ce8459795a55cf348e882f55653cbd4c))
+
 ## [1.7.2](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.7.1...v1.7.2) (2025-10-30)
 
 
