@@ -217,7 +217,7 @@ func (u *Updater) filterMatchingInstances(pl *cloudsqlapi.AuthProxyWorkloadList,
 
 // CheckWorkloadContainers determines if a pod is configured incorrectly and
 // therefore needs to be deleted. Pods must be (1) missing one or more proxy
-// sidecar containers and (2) have a terminated container.
+// sidecar containers and (2) have a container in an error or problematic waiting state.
 func (u *Updater) CheckWorkloadContainers(wl *PodWorkload, matches []*cloudsqlapi.AuthProxyWorkload) error {
 
 	// Find the names of all AuthProxyWorkload resources that should have a
@@ -246,13 +246,44 @@ func (u *Updater) CheckWorkloadContainers(wl *PodWorkload, matches []*cloudsqlap
 
 	missingSidecars := strings.Join(missing, ", ")
 
-	// Some proxy containers are missing. Are the remaining pod containers failing?
-	for _, cs := range wl.Pod.Status.ContainerStatuses {
+	// problematicWaitingReasons are waiting states that indicate the pod is stuck
+	// and unlikely to recover without intervention.
+	problematicWaitingReasons := map[string]bool{
+		"CrashLoopBackOff":           true,
+		"ImagePullBackOff":           true,
+		"ErrImagePull":               true,
+		"CreateContainerConfigError": true,
+		"InvalidImageName":           true,
+		"CreateContainerError":       true,
+		"RunContainerError":          true,
+	}
+
+	// checkContainerStatus checks if a container status indicates a problematic state
+	checkContainerStatus := func(cs corev1.ContainerStatus) error {
 		if cs.State.Terminated != nil && cs.State.Terminated.Reason == "Error" {
 			return fmt.Errorf("pod is in an error state and missing sidecar containers %v", missingSidecars)
 		}
-		if cs.State.Waiting != nil && cs.State.Waiting.Reason == "CrashLoopBackOff" {
-			return fmt.Errorf("pod is in a CrashLoopBackOff state and missing sidecar containers %v", missingSidecars)
+		if cs.State.Waiting != nil {
+			if problematicWaitingReasons[cs.State.Waiting.Reason] {
+				return fmt.Errorf("pod is in a %s state and missing sidecar containers %v",
+					cs.State.Waiting.Reason, missingSidecars)
+			}
+		}
+		return nil
+	}
+
+	// Check regular container statuses
+	for _, cs := range wl.Pod.Status.ContainerStatuses {
+		if err := checkContainerStatus(cs); err != nil {
+			return err
+		}
+	}
+
+	// Check init container statuses - these are critical because if the proxy
+	// sidecar wasn't injected as an init container, other init containers may fail
+	for _, cs := range wl.Pod.Status.InitContainerStatuses {
+		if err := checkContainerStatus(cs); err != nil {
+			return err
 		}
 	}
 

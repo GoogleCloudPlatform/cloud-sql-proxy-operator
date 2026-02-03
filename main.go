@@ -14,6 +14,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"os"
@@ -21,6 +22,7 @@ import (
 
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/controller"
 	"github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/workload"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -51,11 +53,14 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
+	var secureMetrics bool
+	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8443", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.BoolVar(&secureMetrics, "metrics-secure", true,
+		"If set, the metrics endpoint is served securely via HTTPS. Use --metrics-secure=false to use HTTP instead.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -67,11 +72,27 @@ func main() {
 	ctrl.Log.Info(fmt.Sprintf("Version: %v Build: %v", version, buildID))
 	ctrl.Log.Info(fmt.Sprintf("Runtime: %v %v/%v", runtime.Version(), runtime.GOOS, runtime.GOARCH))
 
+	// Configure metrics server options
+	metricsServerOptions := metricsserver.Options{
+		BindAddress: metricsAddr,
+	}
+
+	if secureMetrics {
+		// Use controller-runtime's built-in authentication and authorization
+		// for the metrics endpoint, replacing the deprecated kube-rbac-proxy.
+		metricsServerOptions.SecureServing = true
+		metricsServerOptions.FilterProvider = filters.WithAuthenticationAndAuthorization
+		// TLS config with reasonable defaults
+		metricsServerOptions.TLSOpts = []func(*tls.Config){
+			func(c *tls.Config) {
+				c.MinVersion = tls.VersionTLS12
+			},
+		}
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme: scheme,
-		Metrics: metricsserver.Options{
-			BindAddress: metricsAddr,
-		},
+		Scheme:  scheme,
+		Metrics: metricsServerOptions,
 		WebhookServer: &webhook.DefaultServer{
 			Options: webhook.Options{Port: 9443},
 		},

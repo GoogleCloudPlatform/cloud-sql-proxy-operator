@@ -12,16 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 resources:
-  - manager.yaml
+- manager.yaml
 generatorOptions:
   disableNameSuffixHash: true
 configMapGenerator:
-  - files:
-      - controller_manager_config.yaml
-    name: manager-config
+- files:
+  - controller_manager_config.yaml
+  name: manager-config
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
-  - name: controller
-    newName: cloud-sql-proxy-operator
-    newTag: latest
+- name: controller
+  newName: cloud-sql-proxy-operator
+  newTag: latest

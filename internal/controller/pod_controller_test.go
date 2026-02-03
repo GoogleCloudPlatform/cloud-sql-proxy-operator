@@ -185,13 +185,37 @@ func TestPodDeleteController(t *testing.T) {
 		d                    *appsv1.Deployment
 		wantNotFound         bool
 		setPodError          bool
+		podErrorReason       string
+		setInitContainerErr  bool
 		setSidecarContainers bool
 	}{
 		{
-			name:         "matching pod with error gets deleted",
-			d:            dMatch,
-			setPodError:  true,
-			wantNotFound: true,
+			name:           "matching pod with CrashLoopBackOff gets deleted",
+			d:              dMatch,
+			setPodError:    true,
+			podErrorReason: "CrashLoopBackOff",
+			wantNotFound:   true,
+		},
+		{
+			name:           "matching pod with ImagePullBackOff gets deleted",
+			d:              dMatch,
+			setPodError:    true,
+			podErrorReason: "ImagePullBackOff",
+			wantNotFound:   true,
+		},
+		{
+			name:           "matching pod with ErrImagePull gets deleted",
+			d:              dMatch,
+			setPodError:    true,
+			podErrorReason: "ErrImagePull",
+			wantNotFound:   true,
+		},
+		{
+			name:                "matching pod with init container error gets deleted",
+			d:                   dMatch,
+			setInitContainerErr: true,
+			podErrorReason:      "CrashLoopBackOff",
+			wantNotFound:        true,
 		},
 		{
 			name:         "matching pod with no error",
@@ -206,15 +230,17 @@ func TestPodDeleteController(t *testing.T) {
 			wantNotFound: false,
 		},
 		{
-			name:         "no matching workload, pod error",
-			d:            dNoMatch,
-			setPodError:  true,
-			wantNotFound: false,
+			name:           "no matching workload, pod error",
+			d:              dNoMatch,
+			setPodError:    true,
+			podErrorReason: "CrashLoopBackOff",
+			wantNotFound:   false,
 		},
 		{
 			name:                 "matching workload, pod error, has containers",
 			d:                    dNoMatch,
 			setPodError:          true,
+			podErrorReason:       "CrashLoopBackOff",
 			setSidecarContainers: true,
 			wantNotFound:         false,
 		},
@@ -245,9 +271,23 @@ func TestPodDeleteController(t *testing.T) {
 				t.Fatal(err)
 			}
 			if tc.setPodError {
+				reason := tc.podErrorReason
+				if reason == "" {
+					reason = "CrashLoopBackOff"
+				}
 				pods[0].Status.ContainerStatuses = []corev1.ContainerStatus{{
 					Name:  pods[0].Spec.Containers[0].Name,
-					State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: "CrashLoopBackOff"}},
+					State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: reason}},
+				}}
+			}
+			if tc.setInitContainerErr {
+				reason := tc.podErrorReason
+				if reason == "" {
+					reason = "CrashLoopBackOff"
+				}
+				pods[0].Status.InitContainerStatuses = []corev1.ContainerStatus{{
+					Name:  "init-container",
+					State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: reason}},
 				}}
 			}
 
