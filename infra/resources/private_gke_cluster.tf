@@ -41,6 +41,10 @@ resource "google_container_cluster" "private" {
     services_secondary_range_name = google_compute_subnetwork.private_k8s_network.secondary_ip_range.0.range_name
     cluster_secondary_range_name  = google_compute_subnetwork.private_k8s_network.secondary_ip_range.1.range_name
   }
+
+  lifecycle {
+    ignore_changes = [min_master_version]
+  }
 }
 
 resource "google_container_node_pool" "private_preemptible_nodes" {
@@ -81,6 +85,9 @@ resource "google_container_node_pool" "private_preemptible_nodes" {
       "https://www.googleapis.com/auth/monitoring",
       "https://www.googleapis.com/auth/sqlservice.admin",
     ]
+  }
+  lifecycle {
+    ignore_changes = [version]
   }
 }
 

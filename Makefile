@@ -90,6 +90,10 @@ generate:  ctrl_generate ctrl_manifests generate_crd_docs go_lint tf_lint instal
 build: generate build_push_docker ## Builds and pushes the docker image to tag defined in envvar IMG
 	@echo "TIME: $(shell date) end make build"
 
+.PHONY: build_docker_local
+build_docker_local: generate build_docker ## Builds the docker image but does not push
+	@echo "TIME: $(shell date) end make build"
+
 .PHONY: test
 test: generate go_test go_test_k8s_1_28 ## Run tests (but not internal/teste2e)
 	@echo "TIME: $(shell date) end make test"
@@ -148,6 +152,15 @@ build_push_docker: # Build docker image with the operator. set IMG env var befor
 	  --build-arg GO_LD_FLAGS="$(VERSION_LDFLAGS)" \
 	  -f "Dockerfile-operator" \
 	  --push -t "$(IMG)" "$(PWD)"
+	test -d 'bin' || mkdir -p bin
+	echo "$(IMG)" > bin/last-pushed-image-url.txt
+
+.PHONY: build_docker
+build_docker: # Build docker image with the operator. set IMG env var before running: `IMG=example.com/img:1.0 make build`
+	docker buildx build --platform "linux/amd64" \
+	  --build-arg GO_LD_FLAGS="$(VERSION_LDFLAGS)" \
+	  -f "Dockerfile-operator" \
+	  "$(PWD)"
 	test -d 'bin' || mkdir -p bin
 	echo "$(IMG)" > bin/last-pushed-image-url.txt
 
