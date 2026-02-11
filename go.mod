@@ -3,14 +3,14 @@ module github.com/GoogleCloudPlatform/cloud-sql-proxy-operator
 go 1.24.0
 
 require (
-	cloud.google.com/go/cloudsqlconn v1.18.0
+	cloud.google.com/go/cloudsqlconn v1.20.0
 	github.com/go-logr/logr v1.4.3
-	go.uber.org/zap v1.27.0
-	k8s.io/api v0.32.8
-	k8s.io/apimachinery v0.32.8
+	go.uber.org/zap v1.27.1
+	k8s.io/api v0.35.1
+	k8s.io/apimachinery v0.35.1
 	k8s.io/client-go v0.32.8
 	sigs.k8s.io/controller-runtime v0.20.4
-	sigs.k8s.io/yaml v1.5.0
+	sigs.k8s.io/yaml v1.6.0
 )
 
 require (
