@@ -575,7 +575,7 @@ func (cc *TestCaseClient) CreateDeploymentReplicaSetAndPods(ctx context.Context,
 func BuildDeploymentReplicaSet(d *appsv1.Deployment, scheme *runtime.Scheme) (*appsv1.ReplicaSet, string, error) {
 	podTemplateHash := strconv.FormatUint(rand.Uint64(), 16)
 	rs := &appsv1.ReplicaSet{
-		TypeMeta: metav1.TypeMeta{Kind: "ReplicaSet", APIVersion: "apps/metav1"},
+		TypeMeta: metav1.TypeMeta{Kind: "ReplicaSet", APIVersion: "apps/v1"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-%s", d.Name, podTemplateHash),
 			Namespace: d.Namespace,
