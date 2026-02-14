@@ -166,7 +166,27 @@ func WorkloadForKind(kind string) (Workload, error) {
 
 // workloadMatches tests if a workload matches a modifier based on its name, kind, and selectors.
 func workloadMatches(wl client.Object, workloadSelector cloudsqlapi.WorkloadSelectorSpec, ns string) bool {
-	if workloadSelector.Kind != "" && wl.GetObjectKind().GroupVersionKind().Kind != workloadSelector.Kind {
+	kind := wl.GetObjectKind().GroupVersionKind().Kind
+	if kind == "" {
+		switch wl.(type) {
+		case *appsv1.Deployment:
+			kind = "Deployment"
+		case *corev1.Pod:
+			kind = "Pod"
+		case *appsv1.ReplicaSet:
+			kind = "ReplicaSet"
+		case *appsv1.StatefulSet:
+			kind = "StatefulSet"
+		case *appsv1.DaemonSet:
+			kind = "DaemonSet"
+		case *batchv1.Job:
+			kind = "Job"
+		case *batchv1.CronJob:
+			kind = "CronJob"
+		}
+	}
+
+	if workloadSelector.Kind != "" && kind != workloadSelector.Kind {
 		return false
 	}
 	if workloadSelector.Name != "" && wl.GetName() != workloadSelector.Name {

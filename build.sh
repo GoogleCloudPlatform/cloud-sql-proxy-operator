@@ -31,7 +31,11 @@ function clean() {
 
 ## build - Builds the project without running tests or pushing the container image
 function build() {
-   make build_docker_local
+  if which docker ; then
+    make build_docker_local
+  else
+    make generate
+  fi
 }
 
 ## test - Runs local unit tests.
