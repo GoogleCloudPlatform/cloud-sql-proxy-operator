@@ -899,7 +899,6 @@ func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1
 			HTTPGet: &corev1.HTTPGetAction{
 				Port: intstr.IntOrString{IntVal: adminPort},
 				Path: "/quitquitquit",
-				Host: "localhost",
 			},
 		},
 	}
