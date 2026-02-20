@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.7.5](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.7.4...v1.7.5) (2026-02-20)
+
+
+### Bug Fixes
+
+* k8s 1.34 baseline PSA compliance ([#745](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/745)) ([e80b841](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/e80b841858c7f9f6c0fe4d901eb5ccdc1297b832))
+* Update Auth Proxy to version 2.21.1. ([#746](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/746)) ([a3ed097](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/a3ed0970d782e0ed7e65a9228c5c709e61833d6b))
+* Update dependencies to latest as of 2026-02-13 ([#742](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/742)) ([dab2607](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/dab2607df7fa9d58380d639a8d0b66e2ab3c7487))
+
 ## [1.7.4](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.7.3...v1.7.4) (2026-01-23)
 
 
