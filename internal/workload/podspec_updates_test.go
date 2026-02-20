@@ -1137,8 +1137,8 @@ func TestPreStopHook(t *testing.T) {
 	if get.Path != "/quitquitquit" {
 		t.Error("got", get.Path, "want", "/quitquitquit")
 	}
-	if get.Host != "localhost" {
-		t.Error("got", get.Host, "want", "localhost")
+	if get.Host != "" {
+		t.Error("got", get.Host, "want empty string (k8s 1.34 baseline PSA compliance)")
 	}
 }
 
