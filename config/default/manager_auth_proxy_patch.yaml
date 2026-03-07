@@ -11,8 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# This patch configures the controller manager to serve metrics securely
-# using controller-runtime's built-in authentication and authorization.
+# This patch configures the controller manager to expose metrics on port 8443.
+# Access is controlled via Kubernetes RBAC on the metrics service.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -26,7 +26,6 @@ spec:
           args:
             - "--health-probe-bind-address=:8081"
             - "--metrics-bind-address=:8443"
-            - "--metrics-secure=true"
             - "--leader-elect"
           ports:
             - containerPort: 8443
