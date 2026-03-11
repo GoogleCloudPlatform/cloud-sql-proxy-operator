@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.6](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.7.5...v1.7.6) (2026-03-11)
+
+
+### Bug Fixes
+
+* migrate away from kube-rbac-proxy (critical) ([#747](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/747)) ([9718f37](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/9718f37bf41af42ba88bd70ada61f1036bcee26c))
+
 ## [1.7.5](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.7.4...v1.7.5) (2026-02-20)
 
 
