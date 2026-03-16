@@ -161,7 +161,7 @@ function dockerfile_from_deps() {
   else
     echo "Updating docker image to $file to $digest"
     set -x
-    sed -i "" "s/$oldDigest/$digest/g" "$file"
+    sed -i '' "s/$oldDigest/$digest/g" "$file"
   fi
 
 }
