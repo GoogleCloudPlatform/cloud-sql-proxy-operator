@@ -26,7 +26,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/validation"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apivalidation "k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -38,8 +37,7 @@ import (
 var authproxyworkloadlog = logf.Log.WithName("authproxyworkload-resource")
 
 func (r *AuthProxyWorkload) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
+	return ctrl.NewWebhookManagedBy(mgr, r).
 		WithDefaulter(&AuthProxyWorkloadDefaulter{}).
 		WithValidator(&AuthProxyWorkloadValidator{}).
 		Complete()
@@ -51,11 +49,7 @@ type AuthProxyWorkloadDefaulter struct {
 }
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
-func (*AuthProxyWorkloadDefaulter) Default(_ context.Context, obj runtime.Object) error {
-	r, ok := obj.(*AuthProxyWorkload)
-	if !ok {
-		return fmt.Errorf("expected an AuthProxyWorkload object but got %T", obj)
-	}
+func (*AuthProxyWorkloadDefaulter) Default(_ context.Context, r *AuthProxyWorkload) error {
 	authproxyworkloadlog.Info("default", "name", r.Name)
 	if r.Spec.AuthProxyContainer != nil &&
 		r.Spec.AuthProxyContainer.RolloutStrategy == "" {
@@ -69,12 +63,7 @@ type AuthProxyWorkloadValidator struct {
 }
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (*AuthProxyWorkloadValidator) ValidateCreate(_ context.Context, obj runtime.Object) (warnings admission.Warnings, err error) {
-	r, ok := obj.(*AuthProxyWorkload)
-	if !ok {
-		return nil, fmt.Errorf("expected an AuthProxyWorkload object but got %T", obj)
-	}
-
+func (*AuthProxyWorkloadValidator) ValidateCreate(_ context.Context, r *AuthProxyWorkload) (warnings admission.Warnings, err error) {
 	allErrs := r.validate()
 	if len(allErrs) > 0 {
 		return nil, apierrors.NewInvalid(
@@ -88,30 +77,21 @@ func (*AuthProxyWorkloadValidator) ValidateCreate(_ context.Context, obj runtime
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (*AuthProxyWorkloadValidator) ValidateUpdate(_ context.Context, old, newObj runtime.Object) (warnings admission.Warnings, err error) {
-	o, ok := old.(*AuthProxyWorkload)
-	if !ok {
-		return nil, fmt.Errorf("bad request, expected old to be an AuthProxyWorkload")
-	}
-	r, ok := newObj.(*AuthProxyWorkload)
-	if !ok {
-		return nil, fmt.Errorf("expected an AuthProxyWorkload object but got %T", newObj)
-	}
-
-	allErrs := r.validate()
-	allErrs = append(allErrs, r.validateUpdateFrom(o)...)
+func (*AuthProxyWorkloadValidator) ValidateUpdate(_ context.Context, old, newObj *AuthProxyWorkload) (warnings admission.Warnings, err error) {
+	allErrs := newObj.validate()
+	allErrs = append(allErrs, newObj.validateUpdateFrom(old)...)
 	if len(allErrs) > 0 {
 		return nil, apierrors.NewInvalid(
 			schema.GroupKind{
 				Group: GroupVersion.Group,
 				Kind:  "AuthProxyWorkload"},
-			r.Name, allErrs)
+			newObj.Name, allErrs)
 	}
 	return nil, nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (*AuthProxyWorkloadValidator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+func (*AuthProxyWorkloadValidator) ValidateDelete(_ context.Context, _ *AuthProxyWorkload) (admission.Warnings, error) {
 	return nil, nil
 }
 

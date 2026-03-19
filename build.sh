@@ -29,9 +29,13 @@ function clean() {
   make clean
 }
 
-## build - Builds the project without running tests.
+## build - Builds the project without running tests or pushing the container image
 function build() {
-   make build
+  if which docker ; then
+    make build_docker_local
+  else
+    make generate
+  fi
 }
 
 ## test - Runs local unit tests.
@@ -157,7 +161,7 @@ function dockerfile_from_deps() {
   else
     echo "Updating docker image to $file to $digest"
     set -x
-    sed -i "" "s/$oldDigest/$digest/g" "$file"
+    sed -i '' "s/$oldDigest/$digest/g" "$file"
   fi
 
 }

@@ -181,6 +181,9 @@ type EnvTestHarness struct {
 
 // Teardown closes the TestEnv environment at the end of the testcase.
 func (h *EnvTestHarness) Teardown() {
+	if h == nil {
+		return
+	}
 	h.testEnvCancel()
 	err := h.testEnv.Stop()
 	if err != nil {
@@ -243,9 +246,9 @@ func (h *EnvTestHarness) StartManager(proxyImage string) error {
 	go func() {
 		defer close(h.stopped)
 		Log.Info("Starting controller manager.")
-		err = mgr.Start(ctx)
+		err := mgr.Start(ctx)
 		if err != nil {
-			Log.Info("Starting manager failed.", err)
+			Log.Info("Starting manager failed.", "err", err)
 			return
 		}
 		Log.Info("Manager exited normally.")

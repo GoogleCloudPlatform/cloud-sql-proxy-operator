@@ -38,36 +38,27 @@ type upgradeDefaultProxyOnStartup struct {
 func (c *upgradeDefaultProxyOnStartup) Start(ctx context.Context) error {
 	l := &cloudsqlapi.AuthProxyWorkloadList{}
 
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		default:
-			// c.c.List() fills l with a paginated list of AuthProxyWorkloads.
-			// The token in l.Continue field is used get the next page of the list.
-			// the for loop exits when l.Continue is blank, meaning no more pages.
-			err := c.c.List(ctx, l, client.Continue(l.Continue))
-			if err != nil {
-				return fmt.Errorf("can't list AuthProxyWorkload on startup, %v", err)
-			}
+	err := c.c.List(ctx, l)
+	if err != nil {
+		return fmt.Errorf("can't list AuthProxyWorkload on startup, %v", err)
+	}
 
-			for _, p := range l.Items {
-				useDefaultImage := p.Spec.AuthProxyContainer == nil || p.Spec.AuthProxyContainer.Image == ""
+	for _, p := range l.Items {
+		useDefaultImage := p.Spec.AuthProxyContainer == nil || p.Spec.AuthProxyContainer.Image == ""
 
-				if !useDefaultImage {
-					continue
-				}
+		if !useDefaultImage {
+			continue
+		}
 
-				// If an APW has a default image, then perform an "update" on it so that
-				// the reconcile function runs and triggers the appropriate rolling updates.
-				log.FromContext(ctx).Info(fmt.Sprintf("Upgrading workload default images for %s/%s", p.Namespace, p.Namespace))
-				err = c.c.Update(ctx, &p)
-			}
-			if l.Continue == "" {
-				return nil
-			}
+		// If an APW has a default image, then perform an "update" on it so that
+		// the reconcile function runs and triggers the appropriate rolling updates.
+		log.FromContext(ctx).Info(fmt.Sprintf("Upgrading workload default images for %s/%s", p.Namespace, p.Namespace))
+		err = c.c.Update(ctx, &p)
+		if err != nil {
+			log.FromContext(ctx).Error(err, "unable to update AuthProxyWorkload during startup upgrade")
 		}
 	}
+	return nil
 }
 
 func (c *upgradeDefaultProxyOnStartup) NeedLeaderElection() bool {
