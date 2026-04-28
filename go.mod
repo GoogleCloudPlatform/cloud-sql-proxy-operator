@@ -5,9 +5,9 @@ go 1.25.7
 require (
 	cloud.google.com/go/cloudsqlconn v1.21.0
 	github.com/go-logr/logr v1.4.3
-	go.uber.org/zap v1.27.1
-	k8s.io/api v0.35.4
-	k8s.io/apimachinery v0.35.4
+	go.uber.org/zap v1.28.0
+	k8s.io/api v0.36.0
+	k8s.io/apimachinery v0.36.0
 	k8s.io/client-go v0.35.2
 	sigs.k8s.io/controller-runtime v0.23.3
 	sigs.k8s.io/yaml v1.6.0
