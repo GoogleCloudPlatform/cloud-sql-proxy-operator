@@ -44,7 +44,7 @@ your kubernetes cluster:
 <!-- {x-release-please-start-version} -->
 
 ```shell
-kubectl apply -f https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/v1.7.9/cloud-sql-proxy-operator.yaml
+kubectl apply -f https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/v1.7.10/cloud-sql-proxy-operator.yaml
 ```
 
 <!-- {x-release-please-end} -->
