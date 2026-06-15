@@ -22,15 +22,32 @@ if [[ -n ${RELEASE_TEST_BUILD_ID:-} ]] ; then
   exit 0
 fi
 
-NOW=$(date -u "+%Y%m%dT%H%M" | tr -d "\n")
-GIT_HEAD=$( git rev-parse HEAD | tr -d "\n")
+if [[ -n ${KOKORO_GIT_COMMIT_connector_operator:-} ]] ; then
+  echo -n "${KOKORO_GIT_COMMIT_connector_operator}"
+  exit 0
+fi
 
-if git diff HEAD --exit-code --quiet ; then
-  # git working dir is clean.
-  IMAGE_VERSION="$GIT_HEAD"
+if [[ -n ${KOKORO_GIT_COMMIT:-} ]] ; then
+  echo -n "${KOKORO_GIT_COMMIT}"
+  exit 0
+fi
+
+NOW=$(date -u "+%Y%m%dT%H%M" | tr -d "\n")
+
+if jj root >/dev/null 2>&1; then
+  JJ_COMMIT=$(jj log -r @ -T "commit_id" --no-graph | tr -d "\n")
+  if jj status | grep -q "Working copy changes:"; then
+    IMAGE_VERSION="$JJ_COMMIT-dirty-${NOW}"
+  else
+    IMAGE_VERSION="$JJ_COMMIT"
+  fi
 else
-  # git working dir is dirty, append "dirty" and the timestamp
-  IMAGE_VERSION="$GIT_HEAD-dirty-${NOW}"
+  GIT_HEAD=$( git rev-parse HEAD | tr -d "\n" )
+  if git diff HEAD --exit-code --quiet ; then
+    IMAGE_VERSION="$GIT_HEAD"
+  else
+    IMAGE_VERSION="$GIT_HEAD-dirty-${NOW}"
+  fi
 fi
 
 echo -n "$IMAGE_VERSION"
