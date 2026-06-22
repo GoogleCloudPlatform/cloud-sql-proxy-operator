@@ -22,12 +22,28 @@ if [[ -n ${RELEASE_TEST_BUILD_ID:-} ]] ; then
   exit 0
 fi
 
-if [[ -n ${KOKORO_GIT_COMMIT_connector_operator:-} ]] ; then
+if [[ "$PWD" =~ "operator" ]] && [[ -n ${KOKORO_GIT_COMMIT_connector_operator:-} ]] ; then
   echo -n "${KOKORO_GIT_COMMIT_connector_operator}"
   exit 0
-fi
-
-if [[ -n ${KOKORO_GIT_COMMIT:-} ]] ; then
+elif [[ "$PWD" =~ "proxy" ]] && [[ -n ${KOKORO_GIT_COMMIT_connector_proxy:-} ]] ; then
+  echo -n "${KOKORO_GIT_COMMIT_connector_proxy}"
+  exit 0
+elif [[ "$PWD" =~ "go" ]] && [[ -n ${KOKORO_GIT_COMMIT_connector_go:-} ]] ; then
+  echo -n "${KOKORO_GIT_COMMIT_connector_go}"
+  exit 0
+elif [[ "$PWD" =~ "python" ]] && [[ -n ${KOKORO_GIT_COMMIT_connector_python:-} ]] ; then
+  echo -n "${KOKORO_GIT_COMMIT_connector_python}"
+  exit 0
+elif [[ "$PWD" =~ "node" ]] && [[ -n ${KOKORO_GIT_COMMIT_connector_nodejs:-} ]] ; then
+  echo -n "${KOKORO_GIT_COMMIT_connector_nodejs}"
+  exit 0
+elif [[ "$PWD" =~ "java" ]] && [[ -n ${KOKORO_GIT_COMMIT_connector_java:-} ]] ; then
+  echo -n "${KOKORO_GIT_COMMIT_connector_java}"
+  exit 0
+elif [[ -n ${KOKORO_GIT_COMMIT_gemini_connector_tools:-} ]] ; then
+  echo -n "${KOKORO_GIT_COMMIT_gemini_connector_tools}"
+  exit 0
+elif [[ -n ${KOKORO_GIT_COMMIT:-} ]] ; then
   echo -n "${KOKORO_GIT_COMMIT}"
   exit 0
 fi
