@@ -58,6 +58,7 @@ if jj root >/dev/null 2>&1; then
     IMAGE_VERSION="$JJ_COMMIT"
   fi
 else
+  git config --global --add safe.directory "$PWD" 2>/dev/null || true
   GIT_HEAD=$( git rev-parse HEAD | tr -d "\n" )
   if git diff HEAD --exit-code --quiet ; then
     IMAGE_VERSION="$GIT_HEAD"
