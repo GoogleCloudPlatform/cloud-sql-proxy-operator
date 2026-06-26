@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.7.10...v1.8.0) (2026-06-26)
+
+
+### Features
+
+* Upgrade to Cloud SQL Proxy v2.23.0 ([#778](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/778)) ([37d4dbe](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/37d4dbe0154836573f62ccda3d1a19dbc04c9350))
+
 ## [1.7.10](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.7.9...v1.7.10) (2026-05-26)
 
 
