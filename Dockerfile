@@ -14,7 +14,7 @@
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
-FROM gcr.io/distroless/static:nonroot@sha256:dfadf31470f770fcabd48903762dce126958e98d1ce320acf1216bbfaa42d79c
+FROM gcr.io/distroless/static:nonroot@sha256:23795be0fe67b7d47d1ee62b19c7db750152db627d5bbfa31307e892a7575bec
 
 # For multi-arch builds, use automatic platform build arguments
 # see https://docs.docker.com/engine/reference/builder/#automatic-platform-args-in-the-global-scope
