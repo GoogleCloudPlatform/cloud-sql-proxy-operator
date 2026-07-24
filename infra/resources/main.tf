@@ -31,6 +31,7 @@ terraform {
 provider "google" {
   user_project_override = true
   billing_project       = var.project_id
+  project               = var.project_id
 }
 
 provider "google-beta" {
@@ -38,6 +39,7 @@ provider "google-beta" {
   zone                  = "us-central1-a"
   user_project_override = true
   billing_project       = var.project_id
+  project               = var.project_id
 }
 
 # Enable gcloud project APIs

@@ -161,7 +161,11 @@ function dockerfile_from_deps() {
   else
     echo "Updating docker image to $file to $digest"
     set -x
-    sed -i '' "s/$oldDigest/$digest/g" "$file"
+    if [[ $(uname) == "Darwin" ]] ; then
+      sed -i '' "s/$oldDigest/$digest/g" "$file"
+    else
+      sed -i "s/$oldDigest/$digest/g" "$file"
+    fi
   fi
 
 }
