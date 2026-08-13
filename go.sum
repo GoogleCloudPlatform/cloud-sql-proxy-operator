@@ -1,5 +1,5 @@
-cloud.google.com/go/cloudsqlconn v1.23.0 h1:zc/BcLVPUKQKXPkfAFgmnAzd0wL6aQuLWOLFfK9ywS4=
-cloud.google.com/go/cloudsqlconn v1.23.0/go.mod h1:NS1CEi6zVhrSSK1ZQ1AYqWqrzoYR89jhSaElU9JHaNI=
+cloud.google.com/go/cloudsqlconn v1.25.0 h1:nh0OHrWTsCMoQL0yV4Ns6/REYY8NRAylPzOBemh7k+Y=
+cloud.google.com/go/cloudsqlconn v1.25.0/go.mod h1:yBjHpKuIGsmVTrqgMqfAvs1o3V0f8ee+wCiCkM61UjI=
 github.com/Masterminds/semver/v3 v3.4.0 h1:Zog+i5UMtVoCU8oKka5P7i9q9HgrJeGzI9SA1Xbatp0=
 github.com/Masterminds/semver/v3 v3.4.0/go.mod h1:4V+yj/TJE1HU9XfppCwVMZq3I84lprf4nC11bSS5beM=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
