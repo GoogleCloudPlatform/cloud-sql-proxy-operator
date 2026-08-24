@@ -52,6 +52,46 @@ function e2e() {
   make e2e_test
 }
 
+## e2e_gotest - Runs only the e2e Go test suite against the already deployed cluster.
+function e2e_gotest() {
+  make e2e_test_run_gotest
+}
+
+## e2e_gotest_single - Runs a single e2e test by regex pattern.
+function e2e_gotest_single() {
+  USE_GKE_E2E_AUTH_PLUGIN=True \
+    TEST_INFRA_JSON="$PWD/bin/testinfra.json" \
+    go test --count=1 -v -race ./tests/... -run "$1"
+}
+
+## e2e_logs - Fetches logs from the operator controller manager in the e2e cluster.
+function e2e_logs() {
+  USE_GKE_E2E_AUTH_PLUGIN=True bin/kubectl --kubeconfig=bin/e2e-kubeconfig.yaml logs -n cloud-sql-proxy-operator-system deployment/cloud-sql-proxy-operator-controller-manager --tail=200 "$@"
+}
+
+## e2e_status - Checks pod and service status in the e2e clusters.
+function e2e_status() {
+  echo "=== Public E2E Cluster ==="
+  USE_GKE_E2E_AUTH_PLUGIN=True bin/kubectl --kubeconfig=bin/e2e-kubeconfig.yaml get pods,svc,crd -A
+  echo "=== Private E2E Cluster ==="
+  USE_GKE_E2E_AUTH_PLUGIN=True bin/kubectl --kubeconfig=bin/e2e-private-kubeconfig.yaml get pods,svc,crd -A
+}
+
+## kubectl_cmd - Runs kubectl on the public e2e cluster.
+function kubectl_cmd() {
+  USE_GKE_E2E_AUTH_PLUGIN=True bin/kubectl --kubeconfig=bin/e2e-kubeconfig.yaml "$@"
+}
+
+## kubectl_private_cmd - Runs kubectl on the private e2e cluster.
+function kubectl_private_cmd() {
+  USE_GKE_E2E_AUTH_PLUGIN=True bin/kubectl --kubeconfig=bin/e2e-private-kubeconfig.yaml "$@"
+}
+
+## e2e_deploy - Deploys CRD and operator to both e2e clusters.
+function e2e_deploy() {
+  make e2e_build_deploy
+}
+
 function get_golang_tool() {
   name="$1"
   github_repo="$2"
