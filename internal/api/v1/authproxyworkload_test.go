@@ -16,11 +16,18 @@ package v1_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	cloudsqlapi "github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/internal/api/v1"
+	admissionv1 "k8s.io/api/admission/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
+	authorizationv1 "k8s.io/api/authorization/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 func ptr[T int | int32 | int64 | string | bool](i T) *T {
@@ -594,5 +601,241 @@ func printFieldErrors(t *testing.T, err error) {
 		for _, v := range statusErr.Status().Details.Causes {
 			t.Errorf("   %v %v: %v ", v.Field, v.Type, v.Message)
 		}
+	}
+}
+
+type fakeSARClient struct {
+	client.Client
+	allowedRules func(spec authorizationv1.SubjectAccessReviewSpec) bool
+}
+
+func (f *fakeSARClient) Create(_ context.Context, obj client.Object, _ ...client.CreateOption) error {
+	sar, ok := obj.(*authorizationv1.SubjectAccessReview)
+	if !ok {
+		return fmt.Errorf("unexpected object type %T", obj)
+	}
+	if f.allowedRules != nil {
+		sar.Status.Allowed = f.allowedRules(sar.Spec)
+	} else {
+		sar.Status.Allowed = true
+	}
+	return nil
+}
+
+func TestAuthProxyWorkload_ValidateAuthorization(t *testing.T) {
+	tests := []struct {
+		desc         string
+		spec         cloudsqlapi.AuthProxyWorkloadSpec
+		allowedRules func(spec authorizationv1.SubjectAccessReviewSpec) bool
+		wantAllowed  bool
+	}{
+		{
+			desc: "Allowed: User has pod delete and deployment update/patch",
+			spec: cloudsqlapi.AuthProxyWorkloadSpec{
+				Workload: cloudsqlapi.WorkloadSelectorSpec{
+					Kind: "Deployment",
+					Name: "my-deployment",
+				},
+				Instances: []cloudsqlapi.InstanceSpec{{
+					ConnectionString: "proj:region:db1",
+					PortEnvName:      "DB_PORT",
+				}},
+			},
+			allowedRules: func(_ authorizationv1.SubjectAccessReviewSpec) bool {
+				return true
+			},
+			wantAllowed: true,
+		},
+		{
+			desc: "Denied: User lacks pod delete permission",
+			spec: cloudsqlapi.AuthProxyWorkloadSpec{
+				Workload: cloudsqlapi.WorkloadSelectorSpec{
+					Kind: "Deployment",
+					Name: "my-deployment",
+				},
+				Instances: []cloudsqlapi.InstanceSpec{{
+					ConnectionString: "proj:region:db1",
+					PortEnvName:      "DB_PORT",
+				}},
+			},
+			allowedRules: func(spec authorizationv1.SubjectAccessReviewSpec) bool {
+				if spec.ResourceAttributes != nil && spec.ResourceAttributes.Resource == "pods" && spec.ResourceAttributes.Verb == "delete" {
+					return false
+				}
+				return true
+			},
+			wantAllowed: false,
+		},
+		{
+			desc: "Denied: User lacks deployment update permission",
+			spec: cloudsqlapi.AuthProxyWorkloadSpec{
+				Workload: cloudsqlapi.WorkloadSelectorSpec{
+					Kind: "Deployment",
+					Name: "my-deployment",
+				},
+				Instances: []cloudsqlapi.InstanceSpec{{
+					ConnectionString: "proj:region:db1",
+					PortEnvName:      "DB_PORT",
+				}},
+			},
+			allowedRules: func(spec authorizationv1.SubjectAccessReviewSpec) bool {
+				if spec.ResourceAttributes != nil && spec.ResourceAttributes.Resource == "deployments" {
+					return false
+				}
+				return true
+			},
+			wantAllowed: false,
+		},
+		{
+			desc: "Allowed: User has wildcard permission for label selector",
+			spec: cloudsqlapi.AuthProxyWorkloadSpec{
+				Workload: cloudsqlapi.WorkloadSelectorSpec{
+					Kind: "StatefulSet",
+					Selector: &v1.LabelSelector{
+						MatchLabels: map[string]string{"app": "db"},
+					},
+				},
+				Instances: []cloudsqlapi.InstanceSpec{{
+					ConnectionString: "proj:region:db1",
+					PortEnvName:      "DB_PORT",
+				}},
+			},
+			allowedRules: func(_ authorizationv1.SubjectAccessReviewSpec) bool {
+				return true
+			},
+			wantAllowed: true,
+		},
+		{
+			desc: "Denied: User lacks wildcard permission for label selector",
+			spec: cloudsqlapi.AuthProxyWorkloadSpec{
+				Workload: cloudsqlapi.WorkloadSelectorSpec{
+					Kind: "StatefulSet",
+					Selector: &v1.LabelSelector{
+						MatchLabels: map[string]string{"app": "db"},
+					},
+				},
+				Instances: []cloudsqlapi.InstanceSpec{{
+					ConnectionString: "proj:region:db1",
+					PortEnvName:      "DB_PORT",
+				}},
+			},
+			allowedRules: func(spec authorizationv1.SubjectAccessReviewSpec) bool {
+				if spec.ResourceAttributes != nil && spec.ResourceAttributes.Resource == "statefulsets" {
+					return false
+				}
+				return true
+			},
+			wantAllowed: false,
+		},
+		{
+			desc: "Allowed: User has container override permission when specifying custom container",
+			spec: cloudsqlapi.AuthProxyWorkloadSpec{
+				Workload: cloudsqlapi.WorkloadSelectorSpec{
+					Kind: "Deployment",
+					Name: "my-deployment",
+				},
+				AuthProxyContainer: &cloudsqlapi.AuthProxyContainerSpec{
+					Container: &corev1.Container{
+						Name:  "custom-proxy",
+						Image: "custom-image:v1",
+					},
+				},
+				Instances: []cloudsqlapi.InstanceSpec{{
+					ConnectionString: "proj:region:db1",
+					PortEnvName:      "DB_PORT",
+				}},
+			},
+			allowedRules: func(_ authorizationv1.SubjectAccessReviewSpec) bool {
+				return true
+			},
+			wantAllowed: true,
+		},
+		{
+			desc: "Denied: User lacks container override permission when specifying custom container",
+			spec: cloudsqlapi.AuthProxyWorkloadSpec{
+				Workload: cloudsqlapi.WorkloadSelectorSpec{
+					Kind: "Deployment",
+					Name: "my-deployment",
+				},
+				AuthProxyContainer: &cloudsqlapi.AuthProxyContainerSpec{
+					Container: &corev1.Container{
+						Name:  "custom-proxy",
+						Image: "custom-image:v1",
+					},
+				},
+				Instances: []cloudsqlapi.InstanceSpec{{
+					ConnectionString: "proj:region:db1",
+					PortEnvName:      "DB_PORT",
+				}},
+			},
+			allowedRules: func(spec authorizationv1.SubjectAccessReviewSpec) bool {
+				if spec.ResourceAttributes != nil && spec.ResourceAttributes.Subresource == "containeroverride" {
+					return false
+				}
+				return true
+			},
+			wantAllowed: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.desc, func(t *testing.T) {
+			p := &cloudsqlapi.AuthProxyWorkload{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      "test-authproxy",
+					Namespace: "test-ns",
+				},
+				Spec: tc.spec,
+			}
+
+			req := admissionRequest("alice")
+			ctx := admission.NewContextWithRequest(context.Background(), req)
+
+			validator := &cloudsqlapi.AuthProxyWorkloadValidator{
+				Client: &fakeSARClient{
+					allowedRules: tc.allowedRules,
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, p)
+			if tc.wantAllowed && err != nil {
+				t.Fatalf("expected allowed, got error: %v", err)
+			}
+			if !tc.wantAllowed && err == nil {
+				t.Fatalf("expected forbidden error, got nil")
+			}
+
+			// Also verify ValidateUpdate with modified spec
+			oldObj := p.DeepCopy()
+			oldObj.Spec.Instances = []cloudsqlapi.InstanceSpec{{
+				ConnectionString: "proj:region:db2",
+				PortEnvName:      "DB_PORT",
+			}}
+			_, err = validator.ValidateUpdate(ctx, oldObj, p)
+			if tc.wantAllowed && err != nil {
+				t.Fatalf("expected update allowed, got error: %v", err)
+			}
+			if !tc.wantAllowed && err == nil {
+				t.Fatalf("expected update forbidden error, got nil")
+			}
+
+			// Verify ValidateUpdate with unchanged spec (e.g. controller adding finalizers) is always allowed
+			_, err = validator.ValidateUpdate(ctx, p, p)
+			if err != nil {
+				t.Fatalf("expected update with unchanged spec to be allowed, got: %v", err)
+			}
+		})
+	}
+}
+
+func admissionRequest(user string) admission.Request {
+	return admission.Request{
+		AdmissionRequest: admissionv1.AdmissionRequest{
+			UserInfo: authenticationv1.UserInfo{
+				Username: user,
+				UID:      "uid-" + user,
+				Groups:   []string{"system:authenticated"},
+			},
+		},
 	}
 }
