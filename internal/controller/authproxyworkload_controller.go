@@ -99,6 +99,7 @@ func (r *AuthProxyWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 //+kubebuilder:rbac:groups=apps,resources=deployments;statefulsets;daemonsets;replicasets,verbs=update;patch
 //+kubebuilder:rbac:groups=apps,resources=*,verbs=get;list;watch
+//+kubebuilder:rbac:groups=batch,resources=jobs;cronjobs,verbs=update;patch
 //+kubebuilder:rbac:groups=batch,resources=*,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=*,verbs=get;list;watch
 
@@ -107,6 +108,7 @@ func (r *AuthProxyWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 //+kubebuilder:rbac:groups=cloudsql.cloud.google.com,resources=authproxyworkloads/finalizers,verbs=update
 
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
 
 // Reconcile updates the state of the cluster so that AuthProxyWorkload instances
 // have their configuration reflected correctly on workload PodSpec configuration.
