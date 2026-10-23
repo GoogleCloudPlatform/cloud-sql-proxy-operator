@@ -21,8 +21,8 @@ import (
 	"reflect"
 
 	"cloud.google.com/go/cloudsqlconn/instance"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-
+	authenticationv1 "k8s.io/api/authentication/v1"
+	authorizationv1 "k8s.io/api/authorization/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/validation"
@@ -30,7 +30,9 @@ import (
 	apivalidation "k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // log is for logging in this package.
@@ -39,11 +41,12 @@ var authproxyworkloadlog = logf.Log.WithName("authproxyworkload-resource")
 func (r *AuthProxyWorkload) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr, r).
 		WithDefaulter(&AuthProxyWorkloadDefaulter{}).
-		WithValidator(&AuthProxyWorkloadValidator{}).
+		WithValidator(&AuthProxyWorkloadValidator{Client: mgr.GetClient()}).
 		Complete()
 
 }
 
+// +kubebuilder:object:generate=false
 // +kubebuilder:webhook:path=/mutate-cloudsql-cloud-google-com-v1-authproxyworkload,mutating=true,failurePolicy=fail,sideEffects=None,groups=cloudsql.cloud.google.com,resources=authproxyworkloads,verbs=create;update,versions=v1,name=mauthproxyworkload.kb.io,admissionReviewVersions=v1
 type AuthProxyWorkloadDefaulter struct {
 }
@@ -58,12 +61,15 @@ func (*AuthProxyWorkloadDefaulter) Default(_ context.Context, r *AuthProxyWorklo
 	return nil
 }
 
+// +kubebuilder:object:generate=false
+// +kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
 // +kubebuilder:webhook:path=/validate-cloudsql-cloud-google-com-v1-authproxyworkload,mutating=false,failurePolicy=fail,sideEffects=None,groups=cloudsql.cloud.google.com,resources=authproxyworkloads,verbs=create;update,versions=v1,name=vauthproxyworkload.kb.io,admissionReviewVersions=v1
 type AuthProxyWorkloadValidator struct {
+	Client client.Client
 }
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (*AuthProxyWorkloadValidator) ValidateCreate(_ context.Context, r *AuthProxyWorkload) (warnings admission.Warnings, err error) {
+func (v *AuthProxyWorkloadValidator) ValidateCreate(ctx context.Context, r *AuthProxyWorkload) (warnings admission.Warnings, err error) {
 	allErrs := r.validate()
 	if len(allErrs) > 0 {
 		return nil, apierrors.NewInvalid(
@@ -72,12 +78,15 @@ func (*AuthProxyWorkloadValidator) ValidateCreate(_ context.Context, r *AuthProx
 				Kind:  "AuthProxyWorkload"},
 			r.Name, allErrs)
 	}
+	if err := v.validateAuthorization(ctx, r); err != nil {
+		return nil, err
+	}
 	return nil, nil
 
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (*AuthProxyWorkloadValidator) ValidateUpdate(_ context.Context, old, newObj *AuthProxyWorkload) (warnings admission.Warnings, err error) {
+func (v *AuthProxyWorkloadValidator) ValidateUpdate(ctx context.Context, old, newObj *AuthProxyWorkload) (warnings admission.Warnings, err error) {
 	allErrs := newObj.validate()
 	allErrs = append(allErrs, newObj.validateUpdateFrom(old)...)
 	if len(allErrs) > 0 {
@@ -87,12 +96,185 @@ func (*AuthProxyWorkloadValidator) ValidateUpdate(_ context.Context, old, newObj
 				Kind:  "AuthProxyWorkload"},
 			newObj.Name, allErrs)
 	}
+	if !reflect.DeepEqual(old.Spec, newObj.Spec) {
+		if err := v.validateAuthorization(ctx, newObj); err != nil {
+			return nil, err
+		}
+	}
 	return nil, nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (*AuthProxyWorkloadValidator) ValidateDelete(_ context.Context, _ *AuthProxyWorkload) (admission.Warnings, error) {
+func (v *AuthProxyWorkloadValidator) ValidateDelete(_ context.Context, _ *AuthProxyWorkload) (admission.Warnings, error) {
 	return nil, nil
+}
+
+func (v *AuthProxyWorkloadValidator) validateAuthorization(ctx context.Context, r *AuthProxyWorkload) error {
+	if v.Client == nil {
+		return nil
+	}
+	req, err := admission.RequestFromContext(ctx)
+	if err != nil || req.UserInfo.Username == "" {
+		return nil
+	}
+
+	// 1. Pod delete check: User must be authorized to delete pods in the target namespace.
+	sarPod := &authorizationv1.SubjectAccessReview{
+		Spec: authorizationv1.SubjectAccessReviewSpec{
+			User:   req.UserInfo.Username,
+			UID:    req.UserInfo.UID,
+			Groups: req.UserInfo.Groups,
+			Extra:  convertExtra(req.UserInfo.Extra),
+			ResourceAttributes: &authorizationv1.ResourceAttributes{
+				Namespace: r.Namespace,
+				Verb:      "delete",
+				Group:     "",
+				Resource:  "pods",
+			},
+		},
+	}
+	if err := v.Client.Create(ctx, sarPod); err != nil {
+		return apierrors.NewInternalError(fmt.Errorf("failed to check authorization for deleting pods: %w", err))
+	}
+	if !sarPod.Status.Allowed {
+		return apierrors.NewForbidden(
+			schema.GroupResource{Group: GroupVersion.Group, Resource: "authproxyworkloads"},
+			r.Name,
+			fmt.Errorf("user %q is not authorized to delete pods in namespace %q", req.UserInfo.Username, r.Namespace),
+		)
+	}
+
+	// 2. Workload update and patch checks: User must be authorized to update and patch the targeted workload.
+	group, resource, err := groupResourceForKind(r.Spec.Workload.Kind)
+	if err != nil {
+		return apierrors.NewInvalid(
+			schema.GroupKind{Group: GroupVersion.Group, Kind: "AuthProxyWorkload"},
+			r.Name,
+			field.ErrorList{field.Invalid(field.NewPath("spec", "workload", "kind"), r.Spec.Workload.Kind, err.Error())},
+		)
+	}
+
+	if r.Spec.Workload.Name != "" {
+		for _, verb := range []string{"update", "patch"} {
+			sar := &authorizationv1.SubjectAccessReview{
+				Spec: authorizationv1.SubjectAccessReviewSpec{
+					User:   req.UserInfo.Username,
+					UID:    req.UserInfo.UID,
+					Groups: req.UserInfo.Groups,
+					Extra:  convertExtra(req.UserInfo.Extra),
+					ResourceAttributes: &authorizationv1.ResourceAttributes{
+						Namespace: r.Namespace,
+						Verb:      verb,
+						Group:     group,
+						Resource:  resource,
+						Name:      r.Spec.Workload.Name,
+					},
+				},
+			}
+			if err := v.Client.Create(ctx, sar); err != nil {
+				return apierrors.NewInternalError(fmt.Errorf("failed to check authorization for %s on %s %s: %w", verb, resource, r.Spec.Workload.Name, err))
+			}
+			if !sar.Status.Allowed {
+				return apierrors.NewForbidden(
+					schema.GroupResource{Group: GroupVersion.Group, Resource: "authproxyworkloads"},
+					r.Name,
+					fmt.Errorf("user %q is not authorized to %s %s %q in namespace %q", req.UserInfo.Username, verb, resource, r.Spec.Workload.Name, r.Namespace),
+				)
+			}
+		}
+	} else if r.Spec.Workload.Selector != nil {
+		for _, verb := range []string{"update", "patch"} {
+			sar := &authorizationv1.SubjectAccessReview{
+				Spec: authorizationv1.SubjectAccessReviewSpec{
+					User:   req.UserInfo.Username,
+					UID:    req.UserInfo.UID,
+					Groups: req.UserInfo.Groups,
+					Extra:  convertExtra(req.UserInfo.Extra),
+					ResourceAttributes: &authorizationv1.ResourceAttributes{
+						Namespace: r.Namespace,
+						Verb:      verb,
+						Group:     group,
+						Resource:  resource,
+					},
+				},
+			}
+			if err := v.Client.Create(ctx, sar); err != nil {
+				return apierrors.NewInternalError(fmt.Errorf("failed to check authorization for %s on %s: %w", verb, resource, err))
+			}
+			if !sar.Status.Allowed {
+				return apierrors.NewForbidden(
+					schema.GroupResource{Group: GroupVersion.Group, Resource: "authproxyworkloads"},
+					r.Name,
+					fmt.Errorf("user %q is not authorized to %s %s by label selector in namespace %q (requires namespace-wide update and patch permissions on %s)", req.UserInfo.Username, verb, resource, r.Namespace, resource),
+				)
+			}
+		}
+	}
+
+	// 3. Custom container override check
+	if r.Spec.AuthProxyContainer != nil && r.Spec.AuthProxyContainer.Container != nil {
+		sarOverride := &authorizationv1.SubjectAccessReview{
+			Spec: authorizationv1.SubjectAccessReviewSpec{
+				User:   req.UserInfo.Username,
+				UID:    req.UserInfo.UID,
+				Groups: req.UserInfo.Groups,
+				Extra:  convertExtra(req.UserInfo.Extra),
+				ResourceAttributes: &authorizationv1.ResourceAttributes{
+					Namespace:   r.Namespace,
+					Verb:        "create",
+					Group:       GroupVersion.Group,
+					Resource:    "authproxyworkloads",
+					Subresource: "containeroverride",
+					Name:        r.Name,
+				},
+			},
+		}
+		if err := v.Client.Create(ctx, sarOverride); err != nil {
+			return apierrors.NewInternalError(fmt.Errorf("failed to check authorization for container override: %w", err))
+		}
+		if !sarOverride.Status.Allowed {
+			return apierrors.NewForbidden(
+				schema.GroupResource{Group: GroupVersion.Group, Resource: "authproxyworkloads"},
+				r.Name,
+				fmt.Errorf("user %q is not authorized to specify custom container override (requires containeroverride permission on authproxyworkloads)", req.UserInfo.Username),
+			)
+		}
+	}
+
+	return nil
+}
+
+func convertExtra(in map[string]authenticationv1.ExtraValue) map[string]authorizationv1.ExtraValue {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string]authorizationv1.ExtraValue, len(in))
+	for k, v := range in {
+		out[k] = authorizationv1.ExtraValue(v)
+	}
+	return out
+}
+
+func groupResourceForKind(kindArg string) (string, string, error) {
+	_, gk := schema.ParseKindArg(kindArg)
+	switch gk.Kind {
+	case "Deployment":
+		return "apps", "deployments", nil
+	case "StatefulSet":
+		return "apps", "statefulsets", nil
+	case "DaemonSet":
+		return "apps", "daemonsets", nil
+	case "ReplicaSet":
+		return "apps", "replicasets", nil
+	case "Job":
+		return "batch", "jobs", nil
+	case "CronJob":
+		return "batch", "cronjobs", nil
+	case "Pod":
+		return "", "pods", nil
+	default:
+		return "", "", fmt.Errorf("unsupported kind %q", kindArg)
+	}
 }
 
 func (r *AuthProxyWorkload) validate() field.ErrorList {
