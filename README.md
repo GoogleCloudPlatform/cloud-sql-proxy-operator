@@ -60,6 +60,92 @@ kubectl get pods -n cloud-sql-proxy-operator-system
 See the [Quick Start Guide](docs/quick-start.md) for a description of basic usage.
 Additional usage may be found in the [Examples](docs/examples/).
 
+## Post-Quantum Cryptography (PQC)
+
+Both the Cloud SQL Proxy Operator controller and the default Cloud SQL Auth Proxy
+sidecar image (`gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.26.3`) negotiate the
+hybrid post-quantum key exchange group `X25519MLKEM768` over TLS 1.3 by default:
+
+- **Cloud SQL Auth Proxy sidecar:** Negotiates `X25519MLKEM768` on TLS 1.3 mTLS
+  connections to Cloud SQL instances and HTTPS calls to the Cloud SQL Admin API.
+- **Operator controller:** Negotiates `X25519MLKEM768` on outbound TLS 1.3 HTTPS
+  connections to the Kubernetes API server, and accepts `X25519MLKEM768` on its
+  TLS 1.3 admission webhook server from clients (such as `kube-apiserver`) that
+  offer it.
+
+No configuration changes are required. If a peer (such as a Cloud SQL instance or
+Kubernetes API server) does not yet offer a hybrid post-quantum group, the TLS 1.3
+handshake automatically falls back to classical key exchange (`X25519`) without
+failing the connection.
+
+### Custom Proxy Image Version Requirement
+
+- If you pin a custom sidecar image using `spec.authProxyContainer.image`, use
+  Cloud SQL Auth Proxy **`2.15.2` or later** (for example,
+  `gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.15.2` or newer), which is the
+  first v2 release built with `go 1.24` in `go.mod` (`tlsmlkem=1` enabled by
+  default).
+- If building the Operator or Cloud SQL Auth Proxy from source, build with
+  **Go 1.24 or later** (with `go 1.24` or higher in `go.mod`).
+
+### Opting Out (`GODEBUG=tlsmlkem=0`)
+
+If you need to disable post-quantum key exchange and use classical TLS 1.3 groups
+only, set the Go runtime environment variable `GODEBUG=tlsmlkem=0`:
+
+- **Cloud SQL Auth Proxy sidecar:** `AuthProxyContainerSpec` does not expose a
+  first-class `env` field today (configuring the proxy sidecar directly in your
+  workload PodSpec or opening a feature request on this repository for sidecar
+  `env` support is recommended if you need full operator-managed defaults).
+
+  > **Warning:** `spec.authProxyContainer.container` is a debugging parameter
+  > that **completely replaces** the operator-generated proxy container spec.
+  > When set, the operator drops all of its generated defaults—including health
+  > checks/startup probes, admin server configuration, auth flags,
+  > `CSQL_PROXY_*` environment variables (user agent, structured logs, quiet,
+  > lazy refresh), telemetry flags, generated instance arguments/ports,
+  > security context, and `restartPolicy`—and overwrites `container.name` with
+  > an operator-generated name (`csql-<namespace>-<name>`). Only the fields you
+  > explicitly write under `container` take effect, so you must supply all
+  > required instance arguments, ports, probes, security context, and
+  > `restartPolicy` yourself (include `restartPolicy: Always` on Kubernetes
+  > 1.29+ clusters where native sidecar `initContainers` are used; omit
+  > `restartPolicy` on Kubernetes versions earlier than 1.29):
+
+  ```yaml
+  apiVersion: cloudsql.cloud.google.com/v1
+  kind: AuthProxyWorkload
+  metadata:
+    name: authproxyworkload-sample
+  spec:
+    workloadSelector:
+      kind: "Deployment"
+      name: "gke-cloud-sql-app"
+    instances:
+      - connectionString: "<PROJECT>:<REGION>:<INSTANCE>"
+        port: 5000
+    authProxyContainer:
+      container:
+        name: placeholder # Required by CRD schema; overwritten with an operator-generated name (csql-<namespace>-<name>)
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.26.3
+        restartPolicy: Always # Required on Kubernetes 1.29+; omit on < 1.29
+        args:
+          - "--structured-logs"
+          - "<PROJECT>:<REGION>:<INSTANCE>?port=5000"
+        env:
+          - name: GODEBUG
+            value: "tlsmlkem=0"
+  ```
+
+- **Operator controller:** Set `GODEBUG=tlsmlkem=0` on the `manager` container in
+  the `cloud-sql-proxy-operator-controller-manager` Deployment:
+
+  ```shell
+  kubectl set env deployment/cloud-sql-proxy-operator-controller-manager \
+    -n cloud-sql-proxy-operator-system \
+    GODEBUG=tlsmlkem=0
+  ```
+
 ## Frequently Asked Questions
 
 ### Why would I use the Cloud SQL Auth Proxy Operator?
