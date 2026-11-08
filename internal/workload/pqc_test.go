@@ -28,6 +28,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -91,34 +92,40 @@ func TestOperatorTLSKeyExchange(t *testing.T) {
 	tlsCert, caPEM := generateLocalhostTLS13Cert(t)
 
 	testCases := []struct {
-		name         string
-		godebug      string
-		serverCurves []tls.CurveID
-		wantCurve    tls.CurveID
+		name            string
+		godebug         string
+		serverCurves    []tls.CurveID
+		wantClientMLKEM bool
+		wantCurve       tls.CurveID
 	}{
 		{
-			name:      "default negotiates X25519MLKEM768",
-			wantCurve: tls.X25519MLKEM768,
+			name:            "default negotiates X25519MLKEM768",
+			wantClientMLKEM: true,
+			wantCurve:       tls.X25519MLKEM768,
 		},
 		{
-			name:         "falls back to X25519 against classical-only server",
-			serverCurves: []tls.CurveID{tls.X25519, tls.CurveP256},
-			wantCurve:    tls.X25519,
+			name:            "falls back to X25519 against classical-only server",
+			serverCurves:    []tls.CurveID{tls.X25519, tls.CurveP256},
+			wantClientMLKEM: true,
+			wantCurve:       tls.X25519,
 		},
 		{
-			// Explicitly configure X25519MLKEM768 on the server so process-wide
-			// GODEBUG=tlsmlkem=0 does not disable PQC on the test server itself,
-			// proving the client transport opted out.
-			name:         "respects GODEBUG tlsmlkem=0 opt-out",
-			godebug:      "tlsmlkem=0",
-			serverCurves: []tls.CurveID{tls.X25519MLKEM768, tls.X25519, tls.CurveP256},
-			wantCurve:    tls.X25519,
+			// Note: In Go 1.26+, process-wide GODEBUG=tlsmlkem=0 also filters ML-KEM
+			// groups out of an in-process tls.Server's CurvePreferences. Client opt-out
+			// is verified non-vacuously by inspecting ClientHelloInfo.SupportedCurves
+			// inside GetConfigForClient before server-side curve filtering.
+			name:            "respects GODEBUG tlsmlkem=0 opt-out",
+			godebug:         "tlsmlkem=0",
+			serverCurves:    []tls.CurveID{tls.X25519MLKEM768, tls.X25519, tls.CurveP256},
+			wantClientMLKEM: false,
+			wantCurve:       tls.X25519,
 		},
 		{
-			name:         "respects GODEBUG tlsmlkem=1 explicit opt-in",
-			godebug:      "tlsmlkem=1",
-			serverCurves: []tls.CurveID{tls.X25519MLKEM768, tls.X25519, tls.CurveP256},
-			wantCurve:    tls.X25519MLKEM768,
+			name:            "respects GODEBUG tlsmlkem=1 explicit opt-in",
+			godebug:         "tlsmlkem=1",
+			serverCurves:    []tls.CurveID{tls.X25519MLKEM768, tls.X25519, tls.CurveP256},
+			wantClientMLKEM: true,
+			wantCurve:       tls.X25519MLKEM768,
 		},
 	}
 
@@ -129,8 +136,9 @@ func TestOperatorTLSKeyExchange(t *testing.T) {
 			}
 
 			var (
-				mu          sync.Mutex
-				serverState tls.ConnectionState
+				mu           sync.Mutex
+				clientCurves []tls.CurveID
+				serverState  tls.ConnectionState
 			)
 
 			srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -146,6 +154,12 @@ func TestOperatorTLSKeyExchange(t *testing.T) {
 				Certificates:     []tls.Certificate{tlsCert},
 				MinVersion:       tls.VersionTLS13,
 				CurvePreferences: tc.serverCurves,
+				GetConfigForClient: func(chi *tls.ClientHelloInfo) (*tls.Config, error) {
+					mu.Lock()
+					clientCurves = slices.Clone(chi.SupportedCurves)
+					mu.Unlock()
+					return nil, nil
+				},
 			}
 			srv.StartTLS()
 			defer srv.Close()
@@ -192,8 +206,26 @@ func TestOperatorTLSKeyExchange(t *testing.T) {
 			}
 
 			mu.Lock()
+			gotClientCurves := slices.Clone(clientCurves)
 			gotServerState := serverState
 			mu.Unlock()
+
+			if gotHasMLKEM := slices.Contains(gotClientCurves, tls.X25519MLKEM768); gotHasMLKEM != tc.wantClientMLKEM {
+				t.Errorf("ClientHello SupportedCurves = %v: contains X25519MLKEM768 (0x%x) = %v, want %v",
+					gotClientCurves, uint16(tls.X25519MLKEM768), gotHasMLKEM, tc.wantClientMLKEM)
+			}
+			if !tc.wantClientMLKEM {
+				for _, pqGroup := range []tls.CurveID{tls.SecP256r1MLKEM768, tls.SecP384r1MLKEM1024} {
+					if slices.Contains(gotClientCurves, pqGroup) {
+						t.Errorf("ClientHello SupportedCurves = %v: unexpected hybrid group %v (0x%x) when ML-KEM is disabled",
+							gotClientCurves, pqGroup, uint16(pqGroup))
+					}
+				}
+			}
+			if !slices.Contains(gotClientCurves, tls.X25519) {
+				t.Errorf("ClientHello SupportedCurves = %v: expected classical X25519 fallback curve", gotClientCurves)
+			}
+
 			if gotServerState.Version != tls.VersionTLS13 {
 				t.Errorf("server TLS version = 0x%x, want TLS 1.3 (0x%x)", gotServerState.Version, tls.VersionTLS13)
 			}

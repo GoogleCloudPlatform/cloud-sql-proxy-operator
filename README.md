@@ -62,9 +62,9 @@ Additional usage may be found in the [Examples](docs/examples/).
 
 ## Post-Quantum Cryptography (PQC)
 
-Both the Cloud SQL Proxy Operator controller and the default Cloud SQL Auth Proxy
-sidecar image (`gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.26.3`) negotiate the
-hybrid post-quantum key exchange group `X25519MLKEM768` over TLS 1.3 by default:
+Both the Cloud SQL Proxy Operator controller and the operator's default Cloud SQL
+Auth Proxy sidecar image (`DefaultProxyImage`, `2.15.2+`) negotiate the hybrid
+post-quantum key exchange group `X25519MLKEM768` over TLS 1.3 by default:
 
 - **Cloud SQL Auth Proxy sidecar:** Negotiates `X25519MLKEM768` on TLS 1.3 mTLS
   connections to Cloud SQL instances and HTTPS calls to the Cloud SQL Admin API.
@@ -93,49 +93,17 @@ failing the connection.
 If you need to disable post-quantum key exchange and use classical TLS 1.3 groups
 only, set the Go runtime environment variable `GODEBUG=tlsmlkem=0`:
 
-- **Cloud SQL Auth Proxy sidecar:** `AuthProxyContainerSpec` does not expose a
-  first-class `env` field today (configuring the proxy sidecar directly in your
-  workload PodSpec or opening a feature request on this repository for sidecar
-  `env` support is recommended if you need full operator-managed defaults).
-
-  > **Warning:** `spec.authProxyContainer.container` is a debugging parameter
-  > that **completely replaces** the operator-generated proxy container spec.
-  > When set, the operator drops all of its generated defaults—including health
-  > checks/startup probes, admin server configuration, auth flags,
-  > `CSQL_PROXY_*` environment variables (user agent, structured logs, quiet,
-  > lazy refresh), telemetry flags, generated instance arguments/ports,
-  > security context, and `restartPolicy`—and overwrites `container.name` with
-  > an operator-generated name (`csql-<namespace>-<name>`). Only the fields you
-  > explicitly write under `container` take effect, so you must supply all
-  > required instance arguments, ports, probes, security context, and
-  > `restartPolicy` yourself (include `restartPolicy: Always` on Kubernetes
-  > 1.29+ clusters where native sidecar `initContainers` are used; omit
-  > `restartPolicy` on Kubernetes versions earlier than 1.29):
-
-  ```yaml
-  apiVersion: cloudsql.cloud.google.com/v1
-  kind: AuthProxyWorkload
-  metadata:
-    name: authproxyworkload-sample
-  spec:
-    workloadSelector:
-      kind: "Deployment"
-      name: "gke-cloud-sql-app"
-    instances:
-      - connectionString: "<PROJECT>:<REGION>:<INSTANCE>"
-        port: 5000
-    authProxyContainer:
-      container:
-        name: placeholder # Required by CRD schema; overwritten with an operator-generated name (csql-<namespace>-<name>)
-        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.26.3
-        restartPolicy: Always # Required on Kubernetes 1.29+; omit on < 1.29
-        args:
-          - "--structured-logs"
-          - "<PROJECT>:<REGION>:<INSTANCE>?port=5000"
-        env:
-          - name: GODEBUG
-            value: "tlsmlkem=0"
-  ```
+- **Cloud SQL Auth Proxy sidecar:** `AuthProxyContainerSpec` does not currently
+  expose a dedicated `env` field. If you need `GODEBUG=tlsmlkem=0` on the proxy
+  sidecar while keeping standard proxy settings, configure the Cloud SQL Auth
+  Proxy sidecar container directly in your workload `PodSpec` (see the
+  [Cloud SQL Proxy Kubernetes Sidecar example](https://github.com/GoogleCloudPlatform/cloud-sql-proxy/tree/main/examples/k8s-sidecar))
+  or open a feature request on this repository for sidecar `env` support. Avoid
+  using `spec.authProxyContainer.container` solely to inject `env`: `container`
+  is a debugging override that **completely replaces** the operator-generated
+  sidecar spec (dropping operator-managed instance arguments, ports,
+  health/startup probes, telemetry, authentication flags, `securityContext`, and
+  `restartPolicy` unless you supply every field yourself).
 
 - **Operator controller:** Set `GODEBUG=tlsmlkem=0` on the `manager` container in
   the `cloud-sql-proxy-operator-controller-manager` Deployment:
