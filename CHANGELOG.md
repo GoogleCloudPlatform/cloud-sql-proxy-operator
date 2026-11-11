@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.8.4](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.8.3...v1.8.4) (2026-10-22)
+
+
+### Bug Fixes
+
+* update dependencies, distroless base image, and default proxy to v2.26.3 ([#806](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/806)) ([92f5e01](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/92f5e01b86fb4838e4507f1f2eeddbc282002a21))
+
+### Security / CVE Fixes
+
+Updates `gcr.io/distroless/static:nonroot` container base image digests to remove distrusted `emSign ECC Root CA - G3` and `AAA Certificate Services` root certificates (`ca-certificates`), bumps the default Cloud SQL Auth Proxy image to `v2.26.3`, and updates dependencies:
+
+| Advisory | CVE | Description | Affected Component | Fixed Version |
+| --- | --- | --- | --- | --- |
+| [GO-2026-6809](https://pkg.go.dev/vuln/GO-2026-6809) | [CVE-2026-111943](https://nvd.nist.gov/vuln/detail/CVE-2026-111943) | Distrust compromised intermediate certificates in `crypto/x509` and container OS root CA bundle (`ca-certificates`) | `gcr.io/distroless/static:nonroot`, default proxy image | `distroless@d620678`, `cloud-sql-proxy:2.26.3` |
+| [GO-2026-6617](https://pkg.go.dev/vuln/GO-2026-6617) | [CVE-2026-78659](https://nvd.nist.gov/vuln/detail/CVE-2026-78659) | Multiple HTTP/2 and networking vulnerabilities in `golang.org/x/net` | `golang.org/x/net` | `v0.61.0` |
+
+
 ## [1.8.3](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.8.2...v1.8.3) (2026-10-08)
 
 

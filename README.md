@@ -44,7 +44,7 @@ your kubernetes cluster:
 <!-- {x-release-please-start-version} -->
 
 ```shell
-kubectl apply -f https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/v1.8.3/cloud-sql-proxy-operator.yaml
+kubectl apply -f https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/v1.8.4/cloud-sql-proxy-operator.yaml
 ```
 
 <!-- {x-release-please-end} -->
@@ -59,6 +59,60 @@ kubectl get pods -n cloud-sql-proxy-operator-system
 
 See the [Quick Start Guide](docs/quick-start.md) for a description of basic usage.
 Additional usage may be found in the [Examples](docs/examples/).
+
+## Post-Quantum Cryptography (PQC)
+
+Both the Cloud SQL Proxy Operator controller and the operator's default Cloud SQL
+Auth Proxy sidecar image (`DefaultProxyImage`, `2.15.2+`) negotiate the hybrid
+post-quantum key exchange group `X25519MLKEM768` over TLS 1.3 by default:
+
+- **Cloud SQL Auth Proxy sidecar:** Negotiates `X25519MLKEM768` on TLS 1.3 mTLS
+  connections to Cloud SQL instances and HTTPS calls to the Cloud SQL Admin API.
+- **Operator controller:** Negotiates `X25519MLKEM768` on outbound TLS 1.3 HTTPS
+  connections to the Kubernetes API server, and accepts `X25519MLKEM768` on its
+  TLS 1.3 admission webhook server from clients (such as `kube-apiserver`) that
+  offer it.
+
+No configuration changes are required. If a peer (such as a Cloud SQL instance or
+Kubernetes API server) does not yet offer a hybrid post-quantum group, the TLS 1.3
+handshake automatically falls back to classical key exchange (`X25519`) without
+failing the connection.
+
+### Custom Proxy Image Version Requirement
+
+- If you pin a custom sidecar image using `spec.authProxyContainer.image`, use
+  Cloud SQL Auth Proxy **`2.15.2` or later** (for example,
+  `gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.15.2` or newer), which is the
+  first v2 release built with `go 1.24` in `go.mod` (`tlsmlkem=1` enabled by
+  default).
+- If building the Operator or Cloud SQL Auth Proxy from source, build with
+  **Go 1.24 or later** (with `go 1.24` or higher in `go.mod`).
+
+### Opting Out (`GODEBUG=tlsmlkem=0`)
+
+If you need to disable post-quantum key exchange and use classical TLS 1.3 groups
+only, set the Go runtime environment variable `GODEBUG=tlsmlkem=0`:
+
+- **Cloud SQL Auth Proxy sidecar:** `AuthProxyContainerSpec` does not currently
+  expose a dedicated `env` field. If you need `GODEBUG=tlsmlkem=0` on the proxy
+  sidecar while keeping standard proxy settings, configure the Cloud SQL Auth
+  Proxy sidecar container directly in your workload `PodSpec` (see the
+  [Cloud SQL Proxy Kubernetes Sidecar example](https://github.com/GoogleCloudPlatform/cloud-sql-proxy/tree/main/examples/k8s-sidecar))
+  or open a feature request on this repository for sidecar `env` support. Avoid
+  using `spec.authProxyContainer.container` solely to inject `env`: `container`
+  is a debugging override that **completely replaces** the operator-generated
+  sidecar spec (dropping operator-managed instance arguments, ports,
+  health/startup probes, telemetry, authentication flags, `securityContext`, and
+  `restartPolicy` unless you supply every field yourself).
+
+- **Operator controller:** Set `GODEBUG=tlsmlkem=0` on the `manager` container in
+  the `cloud-sql-proxy-operator-controller-manager` Deployment:
+
+  ```shell
+  kubectl set env deployment/cloud-sql-proxy-operator-controller-manager \
+    -n cloud-sql-proxy-operator-system \
+    GODEBUG=tlsmlkem=0
+  ```
 
 ## Frequently Asked Questions
 
