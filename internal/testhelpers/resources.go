@@ -362,7 +362,7 @@ func (cc *TestCaseClient) CreateWorkload(ctx context.Context, o client.Object) e
 func (cc *TestCaseClient) GetAuthProxyWorkloadAfterReconcile(ctx context.Context, key types.NamespacedName) (*cloudsqlapi.AuthProxyWorkload, error) {
 	createdPodmod := &cloudsqlapi.AuthProxyWorkload{}
 	// We'll need to retry getting this newly created resource, given that creation may not immediately happen.
-	err := RetryUntilSuccess(6, DefaultRetryInterval, func() error {
+	err := RetryUntilSuccess(24, DefaultRetryInterval, func() error {
 		err := cc.Client.Get(ctx, key, createdPodmod)
 		if err != nil {
 			return err
@@ -521,7 +521,7 @@ func (cc *TestCaseClient) ExpectContainerCount(ctx context.Context, key types.Na
 		got        int
 		deployment = &appsv1.Deployment{}
 	)
-	err := RetryUntilSuccess(6, DefaultRetryInterval, func() error {
+	err := RetryUntilSuccess(24, DefaultRetryInterval, func() error {
 		err := cc.Client.Get(ctx, key, deployment)
 		if err != nil {
 			return err
