@@ -1,26 +1,16 @@
 {
   "extends": [
-    "config:recommended"
+    "config:recommended",
+    ":prConcurrentLimitNone"
   ],
   "dependencyDashboardLabels": ["type: process"],
   "commitMessagePrefix": "deps: ",
-  "postUpdateOptions": [
-    "gomodTidy"
-  ],
-  "prConcurrentLimit": 8,
+  "enabledManagers": ["dockerfile", "custom.regex", "terraform"],
   "packageRules": [
     {
       "matchManagers": ["dockerfile"],
-      "groupName": "Container image updates"
-    },
-    {
-      "groupName": "Go dependency updates",
-      "matchManagers": ["gomod"],
-      "matchUpdateTypes": ["minor", "patch", "pin", "digest"]
-    },
-    {
-      "groupName": "Github Actions",
-      "matchManagers": ["github-actions"]
+      "groupName": "Container image updates",
+      "prPriority": 10
     },
     {
       "groupName": "Build Tools",
@@ -31,7 +21,7 @@
         "^google-beta",
         "^hashicorp/terraform"
       ],
-      "matchManagers": ["regex","terraform"]
+      "matchManagers": ["custom.regex", "terraform"]
     },
     {
       "groupName": "Kubernetes Runtime",
@@ -41,10 +31,10 @@
         "^sigs.k8s.io/controller-runtime",
         "^sigs.k8s.io/controller-tools"
       ],
-      "matchManagers": ["gomod","regex"]
+      "matchManagers": ["custom.regex"]
     }
   ],
-  "regexManagers": [
+  "customManagers": [
     {
       "customType": "regex",
       "fileMatch": ["^Makefile$"],

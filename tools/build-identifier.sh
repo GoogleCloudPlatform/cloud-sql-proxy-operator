@@ -22,15 +22,49 @@ if [[ -n ${RELEASE_TEST_BUILD_ID:-} ]] ; then
   exit 0
 fi
 
-NOW=$(date -u "+%Y%m%dT%H%M" | tr -d "\n")
-GIT_HEAD=$( git rev-parse HEAD | tr -d "\n")
+if [[ "$PWD" =~ "operator" ]] && [[ -n ${KOKORO_GIT_COMMIT_connector_operator:-} ]] ; then
+  echo -n "${KOKORO_GIT_COMMIT_connector_operator}"
+  exit 0
+elif [[ "$PWD" =~ "proxy" ]] && [[ -n ${KOKORO_GIT_COMMIT_connector_proxy:-} ]] ; then
+  echo -n "${KOKORO_GIT_COMMIT_connector_proxy}"
+  exit 0
+elif [[ "$PWD" =~ "go" ]] && [[ -n ${KOKORO_GIT_COMMIT_connector_go:-} ]] ; then
+  echo -n "${KOKORO_GIT_COMMIT_connector_go}"
+  exit 0
+elif [[ "$PWD" =~ "python" ]] && [[ -n ${KOKORO_GIT_COMMIT_connector_python:-} ]] ; then
+  echo -n "${KOKORO_GIT_COMMIT_connector_python}"
+  exit 0
+elif [[ "$PWD" =~ "node" ]] && [[ -n ${KOKORO_GIT_COMMIT_connector_nodejs:-} ]] ; then
+  echo -n "${KOKORO_GIT_COMMIT_connector_nodejs}"
+  exit 0
+elif [[ "$PWD" =~ "java" ]] && [[ -n ${KOKORO_GIT_COMMIT_connector_java:-} ]] ; then
+  echo -n "${KOKORO_GIT_COMMIT_connector_java}"
+  exit 0
+elif [[ -n ${KOKORO_GIT_COMMIT_gemini_connector_tools:-} ]] ; then
+  echo -n "${KOKORO_GIT_COMMIT_gemini_connector_tools}"
+  exit 0
+elif [[ -n ${KOKORO_GIT_COMMIT:-} ]] ; then
+  echo -n "${KOKORO_GIT_COMMIT}"
+  exit 0
+fi
 
-if git diff HEAD --exit-code --quiet ; then
-  # git working dir is clean.
-  IMAGE_VERSION="$GIT_HEAD"
+NOW=$(date -u "+%Y%m%dT%H%M" | tr -d "\n")
+
+if jj root >/dev/null 2>&1; then
+  JJ_COMMIT=$(jj log -r @ -T "commit_id" --no-graph | tr -d "\n")
+  if jj status | grep -q "Working copy changes:"; then
+    IMAGE_VERSION="$JJ_COMMIT-dirty-${NOW}"
+  else
+    IMAGE_VERSION="$JJ_COMMIT"
+  fi
 else
-  # git working dir is dirty, append "dirty" and the timestamp
-  IMAGE_VERSION="$GIT_HEAD-dirty-${NOW}"
+  git config --global --add safe.directory "$PWD" 2>/dev/null || true
+  GIT_HEAD=$( git rev-parse HEAD | tr -d "\n" )
+  if git diff HEAD --exit-code --quiet ; then
+    IMAGE_VERSION="$GIT_HEAD"
+  else
+    IMAGE_VERSION="$GIT_HEAD-dirty-${NOW}"
+  fi
 fi
 
 echo -n "$IMAGE_VERSION"

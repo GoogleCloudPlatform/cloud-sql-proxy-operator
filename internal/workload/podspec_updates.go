@@ -39,7 +39,7 @@ const (
 	// DefaultProxyImage is the latest version of the proxy as of the release
 	// of this operator. This is managed as a dependency. We update this constant
 	// when the Cloud SQL Auth Proxy releases a new version.
-	DefaultProxyImage = "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.18.0"
+	DefaultProxyImage = "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.26.3"
 
 	// DefaultFirstPort is the first port number chose for an instance listener by the
 	// proxy.
@@ -737,7 +737,9 @@ func (s *updateState) applyContainerSpec(p *cloudsqlapi.AuthProxyWorkload, c *co
 		// Do not allow privilege escalation
 		AllowPrivilegeEscalation: &f,
 	}
-
+	if p.Spec.AuthProxyContainer != nil && p.Spec.AuthProxyContainer.SecurityContext != nil {
+		c.SecurityContext = p.Spec.AuthProxyContainer.SecurityContext.DeepCopy()
+	}
 	if p.Spec.AuthProxyContainer == nil {
 		return
 	}
@@ -897,7 +899,6 @@ func (s *updateState) addHealthCheck(p *cloudsqlapi.AuthProxyWorkload, c *corev1
 			HTTPGet: &corev1.HTTPGetAction{
 				Port: intstr.IntOrString{IntVal: adminPort},
 				Path: "/quitquitquit",
-				Host: "localhost",
 			},
 		},
 	}

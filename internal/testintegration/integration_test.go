@@ -84,6 +84,34 @@ func TestCreateAndDeleteResource(t *testing.T) {
 
 }
 
+// newTestCaseClient Creates a new TestCaseClient providing unique namespace and
+// other default values.
+func newDomainNameTestCaseClient(name string, c client.Client) *testhelpers.TestCaseClient {
+	return &testhelpers.TestCaseClient{
+		Client:           c,
+		Namespace:        testhelpers.NewNamespaceName(name),
+		ConnectionString: "db.example.com",
+	}
+}
+
+func TestCreateAndDeleteDomainNameResource(t *testing.T) {
+	ctx := testintegration.TestContext()
+	tcc := newDomainNameTestCaseClient("create", defaultClient)
+	res, err := tcc.CreateResource(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = tcc.WaitForFinalizerOnResource(ctx, res)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = tcc.DeleteResourceAndWait(ctx, res)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+}
+
 func TestModifiesNewDeployment(t *testing.T) {
 	ctx := testintegration.TestContext()
 	tcc := newTestCaseClient("modifynew", defaultClient)

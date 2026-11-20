@@ -1,5 +1,144 @@
 # Changelog
 
+## [1.8.5](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.8.4...v1.8.5) (2026-11-12)
+
+
+### Bug Fixes
+
+* update dependencies and base image to latest ([#814](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/814)) ([a504ed4](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/a504ed48b3a691060cf00623fd74e68e7653d889))
+
+## [1.8.4](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.8.3...v1.8.4) (2026-10-22)
+
+
+### Bug Fixes
+
+* update dependencies, distroless base image, and default proxy to v2.26.3 ([#806](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/806)) ([92f5e01](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/92f5e01b86fb4838e4507f1f2eeddbc282002a21))
+
+### Security / CVE Fixes
+
+Updates `gcr.io/distroless/static:nonroot` container base image digests to remove distrusted `emSign ECC Root CA - G3` and `AAA Certificate Services` root certificates (`ca-certificates`), bumps the default Cloud SQL Auth Proxy image to `v2.26.3`, and updates dependencies:
+
+| Advisory | CVE | Description | Affected Component | Fixed Version |
+| --- | --- | --- | --- | --- |
+| [GO-2026-6809](https://pkg.go.dev/vuln/GO-2026-6809) | [CVE-2026-111943](https://nvd.nist.gov/vuln/detail/CVE-2026-111943) | Distrust compromised intermediate certificates in `crypto/x509` and container OS root CA bundle (`ca-certificates`) | `gcr.io/distroless/static:nonroot`, default proxy image | `distroless@d620678`, `cloud-sql-proxy:2.26.3` |
+| [GO-2026-6617](https://pkg.go.dev/vuln/GO-2026-6617) | [CVE-2026-78659](https://nvd.nist.gov/vuln/detail/CVE-2026-78659) | Multiple HTTP/2 and networking vulnerabilities in `golang.org/x/net` | `golang.org/x/net` | `v0.61.0` |
+
+
+## [1.8.3](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.8.2...v1.8.3) (2026-10-08)
+
+
+### Bug Fixes
+
+* bump dependencies to latest ([#802](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/802)) ([d79fd27](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/d79fd279e3622a58cc8b77bb6cd6843b9e593f95))
+
+## [1.8.2](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.8.1...v1.8.2) (2026-08-14)
+
+
+### Bug Fixes
+
+* update deps to the latest ([#792](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/792)) ([770805b](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/770805b1b172b1d46cef1bf8c11a5eec9cf722ed))
+
+## [1.8.1](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.8.0...v1.8.1) (2026-07-24)
+
+
+### Bug Fixes
+
+* Update Auth Proxy version to 2.24.1 ([#785](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/785)) ([cb9e058](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/cb9e05861912b0a4f66f566a3c30687edf5abf5f))
+* update operator dependencies ([#781](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/781)) ([e6dae49](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/e6dae494c5ad1128f6dc5314edaff4237a6f23bd))
+
+## [1.8.0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.7.10...v1.8.0) (2026-06-26)
+
+
+### Features
+
+* Upgrade to Cloud SQL Proxy v2.23.0 ([#778](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/778)) ([37d4dbe](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/37d4dbe0154836573f62ccda3d1a19dbc04c9350))
+
+## [1.7.10](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.7.9...v1.7.10) (2026-05-26)
+
+
+### Bug Fixes
+
+* bump dependencies to latest ([#769](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/769)) ([8fd81c1](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/8fd81c14896bd06449f40189de04962277e87c9c))
+
+## [1.7.9](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.7.8...v1.7.9) (2026-05-22)
+
+
+### Bug Fixes
+
+* Update dependencies to latest as of 2026-05-04 ([#763](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/763)) ([d0d0784](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/d0d0784447d1262f9e313e3137776031a834630d))
+
+## [1.7.8](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.7.7...v1.7.8) (2026-04-17)
+
+
+### Bug Fixes
+
+* update dependencies to latest ([#754](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/754)) ([ed427ec](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/ed427ec1c0f317e274863a86d9a4c18f3614cc15))
+
+## [1.7.7](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.7.6...v1.7.7) (2026-03-19)
+
+
+### Bug Fixes
+
+* bump dependencies to latest ([#757](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/757)) ([38a6e45](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/38a6e45aa9053ef3f6f0b101cb80ee42a89981f3))
+
+## [1.7.6](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.7.5...v1.7.6) (2026-03-11)
+
+
+### Bug Fixes
+
+* migrate away from kube-rbac-proxy (critical) ([#747](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/747)) ([9718f37](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/9718f37bf41af42ba88bd70ada61f1036bcee26c))
+
+## [1.7.5](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.7.4...v1.7.5) (2026-02-20)
+
+
+### Bug Fixes
+
+* k8s 1.34 baseline PSA compliance ([#745](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/745)) ([e80b841](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/e80b841858c7f9f6c0fe4d901eb5ccdc1297b832))
+* Update Auth Proxy to version 2.21.1. ([#746](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/746)) ([a3ed097](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/a3ed0970d782e0ed7e65a9228c5c709e61833d6b))
+* Update dependencies to latest as of 2026-02-13 ([#742](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/742)) ([dab2607](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/dab2607df7fa9d58380d639a8d0b66e2ab3c7487))
+
+## [1.7.4](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.7.3...v1.7.4) (2026-01-23)
+
+
+### Bug Fixes
+
+* bump dep to latest to trigger release ([#732](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/732)) ([ada0b7c](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/ada0b7c6c9839110f70489e5cca1872d07a1105c))
+
+## [1.7.3](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.7.2...v1.7.3) (2026-01-23)
+
+
+### Bug Fixes
+
+* update go licenses to v2 ([#726](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/726)) ([8bf84e2](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/8bf84e21ce8459795a55cf348e882f55653cbd4c))
+
+## [1.7.2](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.7.1...v1.7.2) (2025-10-30)
+
+
+### Bug Fixes
+
+* bump dependencies to latest ([#713](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/713)) ([55e555a](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/55e555a2e006c4fdc05b9f0935e513d4fd002ae9))
+
+## [1.7.1](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.7.0...v1.7.1) (2025-10-27)
+
+
+### Bug Fixes
+
+* bump dependencies to latest ([#710](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/710)) ([6f2904a](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/6f2904ab8fbbbc49cde2de708efee8b422715935))
+
+## [1.7.0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.6.6...v1.7.0) (2025-08-28)
+
+
+### Features
+
+* Specify the security context on the proxy container. ([#698](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/698)) ([05130f0](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/05130f0ab326e13af3bbd5232a0bf24f04a57af3))
+* Support dns name for connector names ([#701](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/701)) ([35402f7](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/35402f77de11d9bd4c8154b389807083f9fad590)), closes [#683](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/683)
+
+
+### Bug Fixes
+
+* **deps:** Update all dependencies to latest ([#696](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/696)) ([d8bacd5](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/d8bacd550af197f1648215fbb73c491be1ac6a17))
+* Update proxy to 2.18.2 to include DNS name fix. ([#704](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/issues/704)) ([feed387](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/commit/feed3877e76d50a3753d7d4bca2cd05a79bd613b))
+
 ## [1.6.6](https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/compare/v1.6.5...v1.6.6) (2025-07-15)
 
 

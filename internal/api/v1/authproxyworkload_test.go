@@ -111,6 +111,30 @@ func TestAuthProxyWorkload_ValidateCreate_InstanceSpec(t *testing.T) {
 			}},
 			wantValid: false,
 		},
+		{
+			desc: "Valid, Instance configured with valid instance name",
+			spec: []cloudsqlapi.InstanceSpec{{
+				ConnectionString: "proj:region:db2",
+				Port:             ptr(int32(5000)),
+			}},
+			wantValid: true,
+		},
+		{
+			desc: "Valid, Instance configured with domain name name",
+			spec: []cloudsqlapi.InstanceSpec{{
+				ConnectionString: "proj:region:db2",
+				Port:             ptr(int32(5000)),
+			}},
+			wantValid: true,
+		},
+		{
+			desc: "Invalid, Instance configured with malformed name",
+			spec: []cloudsqlapi.InstanceSpec{{
+				ConnectionString: "bad name!",
+				Port:             ptr(int32(5000)),
+			}},
+			wantValid: false,
+		},
 	}
 	for _, tc := range data {
 		t.Run(tc.desc, func(t *testing.T) {

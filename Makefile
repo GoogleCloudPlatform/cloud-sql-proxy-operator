@@ -51,7 +51,7 @@ SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
 ## The version to use for the cert-manager operator
-CERT_MANAGER_VERSION=v1.18.2# renovate datasource=github-tags depName=cert-manager/cert-manager
+CERT_MANAGER_VERSION=v1.19.2# renovate datasource=github-tags depName=cert-manager/cert-manager
 
 ##@ General
 
@@ -88,6 +88,10 @@ generate:  ctrl_generate ctrl_manifests generate_crd_docs go_lint tf_lint instal
 
 .PHONY: build
 build: generate build_push_docker ## Builds and pushes the docker image to tag defined in envvar IMG
+	@echo "TIME: $(shell date) end make build"
+
+.PHONY: build_docker_local
+build_docker_local: generate build_docker ## Builds the docker image but does not push
 	@echo "TIME: $(shell date) end make build"
 
 .PHONY: test
@@ -148,6 +152,15 @@ build_push_docker: # Build docker image with the operator. set IMG env var befor
 	  --build-arg GO_LD_FLAGS="$(VERSION_LDFLAGS)" \
 	  -f "Dockerfile-operator" \
 	  --push -t "$(IMG)" "$(PWD)"
+	test -d 'bin' || mkdir -p bin
+	echo "$(IMG)" > bin/last-pushed-image-url.txt
+
+.PHONY: build_docker
+build_docker: # Build docker image with the operator. set IMG env var before running: `IMG=example.com/img:1.0 make build`
+	docker buildx build --platform "linux/amd64" \
+	  --build-arg GO_LD_FLAGS="$(VERSION_LDFLAGS)" \
+	  -f "Dockerfile-operator" \
+	  "$(PWD)"
 	test -d 'bin' || mkdir -p bin
 	echo "$(IMG)" > bin/last-pushed-image-url.txt
 
@@ -439,12 +452,12 @@ CRD_REF_DOCS ?= $(LOCALBIN)/crd-ref-docs
 # additional whitespace will break the renovate regex rules.
 
 KUBECTL_VERSION=v1.32.2# renovate datasource=github-tags depName=kubernetes/kubernetes
-TERRAFORM_VERSION=v1.12.2# renovate datasource=github-tags depName=hashicorp/terraform
+TERRAFORM_VERSION=v1.14.3# renovate datasource=github-tags depName=hashicorp/terraform
 
 CONTROLLER_TOOLS_VERSION=v0.17.3# renovate datasource=go depName=sigs.k8s.io/controller-tools
-CRD_REF_DOCS_VERSION=v0.1.0# renovate datasource=go depName=github.com/elastic/crd-ref-docs
-GOLANGCI_LINT_VERSION=v2.2.2# renovate datasource=go depName=github.com/golangci/golangci-lint/cmd/golangci-lint
-GO_LICENSES_VERSION=v1.6.0# renovate datasource=go depName=github.com/google/go-licenses
+CRD_REF_DOCS_VERSION=v0.2.0# renovate datasource=go depName=github.com/elastic/crd-ref-docs
+GOLANGCI_LINT_VERSION=v2.14.0# renovate datasource=go depName=github.com/golangci/golangci-lint/cmd/golangci-lint
+GO_LICENSES_VERSION=v2.0.1# renovate datasource=go depName=github.com/google/go-licenses/v2
 
 KUSTOMIZE_VERSION=v5.6.0# don't manage with renovate, this repo has non-standard tags
 
@@ -503,7 +516,7 @@ $(GOLANGCI_LINT): $(LOCALBIN)
 .PHONY: go-licenses
 go-licenses: $(GO_LICENSES) ## Download controller-gen locally if necessary.
 $(GO_LICENSES): $(LOCALBIN)
-	test -s $@ || GOBIN=$(LOCALBIN) go install github.com/google/go-licenses@$(GO_LICENSES_VERSION)
+	test -s $@ || GOBIN=$(LOCALBIN) go install github.com/google/go-licenses/v2@$(GO_LICENSES_VERSION)
 
 ##
 # Tools that need to be installed on the development machine

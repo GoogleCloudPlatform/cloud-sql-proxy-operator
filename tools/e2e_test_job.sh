@@ -24,7 +24,11 @@ mkdir -p bin
 
 echo "Using installed gcloud"
 gcloud version
-gcloud components install --quiet gke-gcloud-auth-plugin
+if ! which gke-gcloud-auth-plugin >/dev/null 2>&1 ; then
+  gcloud components install --quiet gke-gcloud-auth-plugin
+else
+  echo "gke-gcloud-auth-plugin already installed"
+fi
 
 # Install helm
 if ! which helm ; then

@@ -2,17 +2,17 @@
 
 Cloud SQL Proxy Operator is an open-source Kubernetes operator that automates
 most of the intricate steps needed to connect a workload in a kubernetes cluster
-to Cloud SQL databases. 
+to Cloud SQL databases.
 
-The operator introduces a custom resource AuthProxyWorkload, 
+The operator introduces a custom resource AuthProxyWorkload,
 which specifies the Cloud SQL Auth Proxy configuration for a workload. The operator
 reads this resource and adds a properly configured Cloud SQL Auth Proxy container
-to the matching workload pods. 
+to the matching workload pods.
 
 ## Installation
 
 Check for the latest version on the [releases page][latest-release] and use the
-following instructions. 
+following instructions.
 
 [latest-release]: https://github.com/GoogleCloudPlatform/cloud-sql-proxy-operator/releases/latest
 
@@ -22,8 +22,8 @@ Confirm that kubectl can connect to your kubernetes cluster.
 kubectl cluster-info
 ```
 
-Install cert-manager using helm. Note that you need to use this particular 
-version with these specific cli arguments to make cert-manager work on 
+Install cert-manager using helm. Note that you need to use this particular
+version with these specific cli arguments to make cert-manager work on
 your GKE cluster.
 
 ```shell
@@ -42,9 +42,11 @@ Run the following command to install the cloud sql proxy operator into
 your kubernetes cluster:
 
 <!-- {x-release-please-start-version} -->
+
 ```shell
-kubectl apply -f https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/v1.6.6/cloud-sql-proxy-operator.yaml
+kubectl apply -f https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy-operator/v1.8.5/cloud-sql-proxy-operator.yaml
 ```
+
 <!-- {x-release-please-end} -->
 
 Confirm that the operator is installed and running by listing its pods:
@@ -58,19 +60,86 @@ kubectl get pods -n cloud-sql-proxy-operator-system
 See the [Quick Start Guide](docs/quick-start.md) for a description of basic usage.
 Additional usage may be found in the [Examples](docs/examples/).
 
+## Post-Quantum Cryptography (PQC)
+
+Both the Cloud SQL Proxy Operator controller and the operator's default Cloud SQL
+Auth Proxy sidecar image (`DefaultProxyImage`, `2.15.2+`) negotiate the hybrid
+post-quantum key exchange group `X25519MLKEM768` over TLS 1.3 by default:
+
+- **Cloud SQL Auth Proxy sidecar:** Negotiates `X25519MLKEM768` on TLS 1.3 mTLS
+  connections to Cloud SQL instances and HTTPS calls to the Cloud SQL Admin API.
+- **Operator controller:** Negotiates `X25519MLKEM768` on outbound TLS 1.3 HTTPS
+  connections to the Kubernetes API server, and accepts `X25519MLKEM768` on its
+  TLS 1.3 admission webhook server from clients (such as `kube-apiserver`) that
+  offer it.
+
+No configuration changes are required. If a peer (such as a Cloud SQL instance or
+Kubernetes API server) does not yet offer a hybrid post-quantum group, the TLS 1.3
+handshake automatically falls back to classical key exchange (`X25519`) without
+failing the connection.
+
+### Custom Proxy Image Version Requirement
+
+- If you pin a custom sidecar image using `spec.authProxyContainer.image`, use
+  Cloud SQL Auth Proxy **`2.15.2` or later** (for example,
+  `gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.15.2` or newer), which is the
+  first v2 release built with `go 1.24` in `go.mod` (`tlsmlkem=1` enabled by
+  default).
+- If building the Operator or Cloud SQL Auth Proxy from source, build with
+  **Go 1.24 or later** (with `go 1.24` or higher in `go.mod`).
+
+### Opting Out (`GODEBUG=tlsmlkem=0`)
+
+If you need to disable post-quantum key exchange and use classical TLS 1.3 groups
+only, set the Go runtime environment variable `GODEBUG=tlsmlkem=0`:
+
+- **Cloud SQL Auth Proxy sidecar:** `AuthProxyContainerSpec` does not currently
+  expose a dedicated `env` field. If you need `GODEBUG=tlsmlkem=0` on the proxy
+  sidecar while keeping standard proxy settings, configure the Cloud SQL Auth
+  Proxy sidecar container directly in your workload `PodSpec` (see the
+  [Cloud SQL Proxy Kubernetes Sidecar example](https://github.com/GoogleCloudPlatform/cloud-sql-proxy/tree/main/examples/k8s-sidecar))
+  or open a feature request on this repository for sidecar `env` support. Avoid
+  using `spec.authProxyContainer.container` solely to inject `env`: `container`
+  is a debugging override that **completely replaces** the operator-generated
+  sidecar spec (dropping operator-managed instance arguments, ports,
+  health/startup probes, telemetry, authentication flags, `securityContext`, and
+  `restartPolicy` unless you supply every field yourself).
+
+- **Operator controller:** Set `GODEBUG=tlsmlkem=0` on the `manager` container in
+  the `cloud-sql-proxy-operator-controller-manager` Deployment:
+
+  ```shell
+  kubectl set env deployment/cloud-sql-proxy-operator-controller-manager \
+    -n cloud-sql-proxy-operator-system \
+    GODEBUG=tlsmlkem=0
+  ```
+
 ## Frequently Asked Questions
 
 ### Why would I use the Cloud SQL Auth Proxy Operator?
 
 The Cloud SQL Auth Proxy Operator gives you an easy way to add a proxy container
-to your kubernetes workloads, configured correctly for production use. 
+to your kubernetes workloads, configured correctly for production use. The operator
+adds the auth proxy sidecar to the workloads you specify in a consistent, stable and secure way.
 
-Writing the kubernetes configuration for a proxy to the production level requires
-a great deal of deep kubernetes and proxy knowledge. The Cloud SQL Proxy team has
-worked to encapsulate that knowledge in this operator. This saves you from having
-to know all the details to configure your proxy.
+When you upgrade the operator, it will also upgrade the proxy image and container
+configuration on those workloads.
+
+The operator encodes the best practices for configuring
+[Cloud SQL Proxy sidecar](https://github.com/GoogleCloudPlatform/cloud-sql-proxy/tree/main/examples/k8s-sidecar)
+containers, and allows you to apply those best practices across the workloads in your kubernetes
+cluster. This is especially helpful when managing a Kubernetes cluster that runs lots of
+applications, each configured by a different team.
+
+However, if you are deploying only a few applications in your kubernetes cluster, it may be
+more straightforward to follow the Proxy K8s Sidecar Example and add the sidecar container
+directly in your configuration.
+
+The operator does not help set up roles and permissions. This also requires intricate configuration,
+especially for workload identity federation. This is now a feature request, see #706
 
 ## Reference Documentation
+
 - [Quick Start Guide](docs/quick-start.md)
 - [API Documentation](docs/api.md)
 - [Cloud SQL Proxy](https://github.com/GoogleCloudPlatform/cloud-sql-proxy)
@@ -102,6 +171,6 @@ Contributions are welcome. Please, see the [Contributing](docs/contributing.md) 
 for details.
 
 Please note that this project is released with a Contributor Code of Conduct.
-By participating in this project you agree to abide by its terms.  See
+By participating in this project you agree to abide by its terms. See
 [Contributor Code of Conduct](docs/code-of-conduct.md) for more information.
 
