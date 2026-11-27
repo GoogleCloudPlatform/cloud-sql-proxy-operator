@@ -19,8 +19,10 @@ updates:
     schedule:
       interval: "daily"
     cooldown:
-      default-days: 7
+      default-days: 0 # zizmor: ignore[dependabot-cooldown]
     open-pull-requests-limit: 10
+    allow:
+      - dependency-type: "all"
     commit-message:
       prefix: "deps"
     groups:
@@ -42,13 +44,31 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # Held to keep go.mod on go 1.26.0 (matching CI); newer versions require go 1.27 via structured-merge-diff/v7.
+      - dependency-name: "k8s.io/kube-openapi"
+
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    cooldown:
+      default-days: 0 # zizmor: ignore[dependabot-cooldown]
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "deps"
+    groups:
+      container-images:
+        applies-to: version-updates
+        patterns:
+          - "*"
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "daily"
     cooldown:
-      default-days: 7
+      default-days: 0 # zizmor: ignore[dependabot-cooldown]
     open-pull-requests-limit: 10
     commit-message:
       prefix: "chore"

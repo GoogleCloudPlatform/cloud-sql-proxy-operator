@@ -5,13 +5,8 @@
   ],
   "dependencyDashboardLabels": ["type: process"],
   "commitMessagePrefix": "deps: ",
-  "enabledManagers": ["dockerfile", "custom.regex", "terraform"],
+  "enabledManagers": ["custom.regex", "terraform"],
   "packageRules": [
-    {
-      "matchManagers": ["dockerfile"],
-      "groupName": "Container image updates",
-      "prPriority": 10
-    },
     {
       "groupName": "Build Tools",
       "matchPackagePatterns": [
